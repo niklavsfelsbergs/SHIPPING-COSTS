@@ -12,7 +12,7 @@ from ..surcharges import ALL as ALL_SURCHARGES
 # =============================================================================
 
 REQUIRED_INPUT_COLS = [
-    "pcs_created",          # Ship date (for demand period checks)
+    "ship_date",            # Ship date (for demand period checks)
     "production_site",      # "Phoenix" or "Columbus" (for zone lookup)
     "shipping_zip_code",    # Destination ZIP code (for zone lookup)
     "shipping_region",      # Destination state/region (for zone fallback)
@@ -29,6 +29,7 @@ REQUIRED_INPUT_COLS = [
 PCS_COLS = [
     "pcs_ordernumber",      # PCS order number
     "pcs_orderid",          # PCS order ID
+    "pcs_created",          # PCS order creation date
     "trackingnumber",       # Carrier tracking number
     "shop_ordernumber",     # Shop reference number
     "shipping_country",     # Destination country name

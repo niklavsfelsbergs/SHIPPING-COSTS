@@ -15,7 +15,7 @@ import polars as pl
 def in_period(
     start: tuple[int, int],
     end: tuple[int, int],
-    date_col: str = "pcs_created"
+    date_col: str = "ship_date"
 ) -> pl.Expr:
     """
     Check if date falls within a (month, day) period.

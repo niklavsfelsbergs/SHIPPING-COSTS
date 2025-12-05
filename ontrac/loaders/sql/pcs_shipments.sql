@@ -18,6 +18,7 @@ select
     po.id as pcs_orderid,
     tn.trackingnumber,
     po.createddate as pcs_created,
+    (po.createddate + interval '2 days')::date as ship_date,
     po.shopreferencenumber1 as shop_ordernumber,
     pp."name" as production_site,
     po.shippingzipcode as shipping_zip_code,

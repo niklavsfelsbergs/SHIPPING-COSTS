@@ -29,7 +29,7 @@ def base_shipment():
         "pcs_ordernumber": ["TEST"],
         "pcs_orderid": [1],
         "trackingnumber": ["TRK001"],
-        "pcs_created": [date(2025, 6, 15)],  # Outside demand period
+        "ship_date": [date(2025, 6, 15)],  # Outside demand period
         "shop_ordernumber": ["SHOP001"],
         "production_site": ["Phoenix"],
         "shipping_zip_code": ["75132"],  # Texas, NO DAS
@@ -209,7 +209,7 @@ class TestDemandPeriod:
     def test_dem_res_in_period(self, base_shipment):
         """DEM_RES should apply during demand period (Nov 15)."""
         shipment = base_shipment.with_columns(
-            pl.lit(date(2025, 11, 15)).alias("pcs_created")
+            pl.lit(date(2025, 11, 15)).alias("ship_date")
         )
         df = run_pipeline(shipment)
         assert df["surcharge_dem_res"][0] == True
@@ -225,7 +225,7 @@ class TestDemandPeriod:
         """DEM_AHS should apply when AHS + in demand period."""
         shipment = base_shipment.with_columns([
             pl.lit(55.0).alias("weight_lbs"),
-            pl.lit(date(2025, 11, 15)).alias("pcs_created"),
+            pl.lit(date(2025, 11, 15)).alias("ship_date"),
         ])
         df = run_pipeline(shipment)
         assert df["surcharge_ahs"][0] == True
