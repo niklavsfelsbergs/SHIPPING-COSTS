@@ -13,12 +13,33 @@ DATA_DIR = Path(__file__).parent.parent / "data"
 
 def load_rates() -> pl.DataFrame:
     """
-    Load base rates from CSV.
+    Load base rates in long format, ready for joining.
+
+    Transforms wide CSV format (zone_2, zone_3, ...) to long format.
 
     Returns:
-        DataFrame with columns: weight_lbs_lower, weight_lbs_upper, zone_2..zone_8
+        DataFrame with columns:
+            - weight_lbs_lower: Lower bound of weight bracket (exclusive)
+            - weight_lbs_upper: Upper bound of weight bracket (inclusive)
+            - zone: Shipping zone (2-8)
+            - rate: Base rate for this zone/weight combination
     """
-    return pl.read_csv(DATA_DIR / "base_rates.csv")
+    rates = pl.read_csv(DATA_DIR / "base_rates.csv")
+    zone_cols = [c for c in rates.columns if c.startswith("zone_")]
+
+    return (
+        rates
+        .unpivot(
+            index=["weight_lbs_lower", "weight_lbs_upper"],
+            on=zone_cols,
+            variable_name="_zone_col",
+            value_name="rate"
+        )
+        .with_columns(
+            pl.col("_zone_col").str.replace("zone_", "").cast(pl.Int64).alias("zone")
+        )
+        .drop("_zone_col")
+    )
 
 
 def load_zones() -> pl.DataFrame:

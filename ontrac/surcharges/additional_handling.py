@@ -9,34 +9,33 @@ from .base import Surcharge
 
 
 class AHS(Surcharge):
-    """
-    Additional Handling Surcharge
+    """Additional Handling - requires extra handling due to size/weight."""
 
-    Triggers when package exceeds weight, dimension, or volume thresholds.
-    Contract: 70% discount (Third Amendment)
-    """
-
+    # Identity
     name = "AHS"
+
+    # Pricing (70% discount per Third Amendment)
     list_price = 32.00
     discount = 0.70
-    allocation_type = "deterministic"
 
+    # Grouping (dimensional: OML > LPS > AHS)
     priority_group = "dimensional"
     priority = 3
 
-    min_billable_weight = 30  # OnTrac: 40, Contract: 30 (negotiated)
+    # Side effects (negotiated down from OnTrac standard of 40)
+    min_billable_weight = 30
 
     # Thresholds
-    weight_threshold = 50
-    longest_threshold = 48
-    second_longest_threshold = 30
-    cubic_threshold = 8640  # 18" x 20" x 24"
+    WEIGHT_LBS = 50
+    LONGEST_IN = 48
+    SECOND_LONGEST_IN = 30
+    CUBIC_IN = 8640  # 18" x 20" x 24"
 
     @classmethod
     def conditions(cls) -> pl.Expr:
         return (
-            (pl.col("weight_lbs").round(0) > cls.weight_threshold) |
-            (pl.col("longest_side_in").round(0) > cls.longest_threshold) |
-            (pl.col("second_longest_in").round(0) > cls.second_longest_threshold) |
-            (pl.col("cubic_in").round(0) > cls.cubic_threshold)
+            (pl.col("weight_lbs").round(0) > cls.WEIGHT_LBS) |
+            (pl.col("longest_side_in").round(0) > cls.LONGEST_IN) |
+            (pl.col("second_longest_in").round(0) > cls.SECOND_LONGEST_IN) |
+            (pl.col("cubic_in").round(0) > cls.CUBIC_IN)
         )

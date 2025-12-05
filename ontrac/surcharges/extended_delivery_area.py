@@ -9,20 +9,18 @@ from .base import Surcharge
 
 
 class EDAS(Surcharge):
-    """
-    Extended Delivery Area Surcharge
+    """Extended Delivery Area - delivery ZIP is in a remote EDAS zone."""
 
-    Triggers when delivery ZIP is in an EDAS zone.
-    Contract: 60% discount
-    """
-
+    # Identity
     name = "EDAS"
+
+    # Pricing (60% discount)
     list_price = 8.30
     discount = 0.60
-    allocation_type = "deterministic"
 
+    # Grouping (delivery: EDAS > DAS)
     priority_group = "delivery"
-    priority = 1  # Higher priority than DAS (more specific)
+    priority = 1
 
     @classmethod
     def conditions(cls) -> pl.Expr:

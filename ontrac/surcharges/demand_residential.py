@@ -1,32 +1,30 @@
 """
 Demand Residential Surcharge (DEM_RES)
 
-Allocated surcharge applied during residential demand period.
+Seasonal allocated surcharge applied during residential demand period.
 """
 
 import polars as pl
-from .base import Surcharge
+from .base import Surcharge, in_period
 
 
 class DEM_RES(Surcharge):
-    """
-    Demand Residential Surcharge (Allocated)
+    """Demand Residential - seasonal surcharge during peak period (allocated)."""
 
-    Applied during residential demand period at 95% rate.
-    Contract: 50% discount (Second Amendment)
-    Period: Oct 25 - Jan 16 (year-agnostic)
-    """
-
+    # Identity
     name = "DEM_RES"
+
+    # Pricing (50% discount per Second Amendment, allocated at 95%)
     list_price = 1.00
     discount = 0.50
-    allocation_type = "allocated"
+    is_allocated = True
     allocation_rate = 0.95
 
+    # Dependencies
+    depends_on = "RES"
     period_start = (10, 25)  # Oct 25
     period_end = (1, 16)     # Jan 16
-    depends_on = "RES"
 
     @classmethod
     def conditions(cls) -> pl.Expr:
-        return pl.col("surcharge_res") & cls._period_expr()
+        return pl.col("surcharge_res") & in_period(cls.period_start, cls.period_end)

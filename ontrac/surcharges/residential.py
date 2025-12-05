@@ -1,28 +1,23 @@
 """
 Residential Surcharge (RES)
 
-Allocated surcharge applied to all shipments at historical rate.
-Cannot predict per-shipment if delivery is residential or commercial.
+Allocated surcharge - cannot predict per-shipment if residential or commercial.
+Cost spread across all shipments at historical rate.
 """
 
-import polars as pl
 from .base import Surcharge
 
 
 class RES(Surcharge):
-    """
-    Residential Surcharge (Allocated)
+    """Residential - allocated at 95% based on historical residential rate."""
 
-    Applied to ~95% of shipments based on historical data.
-    Contract: 90% discount
-    """
-
+    # Identity
     name = "RES"
+
+    # Pricing (90% discount, allocated at 95%)
     list_price = 6.10
     discount = 0.90
-    allocation_type = "allocated"
+    is_allocated = True
     allocation_rate = 0.95
 
-    @classmethod
-    def conditions(cls) -> pl.Expr:
-        return pl.lit(True)  # Always applies (allocated)
+    # Uses default conditions() -> pl.lit(True)

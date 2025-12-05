@@ -29,160 +29,110 @@ def calculate(df: pl.DataFrame) -> pl.DataFrame:
 
     Returns:
         DataFrame with surcharge costs
+
+    Processing order:
+        1. INDEPENDENT_UNGROUPED  - no dependency, no priority group (e.g., RES)
+        2. INDEPENDENT_GROUPED    - no dependency, has priority group (e.g., OML/LPS/AHS, EDAS/DAS)
+        3. DEPENDENT_UNGROUPED    - has dependency, no priority group (e.g., DEM_*)
+        4. DEPENDENT_GROUPED      - has dependency, has priority group (none currently)
     """
-    # Step 1: Apply INDEPENDENT_UNGROUPED surcharges
-    df = _apply_independent_ungrouped(df)
+    # Step 1: Apply independent surcharges (no dependencies)
+    df = _apply_surcharges_ungrouped(df, INDEPENDENT_UNGROUPED)
+    df = _apply_surcharges_grouped(df, INDEPENDENT_GROUPED)
 
-    # Step 2: Apply INDEPENDENT_GROUPED surcharges (with mutual exclusivity)
-    df = _apply_independent_grouped(df)
+    # Step 2: Apply dependent surcharges (reference base surcharge flags)
+    df = _apply_surcharges_ungrouped(df, DEPENDENT_UNGROUPED)
+    df = _apply_surcharges_grouped(df, DEPENDENT_GROUPED)
 
-    # Step 3: Apply DEPENDENT_UNGROUPED surcharges (reference base surcharge flags)
-    df = _apply_dependent_ungrouped(df)
+    # Step 3: Adjust billable weight based on min_billable_weight
+    df = _apply_min_billable_weights(df)
 
-    # Step 4: Apply DEPENDENT_GROUPED surcharges (with mutual exclusivity)
-    df = _apply_dependent_grouped(df)
-
-    # Step 5: Adjust billable weight based on min_billable_weight
-    df = _adjust_billable_weight(df)
-
-    # Step 6: Look up base rate
+    # Step 4: Look up base rate
     df = _lookup_base_rate(df)
 
-    # Step 7: Calculate subtotal
+    # Step 5: Calculate costs
     df = _calculate_subtotal(df)
-
-    # Step 8: Apply fuel surcharge
     df = _apply_fuel(df)
-
-    # Step 9: Calculate total
     df = _calculate_total(df)
 
-    # Step 10: Stamp version
+    # Step 6: Stamp version
     df = _stamp_version(df)
 
     return df
 
 
-def _apply_independent_ungrouped(df: pl.DataFrame) -> pl.DataFrame:
+def _apply_single_surcharge(df: pl.DataFrame, surcharge) -> pl.DataFrame:
     """
-    Apply surcharges with no dependency and no priority group.
+    Apply a single surcharge without mutual exclusivity.
 
-    These can be applied directly - no mutual exclusivity logic needed.
-    OnTrac: [RES]
+    Adds flag and cost columns for the surcharge.
     """
-    for surcharge in INDEPENDENT_UNGROUPED:
-        flag_col = f"surcharge_{surcharge.name.lower()}"
-        cost_col = f"cost_{surcharge.name.lower()}"
+    flag_col = f"surcharge_{surcharge.name.lower()}"
+    cost_col = f"cost_{surcharge.name.lower()}"
 
-        df = df.with_columns([
-            surcharge.conditions().alias(flag_col),
-            pl.when(surcharge.conditions())
-            .then(pl.lit(surcharge.cost()))
-            .otherwise(pl.lit(0.0))
-            .alias(cost_col)
-        ])
+    # Add flag column first
+    df = df.with_columns(surcharge.conditions().alias(flag_col))
+
+    # Add cost column referencing the flag
+    df = df.with_columns(
+        pl.when(pl.col(flag_col))
+        .then(pl.lit(surcharge.cost()))
+        .otherwise(pl.lit(0.0))
+        .alias(cost_col)
+    )
 
     return df
 
 
-def _apply_independent_grouped(df: pl.DataFrame) -> pl.DataFrame:
+def _apply_surcharges_ungrouped(df: pl.DataFrame, surcharges: list) -> pl.DataFrame:
     """
-    Apply surcharges with priority groups (mutual exclusivity).
+    Apply surcharges without mutual exclusivity.
+
+    Each surcharge is evaluated independently.
+    """
+    for surcharge in surcharges:
+        df = _apply_single_surcharge(df, surcharge)
+    return df
+
+
+def _apply_surcharges_grouped(df: pl.DataFrame, surcharges: list) -> pl.DataFrame:
+    """
+    Apply surcharges with mutual exclusivity within priority groups.
 
     Within each priority group, only the highest priority surcharge applies.
-    OnTrac groups: "dimensional" [OML, LPS, AHS], "delivery" [EDAS, DAS]
+    Surcharges are processed in priority order (lowest number = highest priority).
     """
-    for group_name in get_unique_priority_groups(INDEPENDENT_GROUPED):
-        # Get surcharges in this group, sorted by priority
-        surcharges = get_by_priority_group(group_name)
-
-        # Build exclusion mask as we go
+    for group_name in get_unique_priority_groups(surcharges):
+        group = get_by_priority_group(group_name)
         exclusion_mask = pl.lit(False)
 
-        for surcharge in surcharges:
+        for surcharge in group:
             flag_col = f"surcharge_{surcharge.name.lower()}"
             cost_col = f"cost_{surcharge.name.lower()}"
 
             # Applies only if condition is true AND no higher priority already matched
             applies = surcharge.conditions() & ~exclusion_mask
 
-            df = df.with_columns([
-                applies.alias(flag_col),
-                pl.when(applies)
+            df = df.with_columns(applies.alias(flag_col))
+            df = df.with_columns(
+                pl.when(pl.col(flag_col))
                 .then(pl.lit(surcharge.cost()))
                 .otherwise(pl.lit(0.0))
                 .alias(cost_col)
-            ])
+            )
 
-            # Update exclusion mask using the flag column
+            # Update exclusion mask for next iteration
             exclusion_mask = exclusion_mask | pl.col(flag_col)
 
     return df
 
 
-def _apply_dependent_ungrouped(df: pl.DataFrame) -> pl.DataFrame:
+def _apply_min_billable_weights(df: pl.DataFrame) -> pl.DataFrame:
     """
-    Apply surcharges that depend on base surcharges (no priority group).
+    Apply minimum billable weights from triggered surcharges.
 
-    These reference base surcharge flags in their conditions().
-    OnTrac: [DEM_RES, DEM_AHS, DEM_LPS, DEM_OML]
-    """
-    for surcharge in DEPENDENT_UNGROUPED:
-        flag_col = f"surcharge_{surcharge.name.lower()}"
-        cost_col = f"cost_{surcharge.name.lower()}"
-
-        df = df.with_columns([
-            surcharge.conditions().alias(flag_col),
-            pl.when(surcharge.conditions())
-            .then(pl.lit(surcharge.cost()))
-            .otherwise(pl.lit(0.0))
-            .alias(cost_col)
-        ])
-
-    return df
-
-
-def _apply_dependent_grouped(df: pl.DataFrame) -> pl.DataFrame:
-    """
-    Apply surcharges that depend on base surcharges (with priority group).
-
-    These reference base surcharge flags and have mutual exclusivity.
-    OnTrac: [] (none)
-    """
-    for group_name in get_unique_priority_groups(DEPENDENT_GROUPED):
-        # Get surcharges in this group, sorted by priority
-        surcharges = get_by_priority_group(group_name)
-
-        # Build exclusion mask as we go
-        exclusion_mask = pl.lit(False)
-
-        for surcharge in surcharges:
-            flag_col = f"surcharge_{surcharge.name.lower()}"
-            cost_col = f"cost_{surcharge.name.lower()}"
-
-            # Applies only if condition is true AND no higher priority already matched
-            applies = surcharge.conditions() & ~exclusion_mask
-
-            df = df.with_columns([
-                applies.alias(flag_col),
-                pl.when(applies)
-                .then(pl.lit(surcharge.cost()))
-                .otherwise(pl.lit(0.0))
-                .alias(cost_col)
-            ])
-
-            # Update exclusion mask using the flag column
-            exclusion_mask = exclusion_mask | pl.col(flag_col)
-
-    return df
-
-
-def _adjust_billable_weight(df: pl.DataFrame) -> pl.DataFrame:
-    """
-    Adjust billable weight based on min_billable_weight from triggered surcharges.
-
-    Surcharges like OML, LPS, AHS have minimum billable weights that apply
-    when the surcharge is triggered.
+    Surcharges like OML, LPS, AHS have minimum billable weights.
+    When triggered, billable_weight_lbs is raised to at least the minimum.
     """
     surcharges_with_min = [s for s in ALL if s.min_billable_weight is not None]
 
@@ -207,29 +157,13 @@ def _adjust_billable_weight(df: pl.DataFrame) -> pl.DataFrame:
 
 def _lookup_base_rate(df: pl.DataFrame) -> pl.DataFrame:
     """
-    Look up base rate from rate table by zone and billable weight.
+    Look up base rate by joining on zone and weight bracket.
 
-    Unpivots rate table from wide format (zone_2, zone_3, ...) to long format,
-    then joins on shipping_zone and filters by weight bracket.
+    Raises:
+        ValueError: If any shipments have no matching rate bracket.
     """
+    input_count = len(df)
     rates = load_rates()
-
-    # Unpivot rates table: zone_2, zone_3, ... -> zone, base_rate
-    zone_cols = [c for c in rates.columns if c.startswith("zone_")]
-
-    rates_long = (
-        rates
-        .unpivot(
-            index=["weight_lbs_lower", "weight_lbs_upper"],
-            on=zone_cols,
-            variable_name="_zone_col",
-            value_name="cost_base"
-        )
-        .with_columns(
-            pl.col("_zone_col").str.replace("zone_", "").cast(pl.Int64).alias("_zone")
-        )
-        .drop("_zone_col")
-    )
 
     # Ensure shipping_zone is Int64 for join
     df = df.with_columns(pl.col("shipping_zone").cast(pl.Int64))
@@ -240,12 +174,22 @@ def _lookup_base_rate(df: pl.DataFrame) -> pl.DataFrame:
     # Join on zone and filter by weight bracket
     df = (
         df
-        .join(rates_long, left_on="shipping_zone", right_on="_zone", how="left")
+        .join(rates, left_on="shipping_zone", right_on="zone", how="left")
         .filter(
             (pl.col("billable_weight_lbs") > pl.col("weight_lbs_lower")) &
             (pl.col("billable_weight_lbs") <= pl.col("weight_lbs_upper"))
         )
+        .rename({"rate": "cost_base"})
     )
+
+    # Check for missing rates
+    output_count = len(df)
+    if output_count < input_count:
+        missing_count = input_count - output_count
+        raise ValueError(
+            f"{missing_count} shipment(s) have no matching rate bracket. "
+            f"Check shipping_zone and billable_weight_lbs values."
+        )
 
     # Clean up and restore order
     df = df.drop(["weight_lbs_lower", "weight_lbs_upper"])

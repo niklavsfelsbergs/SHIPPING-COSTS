@@ -1,31 +1,28 @@
 """
 Demand Large Package Surcharge (DEM_LPS)
 
-Applied during peak season when LPS also applies.
+Seasonal surcharge applied when LPS triggers during peak period.
 """
 
 import polars as pl
-from .base import Surcharge
+from .base import Surcharge, in_period
 
 
 class DEM_LPS(Surcharge):
-    """
-    Demand Large Package Surcharge
+    """Demand Large Package - seasonal surcharge when LPS applies."""
 
-    Applied during dimensional demand period when LPS triggers.
-    Contract: 50% discount (Second Amendment)
-    Period: Sept 27 - Jan 16 (year-agnostic)
-    """
-
+    # Identity
     name = "DEM_LPS"
+
+    # Pricing (50% discount per Second Amendment)
     list_price = 105.00
     discount = 0.50
-    allocation_type = "deterministic"
 
+    # Dependencies
+    depends_on = "LPS"
     period_start = (9, 27)   # Sept 27
     period_end = (1, 16)     # Jan 16
-    depends_on = "LPS"
 
     @classmethod
     def conditions(cls) -> pl.Expr:
-        return pl.col("surcharge_lps") & cls._period_expr()
+        return pl.col("surcharge_lps") & in_period(cls.period_start, cls.period_end)

@@ -9,18 +9,16 @@ from .base import Surcharge
 
 
 class DAS(Surcharge):
-    """
-    Delivery Area Surcharge
+    """Delivery Area - delivery ZIP is in a DAS zone."""
 
-    Triggers when delivery ZIP is in a DAS zone.
-    Contract: 60% discount
-    """
-
+    # Identity
     name = "DAS"
+
+    # Pricing (60% discount)
     list_price = 6.15
     discount = 0.60
-    allocation_type = "deterministic"
 
+    # Grouping (delivery: EDAS > DAS)
     priority_group = "delivery"
     priority = 2
 
