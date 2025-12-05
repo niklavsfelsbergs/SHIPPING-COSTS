@@ -8,23 +8,30 @@ from ..surcharges import ALL as ALL_SURCHARGES
 
 
 # =============================================================================
-# INPUT COLUMNS (from load_pcs_shipments)
+# REQUIRED INPUT COLUMNS (must be present from any loader)
 # =============================================================================
 
-INPUT_COLS = [
-    "pcs_ordernumber",      # PCS order number
-    "pcs_orderid",          # PCS order ID
-    "trackingnumber",       # Carrier tracking number
-    "pcs_created",          # Order creation datetime
-    "shop_ordernumber",     # Shop reference number
-    "production_site",      # "Phoenix" or "Columbus"
-    "shipping_zip_code",    # Destination ZIP code
-    "shipping_region",      # Destination state/region
-    "shipping_country",     # Destination country name
+REQUIRED_INPUT_COLS = [
+    "pcs_created",          # Ship date (for demand period checks)
+    "production_site",      # "Phoenix" or "Columbus" (for zone lookup)
+    "shipping_zip_code",    # Destination ZIP code (for zone lookup)
+    "shipping_region",      # Destination state/region (for zone fallback)
     "length_in",            # Package length (inches)
     "width_in",             # Package width (inches)
     "height_in",            # Package height (inches)
     "weight_lbs",           # Package weight (pounds)
+]
+
+# =============================================================================
+# PCS-SPECIFIC COLUMNS (additional columns from PCS loader)
+# =============================================================================
+
+PCS_COLS = [
+    "pcs_ordernumber",      # PCS order number
+    "pcs_orderid",          # PCS order ID
+    "trackingnumber",       # Carrier tracking number
+    "shop_ordernumber",     # Shop reference number
+    "shipping_country",     # Destination country name
 ]
 
 
@@ -98,12 +105,12 @@ METADATA_COLS = [
 # COLUMN SETS
 # =============================================================================
 
-# All columns after supplement_shipments
-AFTER_SUPPLEMENT = INPUT_COLS + SUPPLEMENT_COLS
+# All columns after supplement_shipments (with required inputs)
+AFTER_SUPPLEMENT = REQUIRED_INPUT_COLS + SUPPLEMENT_COLS
 
-# All columns after calculate
+# All columns after calculate (with required inputs)
 AFTER_CALCULATE = (
-    INPUT_COLS +
+    REQUIRED_INPUT_COLS +
     SUPPLEMENT_COLS +
     SURCHARGE_FLAG_COLS +
     SURCHARGE_COST_COLS +

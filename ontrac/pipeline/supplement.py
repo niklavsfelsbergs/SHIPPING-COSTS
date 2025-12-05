@@ -6,8 +6,13 @@ Enriches shipment data with calculated dimensions, zone lookups, and billable we
 
 import polars as pl
 
-from .load_inputs import load_zones
-from ..data.billable_weight import DIM_FACTOR, DIM_THRESHOLD, THRESHOLD_FIELD, FACTOR_FIELD
+from .inputs import (
+    load_zones,
+    DIM_FACTOR,
+    DIM_THRESHOLD,
+    THRESHOLD_FIELD,
+    FACTOR_FIELD,
+)
 
 
 def supplement_shipments(

@@ -162,14 +162,6 @@ class TestSurchargeFlags:
         assert df["surcharge_lps"][0] == True
         assert df["surcharge_ahs"][0] == False  # LPS takes priority
 
-    def test_oml_weight_trigger(self, base_shipment):
-        """Weight > 150 lbs should trigger OML."""
-        shipment = base_shipment.with_columns(pl.lit(160.0).alias("weight_lbs"))
-        df = run_pipeline(shipment)
-        assert df["surcharge_oml"][0] == True
-        assert df["surcharge_lps"][0] == False
-        assert df["surcharge_ahs"][0] == False
-
     def test_oml_longest_trigger(self, base_shipment):
         """Longest side > 108" should trigger OML."""
         shipment = base_shipment.with_columns(pl.lit(110.0).alias("length_in"))

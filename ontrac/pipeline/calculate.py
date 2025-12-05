@@ -15,8 +15,7 @@ from ..surcharges import (
     get_by_priority_group,
     get_unique_priority_groups,
 )
-from .load_inputs import load_rates
-from ..data.fuel import RATE as FUEL_RATE
+from .inputs import load_rates, FUEL_RATE
 from ..version import VERSION
 
 

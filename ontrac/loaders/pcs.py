@@ -9,12 +9,12 @@ from pathlib import Path
 from typing import Optional
 import sys
 
-# Add parent directory to path for database import
+# Add root directory to path for database import
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from database import pull_data
 
 
-SQL_FILE = Path(__file__).parent / "sql" / "load_pcs_shipments.sql"
+SQL_FILE = Path(__file__).parent / "sql" / "pcs_shipments.sql"
 
 
 def load_pcs_shipments(
@@ -31,18 +31,7 @@ def load_pcs_shipments(
         limit: Max rows to return, optional (for testing)
 
     Returns:
-        DataFrame with columns:
-            - pcs_ordernumber: PCS order number
-            - pcs_orderid: PCS order ID
-            - trackingnumber: OnTrac tracking number
-            - pcs_created: Ship date
-            - shop_ordernumber: Customer order reference
-            - production_site: Columbus or Phoenix
-            - shipping_zip_code: Destination ZIP
-            - shipping_region: Destination state
-            - shipping_country: Destination country
-            - length_in, width_in, height_in: Package dimensions (inches)
-            - weight_lbs: Package weight (pounds)
+        DataFrame with shipment data ready for supplement_shipments()
     """
     start_date_filter = f"and po.createddate >= '{start_date}'"
 

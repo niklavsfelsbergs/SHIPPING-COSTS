@@ -1,11 +1,24 @@
 """
-Load Input Data
+Pipeline Inputs
 
-Loads reference data files (rates, zones) for the pipeline.
+Loads and exposes all reference data for the pipeline:
+- Base rates (CSV)
+- Zone mappings (CSV)
+- Fuel surcharge config
+- Billable weight config
 """
 
 import polars as pl
 from pathlib import Path
+
+# Re-export config from data modules for convenient access
+from ..data.fuel import RATE as FUEL_RATE
+from ..data.billable_weight import (
+    DIM_FACTOR,
+    DIM_THRESHOLD,
+    THRESHOLD_FIELD,
+    FACTOR_FIELD,
+)
 
 
 DATA_DIR = Path(__file__).parent.parent / "data"

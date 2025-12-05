@@ -1,10 +1,12 @@
 """
 Pipeline Package
 
-Orchestrates the shipping cost calculation pipeline.
+Core calculation logic (source-agnostic):
+- inputs: Load reference data (rates, zones, fuel, dim config)
+- supplement: Enrich shipments with zones and billable weight
+- calculate: Apply surcharges and calculate costs
 """
 
-from .load_inputs import load_rates, load_zones
-from .load_pcs_shipments import load_pcs_shipments
-from .supplement_shipments import supplement_shipments
+from .inputs import load_rates, load_zones, FUEL_RATE
+from .supplement import supplement_shipments
 from .calculate import calculate
