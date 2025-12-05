@@ -41,3 +41,7 @@ tests/data/*_output.csv
 tests/data/*_supplemented.csv
 tests/data/*_calculated.csv
 tests/data/debug_*.csv
+
+# Generated reports
+ontrac/output/
+comparison_report*.html

@@ -14,9 +14,13 @@
 
 ```
 SHIPPING-COSTS/
-├── database/                         # Shared across all carriers
-│   ├── __init__.py                   # Connection, pull_data, push_data
-│   └── pass.txt                      # Password file (gitignored)
+├── shared/                           # Shared across all carriers
+│   ├── database/
+│   │   ├── __init__.py               # Connection, pull_data, push_data
+│   │   └── pass.txt                  # Password file (gitignored)
+│   └── sql/
+│       ├── pcs_shipments.sql         # PCS shipments query
+│       └── get_tracking_numbers.sql  # Tracking number lookup
 │
 ├── tests/
 │   ├── test_pipeline.py              # Unit tests for pipeline
@@ -51,9 +55,7 @@ SHIPPING-COSTS/
     │
     ├── loaders/                      # Source-specific data loaders
     │   ├── __init__.py
-    │   ├── pcs.py                    # load_pcs_shipments()
-    │   └── sql/
-    │       └── pcs_shipments.sql     # SQL query for PCS database
+    │   └── pcs.py                    # load_pcs_shipments()
     │
     ├── core/                         # Source-agnostic calculation logic
     │   ├── __init__.py
@@ -62,13 +64,17 @@ SHIPPING-COSTS/
     │   ├── supplement.py             # Enrich with zones, dimensions, billable weight
     │   └── calculate.py              # Apply surcharges, calculate costs
     │
-    ├── maintenance/
-    │   ├── README.md
-    │   └── generate_zones.py
+    ├── output/
+    │   └── accuracy_reports/         # HTML comparison reports
     │
     └── scripts/
-        ├── calculate_expected.py
-        └── calculate_actuals.py
+        ├── calculator.py             # Interactive CLI calculator
+        ├── upload_expected.py        # Upload expected costs to DB
+        ├── upload_actuals.py         # Upload actual invoice costs to DB
+        ├── compare_expected_to_actuals.py  # Generate accuracy reports
+        └── sql/
+            ├── get_invoice_actuals.sql   # OnTrac invoice query
+            └── comparison_base.sql       # Comparison join query
 ```
 
 ---
@@ -496,8 +502,8 @@ Within `_apply_surcharges`:
 ## Implementation Parts
 
 ### Part 1: Foundation
-- [x] `database/__init__.py` (shared across carriers)
-- [x] `database/pass.txt`
+- [x] `shared/database/__init__.py` (shared across carriers)
+- [x] `shared/database/pass.txt`
 - [x] `ontrac/version.py`
 - [x] `.gitignore`
 
@@ -515,7 +521,7 @@ Within `_apply_surcharges`:
 
 ### Part 4: Loaders
 - [x] `loaders/__init__.py`
-- [x] `loaders/pcs.py` + `loaders/sql/pcs_shipments.sql`
+- [x] `loaders/pcs.py` + `shared/sql/pcs_shipments.sql`
 
 ### Part 5: Core Pipeline
 - [x] `core/__init__.py`
@@ -529,13 +535,11 @@ Within `_apply_surcharges`:
 - [x] `tests/run_pipeline.py`
 - [x] `tests/data/mock_shipments.csv`
 
-### Part 7: Maintenance
-- [ ] `maintenance/README.md`
-- [ ] `maintenance/generate_zones.py`
-
-### Part 8: Scripts
-- [ ] `scripts/calculate_expected.py`
-- [ ] `scripts/calculate_actuals.py`
+### Part 7: Scripts
+- [x] `scripts/calculator.py` - Interactive CLI calculator
+- [x] `scripts/upload_expected.py` - Upload expected costs to Redshift
+- [x] `scripts/upload_actuals.py` - Upload actual invoice costs to Redshift
+- [x] `scripts/compare_expected_to_actuals.py` - Generate HTML accuracy reports
 
 ---
 
