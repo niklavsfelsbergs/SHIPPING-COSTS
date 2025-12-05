@@ -18,8 +18,8 @@ class AHS(Surcharge):
     list_price = 32.00
     discount = 0.70
 
-    # Grouping (dimensional: OML > LPS > AHS)
-    priority_group = "dimensional"
+    # Exclusivity (dimensional: OML > LPS > AHS)
+    exclusivity_group = "dimensional"
     priority = 3
 
     # Side effects (negotiated down from OnTrac standard of 40)

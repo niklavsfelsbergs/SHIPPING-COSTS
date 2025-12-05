@@ -18,8 +18,8 @@ class OML(Surcharge):
     list_price = 1300.00
     discount = 0.00
 
-    # Grouping (dimensional: OML > LPS > AHS)
-    priority_group = "dimensional"
+    # Exclusivity (dimensional: OML > LPS > AHS)
+    exclusivity_group = "dimensional"
     priority = 1
 
     # Side effects

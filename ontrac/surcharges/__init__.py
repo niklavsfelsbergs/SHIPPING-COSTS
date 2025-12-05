@@ -1,13 +1,14 @@
 """
 Surcharges Package
 
-Exports all surcharge classes and processing order groups.
+Exports all surcharge classes and processing groups.
 
 Processing Order:
-    1. INDEPENDENT_UNGROUPED  - no dependency, no priority group
-    2. INDEPENDENT_GROUPED    - no dependency, has priority group (mutual exclusivity)
-    3. DEPENDENT_UNGROUPED    - has dependency, no priority group
-    4. DEPENDENT_GROUPED      - has dependency, has priority group (mutual exclusivity)
+    1. BASE      - surcharges that don't reference other surcharge flags
+    2. DEPENDENT - surcharges that reference other surcharge flags (via depends_on)
+
+Within each phase, surcharges with the same exclusivity_group compete -
+only the highest priority (lowest number) wins.
 """
 
 from .base import Surcharge, in_period
@@ -28,54 +29,33 @@ ALL = [OML, LPS, AHS, DAS, EDAS, RES, DEM_RES, DEM_AHS, DEM_LPS, DEM_OML]
 
 
 # =============================================================================
-# PROCESSING ORDER GROUPS
+# PROCESSING GROUPS
 # =============================================================================
 
-# Group 1: No dependency, no priority group
-INDEPENDENT_UNGROUPED = [
-    s for s in ALL
-    if s.depends_on is None and s.priority_group is None
-]
-# OnTrac: [RES]
+# Phase 1: Base surcharges (don't reference other surcharge flags)
+BASE = [s for s in ALL if s.depends_on is None]
+# OnTrac: [OML, LPS, AHS, DAS, EDAS, RES]
 
-# Group 2: No dependency, has priority group
-INDEPENDENT_GROUPED = [
-    s for s in ALL
-    if s.depends_on is None and s.priority_group is not None
-]
-# OnTrac: [OML, LPS, AHS, DAS, EDAS]
-
-# Group 3: Has dependency, no priority group
-DEPENDENT_UNGROUPED = [
-    s for s in ALL
-    if s.depends_on is not None and s.priority_group is None
-]
+# Phase 2: Dependent surcharges (reference flags from phase 1)
+DEPENDENT = [s for s in ALL if s.depends_on is not None]
 # OnTrac: [DEM_RES, DEM_AHS, DEM_LPS, DEM_OML]
-
-# Group 4: Has dependency, has priority group
-DEPENDENT_GROUPED = [
-    s for s in ALL
-    if s.depends_on is not None and s.priority_group is not None
-]
-# OnTrac: []
 
 
 # =============================================================================
 # HELPERS
 # =============================================================================
 
-def get_by_priority_group(group: str) -> list[type[Surcharge]]:
-    """Get surcharges in a priority group, sorted by priority (lowest number first)."""
+def get_exclusivity_group(group: str) -> list[type[Surcharge]]:
+    """Get surcharges in an exclusivity group, sorted by priority (lowest first)."""
     return sorted(
-        [s for s in ALL if s.priority_group == group],
+        [s for s in ALL if s.exclusivity_group == group],
         key=lambda s: s.priority
     )
 
 
-def get_unique_priority_groups(surcharges: list) -> list[str]:
-    """Get unique priority group names from a list of surcharges."""
-    groups = set(s.priority_group for s in surcharges if s.priority_group is not None)
-    return list(groups)
+def get_unique_exclusivity_groups(surcharges: list) -> set[str]:
+    """Get unique exclusivity group names from a list of surcharges."""
+    return {s.exclusivity_group for s in surcharges if s.exclusivity_group is not None}
 
 
 # =============================================================================
@@ -105,9 +85,9 @@ def validate_surcharges() -> None:
         if not s.is_allocated and s.allocation_rate is not None:
             errors.append(f"{s.name}: is_allocated=False should not have allocation_rate")
 
-        # Check priority_group surcharges have priority defined
-        if s.priority_group is not None and s.priority is None:
-            errors.append(f"{s.name}: priority_group '{s.priority_group}' requires priority")
+        # Check exclusivity_group surcharges have priority defined
+        if s.exclusivity_group is not None and s.priority is None:
+            errors.append(f"{s.name}: exclusivity_group '{s.exclusivity_group}' requires priority")
 
         # Check demand surcharges have both period_start and period_end
         if (s.period_start is None) != (s.period_end is None):
@@ -137,11 +117,9 @@ __all__ = [
     "DEM_OML",
     # Lists
     "ALL",
-    "INDEPENDENT_UNGROUPED",
-    "INDEPENDENT_GROUPED",
-    "DEPENDENT_UNGROUPED",
-    "DEPENDENT_GROUPED",
+    "BASE",
+    "DEPENDENT",
     # Helpers
-    "get_by_priority_group",
-    "get_unique_priority_groups",
+    "get_exclusivity_group",
+    "get_unique_exclusivity_groups",
 ]

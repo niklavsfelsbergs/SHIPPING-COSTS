@@ -63,9 +63,9 @@ class Surcharge(ABC):
             is_allocated    - True if cost is spread across all shipments
             allocation_rate - Rate for allocated surcharges (e.g., 0.95)
 
-        GROUPING (for mutually exclusive surcharges)
-            priority_group  - Group name (e.g., "dimensional", "delivery")
-            priority        - Order within group (1 = highest priority)
+        EXCLUSIVITY (for mutually exclusive surcharges)
+            exclusivity_group - Group name (e.g., "dimensional", "delivery")
+            priority          - Rank within group (1 = highest, wins ties)
 
         DEPENDENCIES
             depends_on      - Name of surcharge this depends on (e.g., "AHS")
@@ -90,9 +90,9 @@ class Surcharge(ABC):
     allocation_rate: float | None = None
 
     # -------------------------------------------------------------------------
-    # GROUPING
+    # EXCLUSIVITY
     # -------------------------------------------------------------------------
-    priority_group: str | None = None
+    exclusivity_group: str | None = None
     priority: int | None = None
 
     # -------------------------------------------------------------------------

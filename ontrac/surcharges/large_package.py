@@ -18,8 +18,8 @@ class LPS(Surcharge):
     list_price = 260.00
     discount = 0.60
 
-    # Grouping (dimensional: OML > LPS > AHS)
-    priority_group = "dimensional"
+    # Exclusivity (dimensional: OML > LPS > AHS)
+    exclusivity_group = "dimensional"
     priority = 2
 
     # Side effects

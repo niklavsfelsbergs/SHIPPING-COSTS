@@ -18,8 +18,8 @@ class DAS(Surcharge):
     list_price = 6.15
     discount = 0.60
 
-    # Grouping (delivery: EDAS > DAS)
-    priority_group = "delivery"
+    # Exclusivity (delivery: EDAS > DAS)
+    exclusivity_group = "delivery"
     priority = 2
 
     @classmethod
