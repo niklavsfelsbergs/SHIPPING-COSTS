@@ -18,6 +18,11 @@ SHIPPING-COSTS/
 │   ├── __init__.py                   # Connection, pull_data, push_data
 │   └── pass.txt                      # Password file (gitignored)
 │
+├── tests/
+│   ├── test_pipeline.py              # Unit tests for pipeline
+│   ├── run_pipeline.py               # Run pipeline on mock data
+│   └── data/                         # Mock shipment data
+│
 └── ontrac/
     ├── version.py                    # VERSION = "2025.12.05"
     │
@@ -31,26 +36,31 @@ SHIPPING-COSTS/
     │       └── archive/
     │
     ├── surcharges/
-    │   ├── __init__.py                      # Exports all surcharges + auto-inferred groupings
-    │   ├── base.py                          # Surcharge base class
-    │   ├── over_maximum_limits.py           # OML
-    │   ├── large_package.py                 # LPS
-    │   ├── additional_handling.py           # AHS
-    │   ├── delivery_area.py                 # DAS
-    │   ├── extended_delivery_area.py        # EDAS
-    │   ├── residential.py                   # RES
-    │   ├── demand_residential.py            # DEM_RES
+    │   ├── __init__.py               # Exports all surcharges + BASE/DEPENDENT groups
+    │   ├── base.py                   # Surcharge base class + in_period() helper
+    │   ├── over_maximum_limits.py    # OML
+    │   ├── large_package.py          # LPS
+    │   ├── additional_handling.py    # AHS
+    │   ├── delivery_area.py          # DAS
+    │   ├── extended_delivery_area.py # EDAS
+    │   ├── residential.py            # RES
+    │   ├── demand_residential.py     # DEM_RES
     │   ├── demand_additional_handling.py    # DEM_AHS
     │   ├── demand_large_package.py          # DEM_LPS
     │   └── demand_over_maximum_limits.py    # DEM_OML
     │
-    ├── pipeline/
+    ├── loaders/                      # Source-specific data loaders
     │   ├── __init__.py
-    │   ├── load_inputs.py            # load_rates(), load_zones()
-    │   ├── load_shipments.py         # SQL query to DB
-    │   ├── supplement_shipments.py   # Dimensions, zones, billable weight
-    │   ├── infer_surcharges.py       # Apply surcharge conditions
-    │   └── calculator.py             # Orchestrates everything
+    │   ├── pcs.py                    # load_pcs_shipments()
+    │   └── sql/
+    │       └── pcs_shipments.sql     # SQL query for PCS database
+    │
+    ├── core/                         # Source-agnostic calculation logic
+    │   ├── __init__.py
+    │   ├── columns.py                # Column schema definitions
+    │   ├── inputs.py                 # load_rates(), load_zones(), FUEL_RATE
+    │   ├── supplement.py             # Enrich with zones, dimensions, billable weight
+    │   └── calculate.py              # Apply surcharges, calculate costs
     │
     ├── maintenance/
     │   ├── README.md
@@ -69,70 +79,100 @@ SHIPPING-COSTS/
 
 ```python
 # surcharges/base.py
-from abc import ABC, abstractmethod
+from abc import ABC
 import polars as pl
+
+
+def in_period(
+    start: tuple[int, int],
+    end: tuple[int, int],
+    date_col: str = "ship_date"
+) -> pl.Expr:
+    """
+    Check if date falls within a (month, day) period.
+    Handles year boundary crossings (e.g., Sept 27 to Jan 16).
+    """
+    start_md = start[0] * 100 + start[1]
+    end_md = end[0] * 100 + end[1]
+    ship_md = (
+        pl.col(date_col).dt.month().cast(pl.Int32) * 100 +
+        pl.col(date_col).dt.day().cast(pl.Int32)
+    )
+
+    if start_md <= end_md:
+        return (ship_md >= start_md) & (ship_md <= end_md)
+    else:
+        return (ship_md >= start_md) | (ship_md <= end_md)
 
 
 class Surcharge(ABC):
     """
     Base class for all surcharges.
 
-    Required:
-        name: Short code (e.g., "AHS", "DEM_RES")
-        list_price: Published rate before discount
-        discount: Decimal (0.70 = 70% off)
-        allocation_type: "deterministic" or "allocated"
+    Attributes:
+        IDENTITY
+            name            - Short code (e.g., "AHS", "DEM_RES")
 
-    Optional:
-        priority_group: For mutually exclusive surcharges ("dimensional", "delivery")
-        priority: Order within priority_group (1 = highest)
-        min_billable_weight: Minimum billable weight when surcharge applies
-        period_start: (month, day) tuple for demand period start
-        period_end: (month, day) tuple for demand period end
-        allocation_rate: Required if allocation_type="allocated" (e.g., 0.95)
+        PRICING
+            list_price      - Published rate before discount
+            discount        - Decimal discount (0.70 = 70% off)
+            is_allocated    - True if cost is spread across all shipments
+            allocation_rate - Rate for allocated surcharges (e.g., 0.95)
+
+        EXCLUSIVITY (for mutually exclusive surcharges)
+            exclusivity_group - Group name (e.g., "dimensional", "delivery")
+            priority          - Rank within group (1 = highest, wins ties)
+
+        DEPENDENCIES
+            depends_on      - Name of surcharge this depends on (e.g., "AHS")
+            period_start    - (month, day) tuple for seasonal start
+            period_end      - (month, day) tuple for seasonal end
+
+        SIDE EFFECTS
+            min_billable_weight - Minimum billable weight when triggered
     """
 
-    # Required
+    # IDENTITY
     name: str
+
+    # PRICING
     list_price: float
     discount: float
-    allocation_type: str
-
-    # Optional
-    priority_group: str | None = None
-    priority: int | None = None
-    min_billable_weight: int | None = None
-    period_start: tuple[int, int] | None = None  # (month, day)
-    period_end: tuple[int, int] | None = None    # (month, day)
+    is_allocated: bool = False
     allocation_rate: float | None = None
 
+    # EXCLUSIVITY
+    exclusivity_group: str | None = None
+    priority: int | None = None
+
+    # DEPENDENCIES
+    depends_on: str | None = None
+    period_start: tuple[int, int] | None = None
+    period_end: tuple[int, int] | None = None
+
+    # SIDE EFFECTS
+    min_billable_weight: int | None = None
+
     @classmethod
-    def cost(cls) -> float:
-        """Final cost after discount."""
+    def net_price(cls) -> float:
+        """Price after discount, before allocation."""
         return cls.list_price * (1 - cls.discount)
 
     @classmethod
-    def in_period(cls, month: int, day: int) -> bool:
-        """Check if a date (month, day) falls within the surcharge period."""
-        if cls.period_start is None or cls.period_end is None:
-            return True  # No period restriction
-
-        ship = (month, day)
-        start = cls.period_start
-        end = cls.period_end
-
-        if start <= end:
-            # Normal range (e.g., Mar 1 to Jun 30)
-            return start <= ship <= end
-        else:
-            # Crosses year boundary (e.g., Sept 27 to Jan 16)
-            return ship >= start or ship <= end
+    def cost(cls) -> float:
+        """Cost per shipment (net_price * allocation_rate if allocated)."""
+        if cls.is_allocated:
+            return cls.net_price() * cls.allocation_rate
+        return cls.net_price()
 
     @classmethod
-    @abstractmethod
     def conditions(cls) -> pl.Expr:
-        """Polars expression for when this surcharge triggers."""
-        pass
+        """
+        Polars expression for when this surcharge triggers.
+        Default returns True (for allocated surcharges).
+        Override for deterministic surcharges with specific conditions.
+        """
+        return pl.lit(True)
 ```
 
 ### Attribute Reference
@@ -142,187 +182,165 @@ class Surcharge(ABC):
 | `name` | Yes | Short code (e.g., "AHS") |
 | `list_price` | Yes | Published rate before discount |
 | `discount` | Yes | Decimal (0.70 = 70% off) |
-| `allocation_type` | Yes | "deterministic" or "allocated" |
-| `priority_group` | No | Only for mutually exclusive surcharges |
-| `priority` | No | Order within priority_group (1 = highest) |
-| `min_billable_weight` | No | Minimum billable weight when surcharge applies |
+| `is_allocated` | No | True if cost is spread across all shipments (default: False) |
+| `allocation_rate` | No | Required if is_allocated=True (e.g., 0.95) |
+| `exclusivity_group` | No | Only for mutually exclusive surcharges |
+| `priority` | No | Rank within exclusivity_group (1 = highest) |
+| `depends_on` | No | Name of surcharge this depends on |
 | `period_start` | No | (month, day) tuple for demand period start |
 | `period_end` | No | (month, day) tuple for demand period end |
-| `allocation_rate` | No | Required if allocation_type="allocated" |
-| `conditions()` | Yes | Polars expression for trigger condition |
+| `min_billable_weight` | No | Minimum billable weight when surcharge applies |
+| `conditions()` | No | Polars expression (default: True for allocated) |
 
-### Priority Groups (Mutual Exclusivity)
+### Exclusivity Groups (Mutual Exclusivity)
 
 | Group | Surcharges | Logic |
 |-------|------------|-------|
 | `"dimensional"` | OML, LPS, AHS | Only highest priority applies (OML=1, LPS=2, AHS=3) |
 | `"delivery"` | EDAS, DAS | Only one applies (EDAS=1, DAS=2) |
 
-Surcharges without a priority_group are not mutually exclusive.
+Surcharges without an exclusivity_group are applied independently.
+
+### Processing Groups
+
+Surcharges are processed in two phases:
+
+| Phase | Group | Description |
+|-------|-------|-------------|
+| 1 | BASE | Surcharges that don't reference other surcharge flags |
+| 2 | DEPENDENT | Surcharges that reference flags from phase 1 (via `depends_on`) |
+
+Within each phase, surcharges with the same `exclusivity_group` compete - only the highest priority (lowest number) wins.
 
 ### Example: Deterministic Surcharge (AHS)
 
 ```python
-# surcharges/ahs.py
+# surcharges/additional_handling.py
 import polars as pl
 from .base import Surcharge
 
 
 class AHS(Surcharge):
-    """
-    Additional Handling Surcharge
+    """Additional Handling - requires extra handling due to size/weight."""
 
-    Triggers when package exceeds weight, dimension, or volume thresholds.
-    Contract: 70% discount, min billable weight 30 lbs
-    """
-
+    # Identity
     name = "AHS"
+
+    # Pricing (70% discount per Third Amendment)
     list_price = 32.00
     discount = 0.70
-    allocation_type = "deterministic"
 
-    priority_group = "dimensional"
-    priority = 3  # After OML (1), LPS (2)
+    # Exclusivity (dimensional: OML > LPS > AHS)
+    exclusivity_group = "dimensional"
+    priority = 3
 
+    # Side effects (negotiated down from OnTrac standard of 40)
     min_billable_weight = 30
 
     # Thresholds
-    weight_threshold = 50
-    longest_threshold = 48
-    second_longest_threshold = 30
-    cubic_threshold = 8640
+    WEIGHT_LBS = 50
+    LONGEST_IN = 48
+    SECOND_LONGEST_IN = 30
+    CUBIC_IN = 8640
 
     @classmethod
     def conditions(cls) -> pl.Expr:
         return (
-            (pl.col("weight_lbs").round(0) > cls.weight_threshold) |
-            (pl.col("longest_side_in").round(0) > cls.longest_threshold) |
-            (pl.col("second_longest_in").round(0) > cls.second_longest_threshold) |
-            (pl.col("cubic_in").round(0) > cls.cubic_threshold)
+            (pl.col("weight_lbs").round(0) > cls.WEIGHT_LBS) |
+            (pl.col("longest_side_in").round(0) > cls.LONGEST_IN) |
+            (pl.col("second_longest_in").round(0) > cls.SECOND_LONGEST_IN) |
+            (pl.col("cubic_in").round(0) > cls.CUBIC_IN)
         )
 ```
 
 ### Example: Allocated Surcharge (RES)
 
 ```python
-# surcharges/res.py
-import polars as pl
+# surcharges/residential.py
 from .base import Surcharge
 
 
 class RES(Surcharge):
-    """
-    Residential Surcharge (Allocated)
+    """Residential - allocated at 95% based on historical residential rate."""
 
-    Applied to ~95% of shipments based on historical data.
-    Cannot predict per-shipment if residential or commercial.
-    """
-
+    # Identity
     name = "RES"
+
+    # Pricing (90% discount, allocated at 95%)
     list_price = 6.10
     discount = 0.90
-    allocation_type = "allocated"
+    is_allocated = True
     allocation_rate = 0.95
 
-    @classmethod
-    def conditions(cls) -> pl.Expr:
-        return pl.lit(True)  # Always applies (allocated)
+    # Uses default conditions() -> pl.lit(True)
 ```
 
-### Example: Demand Surcharge (DEM_AHS)
+### Example: Dependent Demand Surcharge (DEM_AHS)
 
 ```python
-# surcharges/demand_ahs.py
+# surcharges/demand_additional_handling.py
 import polars as pl
-from .base import Surcharge
+from .base import Surcharge, in_period
 
 
 class DEM_AHS(Surcharge):
-    """
-    Demand Additional Handling Surcharge
+    """Demand Additional Handling - seasonal surcharge when AHS applies."""
 
-    Applied during peak season when AHS also applies.
-    Period: Sept 27 - Jan 16 (year-agnostic)
-    """
-
+    # Identity
     name = "DEM_AHS"
+
+    # Pricing (50% discount per Second Amendment)
     list_price = 11.00
     discount = 0.50
-    allocation_type = "deterministic"
 
+    # Dependencies
+    depends_on = "AHS"
     period_start = (9, 27)   # Sept 27
     period_end = (1, 16)     # Jan 16
 
     @classmethod
     def conditions(cls) -> pl.Expr:
-        return pl.col("surcharge_ahs")  # Requires AHS to be triggered
-```
-
-### Example: Allocated Demand Surcharge (DEM_RES)
-
-```python
-# surcharges/demand_res.py
-import polars as pl
-from .base import Surcharge
-
-
-class DEM_RES(Surcharge):
-    """
-    Demand Residential Surcharge (Allocated)
-
-    Applied during residential demand period at 95% rate.
-    Period: Oct 25 - Jan 16 (year-agnostic)
-    """
-
-    name = "DEM_RES"
-    list_price = 1.00
-    discount = 0.50
-    allocation_type = "allocated"
-    allocation_rate = 0.95
-
-    period_start = (10, 25)  # Oct 25
-    period_end = (1, 16)     # Jan 16
-
-    @classmethod
-    def conditions(cls) -> pl.Expr:
-        return pl.lit(True)  # Always applies during period (allocated)
+        return pl.col("surcharge_ahs") & in_period(cls.period_start, cls.period_end)
 ```
 
 ### Surcharges __init__.py
 
-Groupings are inferred automatically from surcharge class attributes:
-
 ```python
 # surcharges/__init__.py
-from .base import Surcharge
-from .oml import OML
-from .lps import LPS
-from .ahs import AHS
-from .das import DAS
-from .edas import EDAS
-from .res import RES
-from .demand_res import DEM_RES
-from .demand_ahs import DEM_AHS
-from .demand_lps import DEM_LPS
-from .demand_oml import DEM_OML
+from .base import Surcharge, in_period
+from .over_maximum_limits import OML
+from .large_package import LPS
+from .additional_handling import AHS
+from .delivery_area import DAS
+from .extended_delivery_area import EDAS
+from .residential import RES
+from .demand_residential import DEM_RES
+from .demand_additional_handling import DEM_AHS
+from .demand_large_package import DEM_LPS
+from .demand_over_maximum_limits import DEM_OML
 
 # All surcharges
 ALL = [OML, LPS, AHS, DAS, EDAS, RES, DEM_RES, DEM_AHS, DEM_LPS, DEM_OML]
 
+# Processing groups
+BASE = [s for s in ALL if s.depends_on is None]
+# OnTrac: [OML, LPS, AHS, DAS, EDAS, RES]
 
-def get_by_priority_group(group: str) -> list[type[Surcharge]]:
-    """Get surcharges in a priority group, sorted by priority (lowest number first)."""
+DEPENDENT = [s for s in ALL if s.depends_on is not None]
+# OnTrac: [DEM_RES, DEM_AHS, DEM_LPS, DEM_OML]
+
+
+def get_exclusivity_group(group: str) -> list[type[Surcharge]]:
+    """Get surcharges in an exclusivity group, sorted by priority."""
     return sorted(
-        [s for s in ALL if s.priority_group == group],
+        [s for s in ALL if s.exclusivity_group == group],
         key=lambda s: s.priority
     )
 
 
-# Auto-inferred groupings
-DIMENSIONAL = get_by_priority_group("dimensional")  # [OML, LPS, AHS]
-DELIVERY = get_by_priority_group("delivery")        # [EDAS, DAS]
-ALLOCATED = [s for s in ALL if s.allocation_type == "allocated"]
-DEMAND = [s for s in ALL if s.period_start is not None]
+def get_unique_exclusivity_groups(surcharges: list) -> set[str]:
+    """Get unique exclusivity group names from a list of surcharges."""
+    return {s.exclusivity_group for s in surcharges if s.exclusivity_group is not None}
 ```
 
 ---
@@ -353,13 +371,6 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 
 ```python
 # data/billable_weight.py
-"""
-Billable Weight Configuration
-
-Contract: DIM Factor 250 (standard OnTrac is 139)
-Last updated: 2025-12-05
-"""
-
 DIM_FACTOR = 250          # Cubic inches per pound
 DIM_THRESHOLD = 1728      # Min cubic inches to apply DIM weight (12x12x12)
 ```
@@ -368,15 +379,6 @@ DIM_THRESHOLD = 1728      # Min cubic inches to apply DIM weight (12x12x12)
 
 ```python
 # data/fuel.py
-"""
-Fuel Surcharge
-
-Applied as percentage of subtotal (base + surcharges).
-Updated weekly from ontrac.com/surcharges.
-
-Last updated: 2025-12-05
-"""
-
 LIST_RATE = 0.195         # 19.5%
 DISCOUNT = 0.35           # 35% contract discount
 RATE = LIST_RATE * (1 - DISCOUNT)
@@ -384,39 +386,110 @@ RATE = LIST_RATE * (1 - DISCOUNT)
 
 ---
 
+## Column Schema
+
+Defined in `core/columns.py`:
+
+### Required Input Columns (from any loader)
+
+| Column | Description |
+|--------|-------------|
+| `ship_date` | Ship date (for demand period checks) |
+| `production_site` | "Phoenix" or "Columbus" (for zone lookup) |
+| `shipping_zip_code` | Destination ZIP code |
+| `shipping_region` | Destination state/region |
+| `length_in` | Package length (inches) |
+| `width_in` | Package width (inches) |
+| `height_in` | Package height (inches) |
+| `weight_lbs` | Package weight (pounds) |
+
+### PCS-Specific Columns (from PCS loader)
+
+| Column | Description |
+|--------|-------------|
+| `pcs_ordernumber` | PCS order number |
+| `pcs_orderid` | PCS order ID |
+| `pcs_created` | PCS order creation date |
+| `trackingnumber` | Carrier tracking number |
+| `shop_ordernumber` | Shop reference number |
+| `shipping_country` | Destination country name |
+
+### Supplement Columns (added by supplement_shipments)
+
+| Column | Description |
+|--------|-------------|
+| `cubic_in` | L x W x H (cubic inches) |
+| `longest_side_in` | Longest dimension |
+| `second_longest_in` | Second longest dimension |
+| `length_plus_girth` | Longest + 2*(sum of other two) |
+| `shipping_zone` | Shipping zone (2-8) |
+| `das_zone` | DAS classification: "DAS", "EDAS", or "NO" |
+| `dim_weight_lbs` | Dimensional weight |
+| `uses_dim_weight` | True if dim weight > actual weight |
+| `billable_weight_lbs` | Max of actual and dim weight |
+
+### Output Columns (after calculate)
+
+| Column | Description |
+|--------|-------------|
+| `surcharge_*` | Boolean flag for each surcharge |
+| `cost_*` | Cost for each surcharge |
+| `cost_base` | Base shipping rate |
+| `cost_subtotal` | Sum before fuel |
+| `cost_fuel` | Fuel surcharge |
+| `cost_total` | Final total |
+| `calculator_version` | Version stamp |
+
+---
+
 ## Pipeline Flow
 
 ```python
 # Full calculation pipeline
-df = load_shipments(start_date, end_date)
-df = supplement_shipments(df)      # Dimensions, zones, billable weight
-df = infer_surcharges(df)          # Apply all surcharge conditions
-df = calculate_costs(df)           # Base rate + surcharge costs + fuel + total
+from ontrac.loaders import load_pcs_shipments
+from ontrac.core import supplement_shipments, calculate
+
+df = load_pcs_shipments(start_date, end_date)
+df = supplement_shipments(df)    # Dimensions, zones, billable weight
+df = calculate(df)               # Surcharges + costs
 ```
 
-### supplement_shipments.py
+### supplement.py
 
 1. Calculate dimensions: `cubic_in`, `longest_side_in`, `second_longest_in`, `length_plus_girth`
 2. Look up zones from zones.csv: `shipping_zone`, `das_zone`
 3. Calculate billable weight using DIM_FACTOR and DIM_THRESHOLD
 
-### infer_surcharges.py
+### calculate.py
 
-1. For each priority_group, apply conditions in priority order (highest first)
-2. Track which surcharge was applied to enforce mutual exclusivity
-3. Apply min_billable_weight adjustments
-4. Check period_start/period_end for demand surcharges against ship date (month, day only)
-5. Output: `surcharge_oml`, `surcharge_lps`, `surcharge_ahs`, etc. (boolean columns)
+```python
+def calculate(df: pl.DataFrame) -> pl.DataFrame:
+    # Phase 1: Apply base surcharges (don't reference other surcharge flags)
+    df = _apply_surcharges(df, BASE)
 
-### calculator.py
+    # Phase 2: Apply dependent surcharges (reference flags from phase 1)
+    df = _apply_surcharges(df, DEPENDENT)
 
-1. Look up base rate from base_rates.csv by zone + billable weight
-2. Calculate cost for each surcharge based on flags
-3. Handle allocated surcharges: `cost = surcharge.cost() * surcharge.allocation_rate`
-4. Sum subtotal
-5. Apply fuel surcharge
-6. Calculate total
-7. Stamp `calculator_version` from VERSION
+    # Phase 3: Adjust billable weights based on triggered surcharges
+    df = _apply_min_billable_weights(df)
+
+    # Phase 4: Look up base shipping rate
+    df = _lookup_base_rate(df)
+
+    # Phase 5: Calculate costs
+    df = _calculate_subtotal(df)
+    df = _apply_fuel(df)
+    df = _calculate_total(df)
+
+    # Phase 6: Stamp version
+    df = _stamp_version(df)
+
+    return df
+```
+
+Within `_apply_surcharges`:
+- Standalone surcharges (no exclusivity_group) are applied independently
+- Exclusive surcharges (same exclusivity_group) compete - only highest priority wins
 
 ---
 
@@ -429,39 +502,38 @@ df = calculate_costs(df)           # Base rate + surcharge costs + fuel + total
 - [x] `.gitignore`
 
 ### Part 2: Data
-- [x] `data/base_rates.csv` (copied from V1, removed date columns)
-- [x] `data/zones.csv` (copied from V1)
+- [x] `data/base_rates.csv`
+- [x] `data/zones.csv`
 - [x] `data/billable_weight.py`
 - [x] `data/fuel.py`
-- [x] `data/contracts/` folder structure (current/ and archive/)
+- [x] `data/contracts/` folder structure
 
 ### Part 3: Surcharges
 - [x] `surcharges/base.py`
 - [x] `surcharges/__init__.py`
-- [x] `surcharges/over_maximum_limits.py`
-- [x] `surcharges/large_package.py`
-- [x] `surcharges/additional_handling.py`
-- [x] `surcharges/delivery_area.py`
-- [x] `surcharges/extended_delivery_area.py`
-- [x] `surcharges/residential.py`
-- [x] `surcharges/demand_residential.py`
-- [x] `surcharges/demand_additional_handling.py`
-- [x] `surcharges/demand_large_package.py`
-- [x] `surcharges/demand_over_maximum_limits.py`
+- [x] All 10 surcharge files (OML, LPS, AHS, DAS, EDAS, RES, DEM_*)
 
-### Part 4: Pipeline
-- [x] `pipeline/__init__.py`
-- [ ] `pipeline/columns.py` (TODO: document all columns - database, calculated, surcharge flags)
-- [x] `pipeline/load_inputs.py`
-- [x] `pipeline/load_pcs_shipments.py` + `pipeline/sql/load_pcs_shipments.sql`
-- [x] `pipeline/supplement_shipments.py`
-- [x] `pipeline/calculate.py` (combined surcharge inference + cost calculation)
+### Part 4: Loaders
+- [x] `loaders/__init__.py`
+- [x] `loaders/pcs.py` + `loaders/sql/pcs_shipments.sql`
 
-### Part 5: Maintenance
+### Part 5: Core Pipeline
+- [x] `core/__init__.py`
+- [x] `core/columns.py`
+- [x] `core/inputs.py`
+- [x] `core/supplement.py`
+- [x] `core/calculate.py`
+
+### Part 6: Tests
+- [x] `tests/test_pipeline.py`
+- [x] `tests/run_pipeline.py`
+- [x] `tests/data/mock_shipments.csv`
+
+### Part 7: Maintenance
 - [ ] `maintenance/README.md`
 - [ ] `maintenance/generate_zones.py`
 
-### Part 6: Scripts
+### Part 8: Scripts
 - [ ] `scripts/calculate_expected.py`
 - [ ] `scripts/calculate_actuals.py`
 
@@ -477,7 +549,7 @@ df = calculate_costs(df)           # Base rate + surcharge costs + fuel + total
 
 ### Surcharge Change (e.g., AHS discount 70% → 75%)
 
-1. Edit `surcharges/ahs.py`: `discount = 0.75`
+1. Edit `surcharges/additional_handling.py`: `discount = 0.75`
 2. Update `version.py`: `VERSION = "2025.07.15"`
 3. Commit: `git commit -m "AHS discount increased to 75% per Fourth Amendment"`
 
@@ -500,27 +572,3 @@ git checkout v2025.11.15
 python -m ontrac.scripts.calculate_expected --start-date 2025-11-01 --end-date 2025-11-30
 git checkout main
 ```
-
----
-
-## Output Columns
-
-After `calculator.py`:
-
-| Column | Description |
-|--------|-------------|
-| `cost_base` | Base shipping rate |
-| `cost_oml` | OML surcharge (if applicable) |
-| `cost_lps` | LPS surcharge (if applicable) |
-| `cost_ahs` | AHS surcharge (if applicable) |
-| `cost_das` | DAS surcharge (if applicable) |
-| `cost_edas` | EDAS surcharge (if applicable) |
-| `cost_res` | RES surcharge (allocated) |
-| `cost_dem_res` | Demand RES (allocated, if in period) |
-| `cost_dem_ahs` | Demand AHS (if AHS + in period) |
-| `cost_dem_lps` | Demand LPS (if LPS + in period) |
-| `cost_dem_oml` | Demand OML (if OML + in period) |
-| `cost_subtotal` | Sum before fuel |
-| `cost_fuel` | Fuel surcharge |
-| `cost_total` | Final total |
-| `calculator_version` | Version stamp |
