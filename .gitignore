@@ -1,0 +1,43 @@
+# Password file - NEVER commit
+pass.txt
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Virtual environments
+venv/
+.venv/
+env/
+.env/
+
+# IDE settings
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Distribution
+dist/
+build/
+*.egg-info/
+
+# Test coverage
+.coverage
+htmlcov/
+.pytest_cache/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Test outputs (generated files)
+tests/data/*_output.csv
+tests/data/*_supplemented.csv
+tests/data/*_calculated.csv
+tests/data/debug_*.csv
