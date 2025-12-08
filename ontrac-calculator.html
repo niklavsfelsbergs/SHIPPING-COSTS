@@ -1,0 +1,2159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OnTrac Shipping Cost Calculator - Technical Documentation</title>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-dark: #1d4ed8;
+            --secondary: #64748b;
+            --accent: #0891b2;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --bg: #f8fafc;
+            --card-bg: #ffffff;
+            --text: #1e293b;
+            --text-muted: #64748b;
+            --border: #e2e8f0;
+            --code-bg: #1e293b;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+        }
+
+        /* Navigation */
+        .nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 280px;
+            height: 100vh;
+            background: var(--card-bg);
+            border-right: 1px solid var(--border);
+            overflow-y: auto;
+            z-index: 1000;
+            padding: 20px 0;
+        }
+
+        .nav-header {
+            padding: 0 20px 20px;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 20px;
+        }
+
+        .nav-header h1 {
+            font-size: 1.25rem;
+            color: var(--primary);
+            margin-bottom: 4px;
+        }
+
+        .nav-header p {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        .nav-section {
+            padding: 0 12px;
+            margin-bottom: 16px;
+        }
+
+        .nav-section-title {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+            padding: 0 8px;
+            margin-bottom: 8px;
+        }
+
+        .nav-link {
+            display: block;
+            padding: 8px 12px;
+            color: var(--text);
+            text-decoration: none;
+            font-size: 0.875rem;
+            border-radius: 6px;
+            transition: all 0.2s;
+        }
+
+        .nav-link:hover {
+            background: var(--bg);
+            color: var(--primary);
+        }
+
+        .nav-link.active {
+            background: #eff6ff;
+            color: var(--primary);
+            font-weight: 500;
+        }
+
+        /* Main Content */
+        .main {
+            margin-left: 280px;
+            padding: 40px;
+            max-width: 1200px;
+        }
+
+        section {
+            margin-bottom: 60px;
+            scroll-margin-top: 20px;
+        }
+
+        h2 {
+            font-size: 1.75rem;
+            color: var(--text);
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 2px solid var(--primary);
+        }
+
+        h3 {
+            font-size: 1.25rem;
+            color: var(--text);
+            margin: 24px 0 12px;
+        }
+
+        h4 {
+            font-size: 1rem;
+            color: var(--text);
+            margin: 16px 0 8px;
+        }
+
+        p {
+            margin-bottom: 12px;
+            color: var(--text);
+        }
+
+        /* Cards */
+        .card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            padding: 24px;
+            margin-bottom: 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .card-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.25rem;
+        }
+
+        .card-icon.blue { background: #dbeafe; }
+        .card-icon.green { background: #dcfce7; }
+        .card-icon.purple { background: #f3e8ff; }
+        .card-icon.orange { background: #ffedd5; }
+        .card-icon.red { background: #fee2e2; }
+        .card-icon.cyan { background: #cffafe; }
+
+        /* Code blocks */
+        pre {
+            background: var(--code-bg);
+            color: #e2e8f0;
+            padding: 16px;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 0.875rem;
+            margin: 12px 0;
+        }
+
+        code {
+            background: #f1f5f9;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 0.875rem;
+            color: var(--primary-dark);
+        }
+
+        pre code {
+            background: transparent;
+            padding: 0;
+            color: inherit;
+        }
+
+        .code-keyword { color: #c792ea; }
+        .code-string { color: #c3e88d; }
+        .code-comment { color: #676e95; }
+        .code-number { color: #f78c6c; }
+        .code-function { color: #82aaff; }
+
+        /* Diagrams */
+        .diagram {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 24px;
+            margin: 20px 0;
+            overflow-x: auto;
+        }
+
+        .diagram-title {
+            font-weight: 600;
+            margin-bottom: 16px;
+            color: var(--text);
+        }
+
+        .flow-diagram {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .flow-box {
+            padding: 12px 20px;
+            border-radius: 8px;
+            text-align: center;
+            font-size: 0.875rem;
+            font-weight: 500;
+            min-width: 200px;
+        }
+
+        .flow-box.source { background: #dbeafe; color: #1e40af; border: 2px solid #3b82f6; }
+        .flow-box.process { background: #dcfce7; color: #166534; border: 2px solid #22c55e; }
+        .flow-box.data { background: #f3e8ff; color: #7c3aed; border: 2px solid #a855f7; }
+        .flow-box.output { background: #ffedd5; color: #c2410c; border: 2px solid #f97316; }
+        .flow-box.decision { background: #fef3c7; color: #92400e; border: 2px solid #fbbf24; transform: rotate(0deg); }
+
+        .flow-arrow {
+            color: var(--secondary);
+            font-size: 1.5rem;
+        }
+
+        .flow-label {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-top: -4px;
+        }
+
+        /* Tables */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 16px 0;
+            font-size: 0.875rem;
+        }
+
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+
+        th {
+            background: var(--bg);
+            font-weight: 600;
+            color: var(--text);
+        }
+
+        tr:hover {
+            background: #f8fafc;
+        }
+
+        /* Badges */
+        .badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        .badge-blue { background: #dbeafe; color: #1e40af; }
+        .badge-green { background: #dcfce7; color: #166534; }
+        .badge-purple { background: #f3e8ff; color: #7c3aed; }
+        .badge-orange { background: #ffedd5; color: #c2410c; }
+        .badge-red { background: #fee2e2; color: #dc2626; }
+        .badge-gray { background: #f1f5f9; color: #475569; }
+
+        /* Collapsible */
+        .collapsible {
+            margin: 12px 0;
+        }
+
+        .collapsible-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 16px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .collapsible-header:hover {
+            background: #f1f5f9;
+        }
+
+        .collapsible-header.active {
+            border-bottom-left-radius: 0;
+            border-bottom-right-radius: 0;
+            border-bottom: none;
+        }
+
+        .collapsible-chevron {
+            margin-left: auto;
+            transition: transform 0.2s;
+        }
+
+        .collapsible-header.active .collapsible-chevron {
+            transform: rotate(180deg);
+        }
+
+        .collapsible-content {
+            display: none;
+            padding: 16px;
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-top: none;
+            border-radius: 0 0 8px 8px;
+        }
+
+        .collapsible-content.show {
+            display: block;
+        }
+
+        /* Grid */
+        .grid {
+            display: grid;
+            gap: 20px;
+        }
+
+        .grid-2 { grid-template-columns: repeat(2, 1fr); }
+        .grid-3 { grid-template-columns: repeat(3, 1fr); }
+
+        @media (max-width: 900px) {
+            .grid-2, .grid-3 { grid-template-columns: 1fr; }
+        }
+
+        /* Tabs */
+        .tabs {
+            margin: 20px 0;
+        }
+
+        .tab-buttons {
+            display: flex;
+            gap: 4px;
+            border-bottom: 2px solid var(--border);
+            margin-bottom: 16px;
+        }
+
+        .tab-button {
+            padding: 10px 20px;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: var(--text-muted);
+            border-bottom: 2px solid transparent;
+            margin-bottom: -2px;
+            transition: all 0.2s;
+        }
+
+        .tab-button:hover {
+            color: var(--text);
+        }
+
+        .tab-button.active {
+            color: var(--primary);
+            border-bottom-color: var(--primary);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* Lists */
+        ul, ol {
+            margin: 12px 0 12px 24px;
+        }
+
+        li {
+            margin: 6px 0;
+        }
+
+        /* Highlight boxes */
+        .highlight {
+            padding: 16px;
+            border-radius: 8px;
+            margin: 16px 0;
+        }
+
+        .highlight-info {
+            background: #eff6ff;
+            border-left: 4px solid var(--primary);
+        }
+
+        .highlight-success {
+            background: #f0fdf4;
+            border-left: 4px solid var(--success);
+        }
+
+        .highlight-warning {
+            background: #fffbeb;
+            border-left: 4px solid var(--warning);
+        }
+
+        /* Directory tree */
+        .tree {
+            font-family: 'Consolas', monospace;
+            font-size: 0.875rem;
+            line-height: 1.8;
+            padding: 16px;
+            background: var(--bg);
+            border-radius: 8px;
+        }
+
+        .tree-folder { color: #2563eb; font-weight: 500; }
+        .tree-file { color: var(--text); }
+        .tree-desc { color: var(--text-muted); font-size: 0.8rem; }
+
+        /* Architecture diagram */
+        .arch-diagram {
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+            padding: 24px;
+        }
+
+        .arch-layer {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .arch-layer-label {
+            width: 100px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            color: var(--text-muted);
+        }
+
+        .arch-boxes {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .arch-box {
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            text-align: center;
+            min-width: 100px;
+        }
+
+        .arch-box.scripts { background: #dbeafe; color: #1e40af; border: 1px solid #93c5fd; }
+        .arch-box.core { background: #dcfce7; color: #166534; border: 1px solid #86efac; }
+        .arch-box.surcharges { background: #f3e8ff; color: #7c3aed; border: 1px solid #c4b5fd; }
+        .arch-box.data { background: #ffedd5; color: #c2410c; border: 1px solid #fed7aa; }
+        .arch-box.shared { background: #e0e7ff; color: #4338ca; border: 1px solid #a5b4fc; }
+        .arch-box.external { background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; }
+
+        /* Surcharge card */
+        .surcharge-card {
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 16px;
+            margin: 12px 0;
+        }
+
+        .surcharge-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+
+        .surcharge-name {
+            font-weight: 600;
+            font-size: 1rem;
+        }
+
+        .surcharge-meta {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 12px;
+            margin-bottom: 12px;
+            padding: 12px;
+            background: var(--bg);
+            border-radius: 6px;
+        }
+
+        .surcharge-meta-item {
+            font-size: 0.8rem;
+        }
+
+        .surcharge-meta-label {
+            color: var(--text-muted);
+            display: block;
+        }
+
+        .surcharge-meta-value {
+            font-weight: 500;
+        }
+
+        /* Interactive elements */
+        .interactive-demo {
+            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 24px;
+            margin: 20px 0;
+        }
+
+        .demo-input {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+
+        .demo-field {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .demo-field label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            color: var(--text-muted);
+        }
+
+        .demo-field input, .demo-field select {
+            padding: 8px 12px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 0.875rem;
+        }
+
+        .demo-button {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: background 0.2s;
+        }
+
+        .demo-button:hover {
+            background: var(--primary-dark);
+        }
+
+        .demo-result {
+            margin-top: 20px;
+            padding: 16px;
+            background: white;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+        }
+
+        /* Timeline */
+        .timeline {
+            position: relative;
+            padding-left: 30px;
+        }
+
+        .timeline::before {
+            content: '';
+            position: absolute;
+            left: 6px;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: var(--border);
+        }
+
+        .timeline-item {
+            position: relative;
+            margin-bottom: 24px;
+        }
+
+        .timeline-item::before {
+            content: '';
+            position: absolute;
+            left: -30px;
+            top: 4px;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: var(--primary);
+            border: 3px solid white;
+            box-shadow: 0 0 0 2px var(--primary);
+        }
+
+        .timeline-title {
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .timeline-desc {
+            font-size: 0.875rem;
+            color: var(--text-muted);
+        }
+
+        /* Print styles */
+        @media print {
+            .nav { display: none; }
+            .main { margin-left: 0; }
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .nav {
+                width: 100%;
+                height: auto;
+                position: relative;
+            }
+            .main {
+                margin-left: 0;
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <nav class="nav">
+        <div class="nav-header">
+            <h1>OnTrac Calculator</h1>
+            <p>Technical Documentation v2025.12.05</p>
+        </div>
+
+        <div class="nav-section">
+            <div class="nav-section-title">Overview</div>
+            <a href="#overview" class="nav-link">Project Overview</a>
+            <a href="#architecture" class="nav-link">Architecture</a>
+            <a href="#directory" class="nav-link">Directory Structure</a>
+        </div>
+
+        <div class="nav-section">
+            <div class="nav-section-title">Core Modules</div>
+            <a href="#calculate-costs" class="nav-link">Calculate Costs Pipeline</a>
+            <a href="#surcharges" class="nav-link">Surcharge System</a>
+            <a href="#data-sources" class="nav-link">Data Sources</a>
+        </div>
+
+        <div class="nav-section">
+            <div class="nav-section-title">Components</div>
+            <a href="#zone-lookup" class="nav-link">Zone Lookup</a>
+            <a href="#billable-weight" class="nav-link">Billable Weight</a>
+            <a href="#base-rates" class="nav-link">Base Rates</a>
+            <a href="#fuel" class="nav-link">Fuel Surcharge</a>
+        </div>
+
+        <div class="nav-section">
+            <div class="nav-section-title">Tools & Scripts</div>
+            <a href="#scripts" class="nav-link">CLI Scripts</a>
+            <a href="#database" class="nav-link">Database Operations</a>
+            <a href="#maintenance" class="nav-link">Maintenance</a>
+        </div>
+
+        <div class="nav-section">
+            <div class="nav-section-title">Deep Dive</div>
+            <a href="#data-flow" class="nav-link">Data Flow</a>
+            <a href="#demo" class="nav-link">Interactive Demo</a>
+            <a href="#decisions" class="nav-link">Design Decisions</a>
+        </div>
+
+        <div class="nav-section">
+            <div class="nav-section-title">Extending</div>
+            <a href="#new-carrier" class="nav-link">Adding New Carriers</a>
+        </div>
+    </nav>
+
+    <main class="main">
+        <!-- Overview Section -->
+        <section id="overview">
+            <h2>Project Overview</h2>
+
+            <div class="card">
+                <p><strong>The OnTrac Shipping Cost Calculator</strong> is a specialized system that calculates expected shipping costs for the OnTrac carrier. It processes raw shipment data from a production system (PCS), enriches it with pricing rules and zone mappings, applies complex surcharge logic, and outputs calculated costs for comparison against actual invoice data.</p>
+            </div>
+
+            <div class="grid grid-3">
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-icon blue">&#128230;</div>
+                        <div>
+                            <h4>Input</h4>
+                            <p style="font-size: 0.875rem; margin: 0;">PCS Shipment Data</p>
+                        </div>
+                    </div>
+                    <p style="font-size: 0.875rem;">Raw shipment records with dimensions, weight, origin, destination ZIP codes</p>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-icon green">&#9881;</div>
+                        <div>
+                            <h4>Process</h4>
+                            <p style="font-size: 0.875rem; margin: 0;">Two-Stage Pipeline</p>
+                        </div>
+                    </div>
+                    <p style="font-size: 0.875rem;">Enrich data with zones, apply surcharges, calculate costs using contract rates</p>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-icon orange">&#128200;</div>
+                        <div>
+                            <h4>Output</h4>
+                            <p style="font-size: 0.875rem; margin: 0;">Expected Costs</p>
+                        </div>
+                    </div>
+                    <p style="font-size: 0.875rem;">Calculated costs uploaded to Redshift for accuracy analysis vs actual invoices</p>
+                </div>
+            </div>
+
+            <div class="highlight highlight-info">
+                <strong>Key Principle:</strong> DataFrame in, DataFrame out. The entire calculation pipeline operates on Polars DataFrames, enabling efficient vectorized operations on millions of shipments.
+            </div>
+
+            <h3>Core Entry Point</h3>
+            <pre><code><span class="code-keyword">from</span> ontrac.calculate_costs <span class="code-keyword">import</span> calculate_costs
+
+<span class="code-comment"># df must have required columns: ship_date, production_site, shipping_zip_code,</span>
+<span class="code-comment"># shipping_region, length_in, width_in, height_in, weight_lbs</span>
+result = <span class="code-function">calculate_costs</span>(df)
+
+<span class="code-comment"># Result includes all original columns plus:</span>
+<span class="code-comment"># - Zone information (shipping_zone, das_zone)</span>
+<span class="code-comment"># - Calculated dimensions (cubic_in, longest_side_in, etc.)</span>
+<span class="code-comment"># - Surcharge flags (surcharge_oml, surcharge_lps, etc.)</span>
+<span class="code-comment"># - Cost breakdown (cost_base, cost_oml, cost_fuel, cost_total, etc.)</span></code></pre>
+        </section>
+
+        <!-- Architecture Section -->
+        <section id="architecture">
+            <h2>Architecture</h2>
+
+            <div class="diagram">
+                <div class="diagram-title">System Architecture Layers</div>
+                <div class="arch-diagram">
+                    <div class="arch-layer">
+                        <div class="arch-layer-label">CLI Tools</div>
+                        <div class="arch-boxes">
+                            <div class="arch-box scripts">calculator.py</div>
+                            <div class="arch-box scripts">upload_expected.py</div>
+                            <div class="arch-box scripts">compare_expected_to_actuals.py</div>
+                        </div>
+                    </div>
+                    <div class="arch-layer">
+                        <div class="arch-layer-label">Core</div>
+                        <div class="arch-boxes">
+                            <div class="arch-box core">calculate_costs.py</div>
+                            <div class="arch-box core">version.py</div>
+                        </div>
+                    </div>
+                    <div class="arch-layer">
+                        <div class="arch-layer-label">Surcharges</div>
+                        <div class="arch-boxes">
+                            <div class="arch-box surcharges">OML</div>
+                            <div class="arch-box surcharges">LPS</div>
+                            <div class="arch-box surcharges">AHS</div>
+                            <div class="arch-box surcharges">DAS</div>
+                            <div class="arch-box surcharges">EDAS</div>
+                            <div class="arch-box surcharges">RES</div>
+                            <div class="arch-box surcharges">DEM_*</div>
+                        </div>
+                    </div>
+                    <div class="arch-layer">
+                        <div class="arch-layer-label">Data</div>
+                        <div class="arch-boxes">
+                            <div class="arch-box data">zones.csv</div>
+                            <div class="arch-box data">base_rates.csv</div>
+                            <div class="arch-box data">fuel.py</div>
+                            <div class="arch-box data">billable_weight.py</div>
+                        </div>
+                    </div>
+                    <div class="arch-layer">
+                        <div class="arch-layer-label">Shared</div>
+                        <div class="arch-boxes">
+                            <div class="arch-box shared">database/</div>
+                            <div class="arch-box shared">surcharges/base.py</div>
+                            <div class="arch-box shared">sql/</div>
+                        </div>
+                    </div>
+                    <div class="arch-layer">
+                        <div class="arch-layer-label">External</div>
+                        <div class="arch-boxes">
+                            <div class="arch-box external">PCS Database</div>
+                            <div class="arch-box external">Redshift</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <h3>Module Dependencies</h3>
+            <div class="card">
+                <p>The system follows a layered architecture where each layer only depends on layers below it:</p>
+                <ul>
+                    <li><strong>CLI Scripts</strong> &rarr; Core + Data + Shared</li>
+                    <li><strong>Core (calculate_costs)</strong> &rarr; Surcharges + Data + Shared</li>
+                    <li><strong>Surcharges</strong> &rarr; Shared (base class)</li>
+                    <li><strong>Data</strong> &rarr; CSV files + config modules</li>
+                    <li><strong>Shared</strong> &rarr; External databases only</li>
+                </ul>
+            </div>
+        </section>
+
+        <!-- Directory Structure Section -->
+        <section id="directory">
+            <h2>Directory Structure</h2>
+
+            <div class="tree">
+<span class="tree-folder">SHIPPING-COSTS/</span>
+<span class="tree-folder">&#9500;&#9472;&#9472; ontrac/</span> <span class="tree-desc"># OnTrac-specific calculator</span>
+&#9474;   <span class="tree-file">&#9500;&#9472;&#9472; calculate_costs.py</span> <span class="tree-desc"># Main orchestrator (2-stage pipeline)</span>
+&#9474;   <span class="tree-file">&#9500;&#9472;&#9472; version.py</span> <span class="tree-desc"># Version stamp for audit trail</span>
+&#9474;   <span class="tree-folder">&#9500;&#9472;&#9472; data/</span> <span class="tree-desc"># Reference data and loaders</span>
+&#9474;   &#9474;   <span class="tree-file">&#9500;&#9472;&#9472; zones.csv</span> <span class="tree-desc"># ZIP to zone mappings (PHX + CMH)</span>
+&#9474;   &#9474;   <span class="tree-file">&#9500;&#9472;&#9472; base_rates.csv</span> <span class="tree-desc"># Rate card by weight x zone</span>
+&#9474;   &#9474;   <span class="tree-file">&#9500;&#9472;&#9472; fuel.py</span> <span class="tree-desc"># Fuel surcharge config</span>
+&#9474;   &#9474;   <span class="tree-file">&#9492;&#9472;&#9472; billable_weight.py</span> <span class="tree-desc"># DIM factor configuration</span>
+&#9474;   <span class="tree-folder">&#9500;&#9472;&#9472; surcharges/</span> <span class="tree-desc"># 10 surcharge implementations</span>
+&#9474;   &#9474;   <span class="tree-file">&#9500;&#9472;&#9472; over_maximum_limits.py</span> <span class="tree-desc"># OML (penalty)</span>
+&#9474;   &#9474;   <span class="tree-file">&#9500;&#9472;&#9472; large_package.py</span> <span class="tree-desc"># LPS</span>
+&#9474;   &#9474;   <span class="tree-file">&#9500;&#9472;&#9472; additional_handling.py</span> <span class="tree-desc"># AHS</span>
+&#9474;   &#9474;   <span class="tree-file">&#9500;&#9472;&#9472; delivery_area.py</span> <span class="tree-desc"># DAS</span>
+&#9474;   &#9474;   <span class="tree-file">&#9500;&#9472;&#9472; extended_delivery_area.py</span> <span class="tree-desc"># EDAS</span>
+&#9474;   &#9474;   <span class="tree-file">&#9500;&#9472;&#9472; residential.py</span> <span class="tree-desc"># RES (allocated)</span>
+&#9474;   &#9474;   <span class="tree-file">&#9492;&#9472;&#9472; demand_*.py</span> <span class="tree-desc"># Seasonal demand surcharges</span>
+&#9474;   <span class="tree-folder">&#9500;&#9472;&#9472; sources/</span> <span class="tree-desc"># Data input sources</span>
+&#9474;   &#9474;   <span class="tree-file">&#9492;&#9472;&#9472; pcs.py</span> <span class="tree-desc"># Load from PCS database</span>
+&#9474;   <span class="tree-folder">&#9500;&#9472;&#9472; scripts/</span> <span class="tree-desc"># CLI tools</span>
+&#9474;   &#9474;   <span class="tree-file">&#9500;&#9472;&#9472; calculator.py</span> <span class="tree-desc"># Interactive single-shipment</span>
+&#9474;   &#9474;   <span class="tree-file">&#9500;&#9472;&#9472; upload_expected.py</span> <span class="tree-desc"># Batch upload to DB</span>
+&#9474;   &#9474;   <span class="tree-file">&#9492;&#9472;&#9472; compare_expected_to_actuals.py</span> <span class="tree-desc"># Accuracy reports</span>
+&#9474;   <span class="tree-folder">&#9500;&#9472;&#9472; maintenance/</span> <span class="tree-desc"># Config management</span>
+&#9474;   &#9474;   <span class="tree-file">&#9492;&#9472;&#9472; generate_zones.py</span> <span class="tree-desc"># Update zones from invoices</span>
+&#9474;   <span class="tree-folder">&#9492;&#9472;&#9472; tests/</span> <span class="tree-desc"># Unit tests</span>
+&#9474;       <span class="tree-file">&#9492;&#9472;&#9472; test_calculate_costs.py</span>
+<span class="tree-folder">&#9500;&#9472;&#9472; shared/</span> <span class="tree-desc"># Shared across carriers</span>
+&#9474;   <span class="tree-folder">&#9500;&#9472;&#9472; database/</span> <span class="tree-desc"># DB connection & operations</span>
+&#9474;   <span class="tree-folder">&#9500;&#9472;&#9472; surcharges/</span> <span class="tree-desc"># Base surcharge class</span>
+&#9474;   <span class="tree-folder">&#9492;&#9472;&#9472; sql/</span> <span class="tree-desc"># Shared SQL queries</span>
+<span class="tree-file">&#9492;&#9472;&#9472; CLAUDE.md</span> <span class="tree-desc"># Project documentation</span>
+            </div>
+        </section>
+
+        <!-- Calculate Costs Pipeline Section -->
+        <section id="calculate-costs">
+            <h2>Calculate Costs Pipeline</h2>
+
+            <p>The calculation pipeline is implemented in <code>ontrac/calculate_costs.py</code> and consists of two main stages, each performing distinct operations on the shipment data.</p>
+
+            <div class="tabs">
+                <div class="tab-buttons">
+                    <button class="tab-button active" onclick="showTab(event, 'stage1')">Stage 1: Supplement</button>
+                    <button class="tab-button" onclick="showTab(event, 'stage2')">Stage 2: Calculate</button>
+                    <button class="tab-button" onclick="showTab(event, 'combined')">Combined Flow</button>
+                </div>
+
+                <div id="stage1" class="tab-content active">
+                    <h3>supplement_shipments(df)</h3>
+                    <p>Enriches raw shipment data with calculated dimensions, zone lookups, and weight calculations.</p>
+
+                    <h4>Input Requirements</h4>
+                    <table>
+                        <tr><th>Column</th><th>Type</th><th>Description</th></tr>
+                        <tr><td><code>ship_date</code></td><td>date</td><td>Shipment date (for demand period checks)</td></tr>
+                        <tr><td><code>production_site</code></td><td>str</td><td>"Phoenix" or "Columbus"</td></tr>
+                        <tr><td><code>shipping_zip_code</code></td><td>int/str</td><td>5-digit destination ZIP</td></tr>
+                        <tr><td><code>shipping_region</code></td><td>str</td><td>State name (fallback for zone)</td></tr>
+                        <tr><td><code>length_in, width_in, height_in</code></td><td>float</td><td>Package dimensions in inches</td></tr>
+                        <tr><td><code>weight_lbs</code></td><td>float</td><td>Actual package weight</td></tr>
+                    </table>
+
+                    <h4>Columns Added</h4>
+                    <div class="grid grid-2">
+                        <div>
+                            <h5>Calculated Dimensions</h5>
+                            <ul>
+                                <li><code>cubic_in</code> = L &times; W &times; H</li>
+                                <li><code>longest_side_in</code> = max(L, W, H)</li>
+                                <li><code>second_longest_in</code> = middle value</li>
+                                <li><code>length_plus_girth</code> = longest + 2&times;(sum of others)</li>
+                            </ul>
+                        </div>
+                        <div>
+                            <h5>Zone & Weight</h5>
+                            <ul>
+                                <li><code>shipping_zone</code> = zone 2-8</li>
+                                <li><code>das_zone</code> = "EDAS" / "DAS" / "NO"</li>
+                                <li><code>dim_weight_lbs</code> = cubic_in / 250</li>
+                                <li><code>uses_dim_weight</code> = boolean flag</li>
+                                <li><code>billable_weight_lbs</code> = max(actual, dim)</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="stage2" class="tab-content">
+                    <h3>calculate(df)</h3>
+                    <p>Applies surcharges and calculates final costs through a 6-phase process.</p>
+
+                    <div class="timeline">
+                        <div class="timeline-item">
+                            <div class="timeline-title">Phase 1: Base Surcharges</div>
+                            <div class="timeline-desc">Apply OML, LPS, AHS (dimensional) and DAS, EDAS (delivery) with exclusivity rules. Apply RES (allocated).</div>
+                        </div>
+                        <div class="timeline-item">
+                            <div class="timeline-title">Phase 2: Dependent Surcharges</div>
+                            <div class="timeline-desc">Apply DEM_RES, DEM_AHS, DEM_LPS, DEM_OML based on base surcharge flags and demand period dates.</div>
+                        </div>
+                        <div class="timeline-item">
+                            <div class="timeline-title">Phase 3: Minimum Billable Weight</div>
+                            <div class="timeline-desc">Enforce minimum weights for triggered surcharges (OML&rarr;150, LPS&rarr;90, AHS&rarr;30).</div>
+                        </div>
+                        <div class="timeline-item">
+                            <div class="timeline-title">Phase 4: Base Rate Lookup</div>
+                            <div class="timeline-desc">Join on (zone, weight bracket) to get cost_base from rate card.</div>
+                        </div>
+                        <div class="timeline-item">
+                            <div class="timeline-title">Phase 5: Cost Aggregation</div>
+                            <div class="timeline-desc">cost_subtotal = cost_base + all surcharge costs</div>
+                        </div>
+                        <div class="timeline-item">
+                            <div class="timeline-title">Phase 6: Fuel & Total</div>
+                            <div class="timeline-desc">cost_fuel = subtotal &times; 12.675%, cost_total = subtotal + fuel, stamp version</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="combined" class="tab-content">
+                    <div class="diagram">
+                        <div class="flow-diagram">
+                            <div class="flow-box source">Raw Shipment DataFrame</div>
+                            <div class="flow-arrow">&darr;</div>
+                            <div class="flow-label">supplement_shipments()</div>
+                            <div class="flow-box process">+ Dimensions, Zones, Billable Weight</div>
+                            <div class="flow-arrow">&darr;</div>
+                            <div class="flow-label">calculate()</div>
+                            <div class="flow-box data">+ Surcharge Flags & Costs</div>
+                            <div class="flow-arrow">&darr;</div>
+                            <div class="flow-box data">+ Base Rate, Fuel, Total</div>
+                            <div class="flow-arrow">&darr;</div>
+                            <div class="flow-box output">Final DataFrame with cost_total</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Surcharge System Section -->
+        <section id="surcharges">
+            <h2>Surcharge System</h2>
+
+            <p>The surcharge system is the heart of the cost calculator. All surcharges inherit from a base class defined in <code>shared/surcharges/base.py</code> and implement carrier-specific logic.</p>
+
+            <h3>Base Surcharge Class</h3>
+            <pre><code><span class="code-keyword">class</span> <span class="code-function">Surcharge</span>:
+    <span class="code-comment"># Identity</span>
+    name: str              <span class="code-comment"># "OML", "DAS", etc.</span>
+
+    <span class="code-comment"># Pricing</span>
+    list_price: float      <span class="code-comment"># Published rate</span>
+    discount: float        <span class="code-comment"># Contract discount (0.70 = 70% off)</span>
+    is_allocated: bool     <span class="code-comment"># Spread evenly vs per-shipment</span>
+    allocation_rate: float <span class="code-comment"># Spread factor (e.g., 0.95)</span>
+
+    <span class="code-comment"># Exclusivity</span>
+    exclusivity_group: str <span class="code-comment"># "dimensional", "delivery", or None</span>
+    priority: int          <span class="code-comment"># Lower = higher priority</span>
+
+    <span class="code-comment"># Dependencies</span>
+    depends_on: str        <span class="code-comment"># Base surcharge this references</span>
+    period_start: tuple    <span class="code-comment"># (month, day) for seasonal</span>
+    period_end: tuple
+
+    <span class="code-comment"># Side Effects</span>
+    min_billable_weight: int  <span class="code-comment"># Minimum when triggered</span>
+
+    <span class="code-keyword">def</span> <span class="code-function">cost</span>() -> float:
+        <span class="code-keyword">return</span> net_price * allocation_rate
+
+    <span class="code-keyword">def</span> <span class="code-function">conditions</span>() -> pl.Expr:
+        <span class="code-comment"># Override with Polars expression</span>
+        <span class="code-keyword">pass</span></code></pre>
+
+            <h3>Surcharge Categories</h3>
+
+            <div class="tabs">
+                <div class="tab-buttons">
+                    <button class="tab-button active" onclick="showTab(event, 'dimensional')">Dimensional</button>
+                    <button class="tab-button" onclick="showTab(event, 'delivery')">Delivery Area</button>
+                    <button class="tab-button" onclick="showTab(event, 'allocated')">Allocated</button>
+                    <button class="tab-button" onclick="showTab(event, 'demand')">Demand/Seasonal</button>
+                </div>
+
+                <div id="dimensional" class="tab-content active">
+                    <p>Dimensional surcharges are <strong>mutually exclusive</strong> - only the highest priority surcharge applies.</p>
+                    <p><span class="badge badge-red">Priority Order:</span> OML (1) &gt; LPS (2) &gt; AHS (3)</p>
+
+                    <div class="surcharge-card">
+                        <div class="surcharge-header">
+                            <span class="surcharge-name">OML - Over Maximum Limits</span>
+                            <span class="badge badge-red">Penalty</span>
+                            <span class="badge badge-gray">Priority 1</span>
+                        </div>
+                        <div class="surcharge-meta">
+                            <div class="surcharge-meta-item">
+                                <span class="surcharge-meta-label">List Price</span>
+                                <span class="surcharge-meta-value">$1,300.00</span>
+                            </div>
+                            <div class="surcharge-meta-item">
+                                <span class="surcharge-meta-label">Discount</span>
+                                <span class="surcharge-meta-value">0%</span>
+                            </div>
+                            <div class="surcharge-meta-item">
+                                <span class="surcharge-meta-label">Net Cost</span>
+                                <span class="surcharge-meta-value">$1,300.00</span>
+                            </div>
+                            <div class="surcharge-meta-item">
+                                <span class="surcharge-meta-label">Min Weight</span>
+                                <span class="surcharge-meta-value">150 lbs</span>
+                            </div>
+                        </div>
+                        <p><strong>Triggers when:</strong> weight &gt; 150 lbs OR longest side &gt; 108" OR length+girth &gt; 165"</p>
+                    </div>
+
+                    <div class="surcharge-card">
+                        <div class="surcharge-header">
+                            <span class="surcharge-name">LPS - Large Package Surcharge</span>
+                            <span class="badge badge-orange">High Use</span>
+                            <span class="badge badge-gray">Priority 2</span>
+                        </div>
+                        <div class="surcharge-meta">
+                            <div class="surcharge-meta-item">
+                                <span class="surcharge-meta-label">List Price</span>
+                                <span class="surcharge-meta-value">$260.00</span>
+                            </div>
+                            <div class="surcharge-meta-item">
+                                <span class="surcharge-meta-label">Discount</span>
+                                <span class="surcharge-meta-value">60%</span>
+                            </div>
+                            <div class="surcharge-meta-item">
+                                <span class="surcharge-meta-label">Net Cost</span>
+                                <span class="surcharge-meta-value">$104.00</span>
+                            </div>
+                            <div class="surcharge-meta-item">
+                                <span class="surcharge-meta-label">Min Weight</span>
+                                <span class="surcharge-meta-value">90 lbs</span>
+                            </div>
+                        </div>
+                        <p><strong>Triggers when:</strong> longest side &gt; 72" OR cubic inches &gt; 17,280</p>
+                    </div>
+
+                    <div class="surcharge-card">
+                        <div class="surcharge-header">
+                            <span class="surcharge-name">AHS - Additional Handling Surcharge</span>
+                            <span class="badge badge-blue">Standard</span>
+                            <span class="badge badge-gray">Priority 3</span>
+                        </div>
+                        <div class="surcharge-meta">
+                            <div class="surcharge-meta-item">
+                                <span class="surcharge-meta-label">List Price</span>
+                                <span class="surcharge-meta-value">$32.00</span>
+                            </div>
+                            <div class="surcharge-meta-item">
+                                <span class="surcharge-meta-label">Discount</span>
+                                <span class="surcharge-meta-value">70%</span>
+                            </div>
+                            <div class="surcharge-meta-item">
+                                <span class="surcharge-meta-label">Net Cost</span>
+                                <span class="surcharge-meta-value">$9.60</span>
+                            </div>
+                            <div class="surcharge-meta-item">
+                                <span class="surcharge-meta-label">Min Weight</span>
+                                <span class="surcharge-meta-value">30 lbs</span>
+                            </div>
+                        </div>
+                        <p><strong>Triggers when:</strong> weight &gt; 50 lbs OR longest &gt; 48" OR 2nd longest &gt; 30" OR cubic &gt; 8,640</p>
+                    </div>
+                </div>
+
+                <div id="delivery" class="tab-content">
+                    <p>Delivery area surcharges are <strong>mutually exclusive</strong> based on destination ZIP.</p>
+                    <p><span class="badge badge-purple">Priority Order:</span> EDAS (1) &gt; DAS (2)</p>
+
+                    <div class="surcharge-card">
+                        <div class="surcharge-header">
+                            <span class="surcharge-name">EDAS - Extended Delivery Area</span>
+                            <span class="badge badge-purple">Remote</span>
+                            <span class="badge badge-gray">Priority 1</span>
+                        </div>
+                        <div class="surcharge-meta">
+                            <div class="surcharge-meta-item">
+                                <span class="surcharge-meta-label">List Price</span>
+                                <span class="surcharge-meta-value">$8.30</span>
+                            </div>
+                            <div class="surcharge-meta-item">
+                                <span class="surcharge-meta-label">Discount</span>
+                                <span class="surcharge-meta-value">60%</span>
+                            </div>
+                            <div class="surcharge-meta-item">
+                                <span class="surcharge-meta-label">Net Cost</span>
+                                <span class="surcharge-meta-value">$3.32</span>
+                            </div>
+                        </div>
+                        <p><strong>Triggers when:</strong> das_zone == "EDAS"</p>
+                    </div>
+
+                    <div class="surcharge-card">
+                        <div class="surcharge-header">
+                            <span class="surcharge-name">DAS - Delivery Area Surcharge</span>
+                            <span class="badge badge-blue">Standard Remote</span>
+                            <span class="badge badge-gray">Priority 2</span>
+                        </div>
+                        <div class="surcharge-meta">
+                            <div class="surcharge-meta-item">
+                                <span class="surcharge-meta-label">List Price</span>
+                                <span class="surcharge-meta-value">$6.15</span>
+                            </div>
+                            <div class="surcharge-meta-item">
+                                <span class="surcharge-meta-label">Discount</span>
+                                <span class="surcharge-meta-value">60%</span>
+                            </div>
+                            <div class="surcharge-meta-item">
+                                <span class="surcharge-meta-label">Net Cost</span>
+                                <span class="surcharge-meta-value">$2.46</span>
+                            </div>
+                        </div>
+                        <p><strong>Triggers when:</strong> das_zone == "DAS"</p>
+                    </div>
+                </div>
+
+                <div id="allocated" class="tab-content">
+                    <p>Allocated surcharges are spread evenly across all shipments rather than applied per-shipment.</p>
+
+                    <div class="highlight highlight-info">
+                        <strong>Why Allocated?</strong> For residential deliveries, we cannot determine at ship time whether a specific address is residential or commercial. Historical data shows ~95% of deliveries are residential, so instead of guessing wrong on individual shipments, we spread the expected cost evenly across all shipments.
+                    </div>
+
+                    <div class="surcharge-card">
+                        <div class="surcharge-header">
+                            <span class="surcharge-name">RES - Residential</span>
+                            <span class="badge badge-green">Allocated</span>
+                        </div>
+                        <div class="surcharge-meta">
+                            <div class="surcharge-meta-item">
+                                <span class="surcharge-meta-label">List Price</span>
+                                <span class="surcharge-meta-value">$6.10</span>
+                            </div>
+                            <div class="surcharge-meta-item">
+                                <span class="surcharge-meta-label">Discount</span>
+                                <span class="surcharge-meta-value">90%</span>
+                            </div>
+                            <div class="surcharge-meta-item">
+                                <span class="surcharge-meta-label">Net Price</span>
+                                <span class="surcharge-meta-value">$0.61</span>
+                            </div>
+                            <div class="surcharge-meta-item">
+                                <span class="surcharge-meta-label">Allocation</span>
+                                <span class="surcharge-meta-value">95%</span>
+                            </div>
+                            <div class="surcharge-meta-item">
+                                <span class="surcharge-meta-label">Final Cost</span>
+                                <span class="surcharge-meta-value">$0.58/shipment</span>
+                            </div>
+                        </div>
+                        <p><strong>Applied to:</strong> ALL shipments (conditions always returns True)</p>
+                    </div>
+                </div>
+
+                <div id="demand" class="tab-content">
+                    <p>Demand surcharges are <strong>seasonal additions</strong> that depend on base surcharge flags.</p>
+
+                    <div class="highlight highlight-warning">
+                        <strong>Demand Period:</strong> Sept 27 - Jan 16 (DEM_AHS, DEM_LPS, DEM_OML) | Oct 25 - Jan 16 (DEM_RES)
+                    </div>
+
+                    <table>
+                        <tr>
+                            <th>Surcharge</th>
+                            <th>Depends On</th>
+                            <th>List Price</th>
+                            <th>Discount</th>
+                            <th>Net Cost</th>
+                        </tr>
+                        <tr>
+                            <td>DEM_RES</td>
+                            <td>RES flag + period</td>
+                            <td>$1.00</td>
+                            <td>50%</td>
+                            <td>$0.475 (allocated 95%)</td>
+                        </tr>
+                        <tr>
+                            <td>DEM_AHS</td>
+                            <td>AHS flag + period</td>
+                            <td>$11.00</td>
+                            <td>50%</td>
+                            <td>$5.50</td>
+                        </tr>
+                        <tr>
+                            <td>DEM_LPS</td>
+                            <td>LPS flag + period</td>
+                            <td>$105.00</td>
+                            <td>50%</td>
+                            <td>$52.50</td>
+                        </tr>
+                        <tr>
+                            <td>DEM_OML</td>
+                            <td>OML flag + period</td>
+                            <td>$550.00</td>
+                            <td>50%</td>
+                            <td>$275.00</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+
+            <h3>Exclusivity Algorithm</h3>
+            <div class="collapsible">
+                <div class="collapsible-header" onclick="toggleCollapsible(this)">
+                    <span>How Mutually Exclusive Surcharges Work</span>
+                    <span class="collapsible-chevron">&#9660;</span>
+                </div>
+                <div class="collapsible-content">
+                    <pre><code><span class="code-keyword">def</span> <span class="code-function">_apply_exclusive_group</span>(df, group_name):
+    <span class="code-string">"""
+    For each row:
+    1. Check surcharges in priority order (lowest number first)
+    2. Apply if conditions met AND no higher-priority already matched
+    3. Set exclusion mask to prevent lower-priority surcharges
+    """</span>
+    exclusion_mask = <span class="code-keyword">False</span>
+
+    <span class="code-keyword">for</span> surcharge <span class="code-keyword">in</span> sorted_by_priority:
+        flag = surcharge.conditions() & ~exclusion_mask
+        exclusion_mask = exclusion_mask | flag
+
+<span class="code-comment"># Example: Package weighing 160 lbs</span>
+<span class="code-comment"># - OML (priority 1) triggers (weight > 150) &#10004;</span>
+<span class="code-comment"># - exclusion_mask = True</span>
+<span class="code-comment"># - LPS (priority 2) blocked by exclusion_mask</span>
+<span class="code-comment"># - AHS (priority 3) blocked by exclusion_mask</span>
+<span class="code-comment"># Result: Only OML cost charged</span></code></pre>
+                </div>
+            </div>
+        </section>
+
+        <!-- Data Sources Section -->
+        <section id="data-sources">
+            <h2>Data Sources</h2>
+
+            <div class="grid grid-2">
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-icon blue">&#128202;</div>
+                        <h4>PCS Database</h4>
+                    </div>
+                    <p>Production system containing raw shipment records.</p>
+                    <ul>
+                        <li>Dimensions (mm &rarr; converted to inches)</li>
+                        <li>Weight (kg &rarr; converted to pounds)</li>
+                        <li>Origin production site (Phoenix/Columbus)</li>
+                        <li>Destination ZIP and state</li>
+                        <li>Created date (&rarr; ship_date = created + 2 days)</li>
+                    </ul>
+                    <p><code>ontrac/sources/pcs.py</code></p>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-icon green">&#127759;</div>
+                        <h4>Zone Mapping</h4>
+                    </div>
+                    <p>ZIP code to zone lookup with DAS classification.</p>
+                    <ul>
+                        <li>~1000s of ZIP codes</li>
+                        <li>Separate zones for PHX and CMH origins</li>
+                        <li>DAS status: "NO", "DAS", or "EDAS"</li>
+                        <li>Updated from invoice data periodically</li>
+                    </ul>
+                    <p><code>ontrac/data/zones.csv</code></p>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-icon orange">&#128176;</div>
+                        <h4>Base Rates</h4>
+                    </div>
+                    <p>Rate card with prices by weight bracket and zone.</p>
+                    <ul>
+                        <li>Weight brackets: 0-1, 1-2, 2-3, ... lbs</li>
+                        <li>Zones: 2 through 8</li>
+                        <li>Updated annually with contract renewal</li>
+                    </ul>
+                    <p><code>ontrac/data/base_rates.csv</code></p>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-icon purple">&#9981;</div>
+                        <h4>Configuration</h4>
+                    </div>
+                    <p>Python modules with pricing parameters.</p>
+                    <ul>
+                        <li><code>fuel.py</code>: 19.5% list, 35% discount = 12.675% net</li>
+                        <li><code>billable_weight.py</code>: DIM factor 250, threshold 1728</li>
+                        <li><code>version.py</code>: Calculator version stamp</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <!-- Zone Lookup Section -->
+        <section id="zone-lookup">
+            <h2>Zone Lookup</h2>
+
+            <p>Zone lookup uses a <strong>three-tier fallback</strong> system to maximize coverage while minimizing error impact.</p>
+
+            <div class="diagram">
+                <div class="flow-diagram">
+                    <div class="flow-box source">ZIP Code Input</div>
+                    <div class="flow-arrow">&darr;</div>
+                    <div class="flow-box decision">Exact ZIP Match?</div>
+                    <div style="display: flex; gap: 40px; align-items: flex-start;">
+                        <div style="display: flex; flex-direction: column; align-items: center;">
+                            <span style="color: var(--success);">Yes</span>
+                            <div class="flow-arrow">&darr;</div>
+                            <div class="flow-box process">Use ZIP Zone</div>
+                        </div>
+                        <div style="display: flex; flex-direction: column; align-items: center;">
+                            <span style="color: var(--danger);">No</span>
+                            <div class="flow-arrow">&darr;</div>
+                            <div class="flow-box decision">State Mode Available?</div>
+                            <div style="display: flex; gap: 40px; align-items: flex-start; margin-top: 8px;">
+                                <div style="display: flex; flex-direction: column; align-items: center;">
+                                    <span style="color: var(--success);">Yes</span>
+                                    <div class="flow-arrow">&darr;</div>
+                                    <div class="flow-box data">Use State Mode</div>
+                                </div>
+                                <div style="display: flex; flex-direction: column; align-items: center;">
+                                    <span style="color: var(--danger);">No</span>
+                                    <div class="flow-arrow">&darr;</div>
+                                    <div class="flow-box output">Default Zone 5</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="highlight highlight-info">
+                <strong>Origin Dependency:</strong> The same ZIP code has different zones depending on the origin warehouse. Phoenix (PHX) and Columbus (CMH) have separate zone columns in the mapping file because shipping distances vary by origin.
+            </div>
+
+            <h3>DAS Zone Classification</h3>
+            <table>
+                <tr><th>Value</th><th>Meaning</th><th>Surcharge</th></tr>
+                <tr><td>"NO"</td><td>Standard delivery area</td><td>None</td></tr>
+                <tr><td>"DAS"</td><td>Delivery Area Surcharge zone</td><td>$2.46</td></tr>
+                <tr><td>"EDAS"</td><td>Extended Delivery Area</td><td>$3.32</td></tr>
+            </table>
+        </section>
+
+        <!-- Billable Weight Section -->
+        <section id="billable-weight">
+            <h2>Billable Weight</h2>
+
+            <p>Billable weight determines the weight used for rate lookup. It accounts for both actual weight and dimensional (DIM) weight.</p>
+
+            <div class="card">
+                <h4>DIM Weight Calculation</h4>
+                <pre><code>DIM Factor = <span class="code-number">250</span> cubic inches per pound
+DIM Threshold = <span class="code-number">1728</span> cubic inches (1 cubic foot)
+
+<span class="code-keyword">if</span> cubic_in > <span class="code-number">1728</span>:
+    dim_weight = cubic_in / <span class="code-number">250</span>
+    uses_dim = dim_weight > actual_weight
+    billable_weight = <span class="code-function">max</span>(actual_weight, dim_weight)
+<span class="code-keyword">else</span>:
+    billable_weight = actual_weight</code></pre>
+            </div>
+
+            <h3>Minimum Billable Weight Enforcement</h3>
+            <p>Certain surcharges enforce minimum billable weights:</p>
+            <table>
+                <tr><th>Surcharge</th><th>Minimum</th><th>Effect</th></tr>
+                <tr><td>OML</td><td>150 lbs</td><td>If OML triggers & weight < 150, use 150 lbs for rate lookup</td></tr>
+                <tr><td>LPS</td><td>90 lbs</td><td>If LPS triggers & weight < 90, use 90 lbs</td></tr>
+                <tr><td>AHS</td><td>30 lbs</td><td>If AHS triggers & weight < 30, use 30 lbs</td></tr>
+            </table>
+        </section>
+
+        <!-- Base Rates Section -->
+        <section id="base-rates">
+            <h2>Base Rates</h2>
+
+            <p>Base rates are stored in a CSV matrix and transformed for efficient lookup.</p>
+
+            <div class="collapsible">
+                <div class="collapsible-header" onclick="toggleCollapsible(this)">
+                    <span>Sample Rate Card Structure</span>
+                    <span class="collapsible-chevron">&#9660;</span>
+                </div>
+                <div class="collapsible-content">
+                    <table>
+                        <tr>
+                            <th>Weight (lbs)</th>
+                            <th>Zone 2</th>
+                            <th>Zone 3</th>
+                            <th>Zone 4</th>
+                            <th>Zone 5</th>
+                            <th>Zone 6</th>
+                            <th>Zone 7</th>
+                            <th>Zone 8</th>
+                        </tr>
+                        <tr><td>0-1</td><td>$4.00</td><td>$4.00</td><td>$4.21</td><td>$4.21</td><td>$4.41</td><td>$4.52</td><td>$4.68</td></tr>
+                        <tr><td>1-2</td><td>$4.00</td><td>$4.41</td><td>$4.81</td><td>$4.81</td><td>$5.06</td><td>$5.22</td><td>$5.42</td></tr>
+                        <tr><td>2-3</td><td>$4.29</td><td>$4.79</td><td>$5.27</td><td>$5.47</td><td>$5.72</td><td>$5.93</td><td>$6.18</td></tr>
+                        <tr><td colspan="8" style="text-align: center; color: var(--text-muted);">... continues to 150+ lbs</td></tr>
+                    </table>
+                </div>
+            </div>
+
+            <h3>Lookup Process</h3>
+            <ol>
+                <li>Transform CSV from wide to long format (zone, weight_lower, weight_upper, rate)</li>
+                <li>Join shipment data on <code>shipping_zone</code> and <code>billable_weight_lbs</code> bracket</li>
+                <li>Result: <code>cost_base</code> column added to DataFrame</li>
+            </ol>
+        </section>
+
+        <!-- Fuel Section -->
+        <section id="fuel">
+            <h2>Fuel Surcharge</h2>
+
+            <div class="card">
+                <h4>Current Configuration</h4>
+                <div class="surcharge-meta">
+                    <div class="surcharge-meta-item">
+                        <span class="surcharge-meta-label">List Rate</span>
+                        <span class="surcharge-meta-value">19.5%</span>
+                    </div>
+                    <div class="surcharge-meta-item">
+                        <span class="surcharge-meta-label">Contract Discount</span>
+                        <span class="surcharge-meta-value">35%</span>
+                    </div>
+                    <div class="surcharge-meta-item">
+                        <span class="surcharge-meta-label">Net Rate</span>
+                        <span class="surcharge-meta-value">12.675%</span>
+                    </div>
+                </div>
+
+                <pre><code><span class="code-comment"># Applied to subtotal (base + all surcharges)</span>
+cost_subtotal = cost_base + cost_oml + cost_lps + ...
+cost_fuel = cost_subtotal * <span class="code-number">0.12675</span>
+cost_total = cost_subtotal + cost_fuel</code></pre>
+            </div>
+
+            <div class="highlight highlight-warning">
+                <strong>Update Frequency:</strong> Fuel rates change weekly based on market prices. The current rate should be verified against the OnTrac website and updated in <code>ontrac/data/fuel.py</code>.
+            </div>
+        </section>
+
+        <!-- Scripts Section -->
+        <section id="scripts">
+            <h2>CLI Scripts</h2>
+
+            <div class="card">
+                <h4>Interactive Calculator</h4>
+                <pre><code>python -m ontrac.scripts.calculator</code></pre>
+                <p>CLI tool for calculating cost of a single shipment. Prompts for dimensions, weight, destination, and displays detailed cost breakdown.</p>
+            </div>
+
+            <div class="card">
+                <h4>Upload Expected Costs</h4>
+                <pre><code><span class="code-comment"># Full recalculation from 2025-01-01</span>
+python -m ontrac.scripts.upload_expected --full
+
+<span class="code-comment"># Incremental from latest date in database</span>
+python -m ontrac.scripts.upload_expected --incremental
+
+<span class="code-comment"># Last N days</span>
+python -m ontrac.scripts.upload_expected --days 7
+
+<span class="code-comment"># Preview without changes</span>
+python -m ontrac.scripts.upload_expected --dry-run</code></pre>
+                <p>Batch upload calculated expected costs to Redshift database.</p>
+            </div>
+
+            <div class="card">
+                <h4>Compare Expected vs Actual</h4>
+                <pre><code><span class="code-comment"># All data</span>
+python -m ontrac.scripts.compare_expected_to_actuals
+
+<span class="code-comment"># Specific invoice</span>
+python -m ontrac.scripts.compare_expected_to_actuals --invoice INV-12345
+
+<span class="code-comment"># Date range</span>
+python -m ontrac.scripts.compare_expected_to_actuals --date_from 2025-01-01 --date_to 2025-01-31</code></pre>
+                <p>Generate HTML accuracy reports comparing calculated vs actual invoice costs.</p>
+            </div>
+        </section>
+
+        <!-- Database Section -->
+        <section id="database">
+            <h2>Database Operations</h2>
+
+            <div class="card">
+                <h4>Connection Details</h4>
+                <table>
+                    <tr><td>Host</td><td><code>bi.c5lrs7vtwcpl.eu-central-1.redshift.amazonaws.com</code></td></tr>
+                    <tr><td>Port</td><td>5439</td></tr>
+                    <tr><td>Database</td><td>bi_stage_dev</td></tr>
+                    <tr><td>User</td><td>tcg_nfe</td></tr>
+                    <tr><td>Password</td><td><code>shared/database/pass.txt</code> (not in git)</td></tr>
+                </table>
+            </div>
+
+            <h3>Core Functions</h3>
+            <pre><code><span class="code-keyword">from</span> shared.database <span class="code-keyword">import</span> pull_data, push_data, execute_query
+
+<span class="code-comment"># Read data from database</span>
+df = <span class="code-function">pull_data</span>(<span class="code-string">"SELECT * FROM table"</span>, as_polars=<span class="code-keyword">True</span>)
+
+<span class="code-comment"># Upload DataFrame to table</span>
+<span class="code-function">push_data</span>(df, <span class="code-string">"table_name"</span>, if_exists=<span class="code-string">"append"</span>)
+
+<span class="code-comment"># Execute modification query</span>
+<span class="code-function">execute_query</span>(<span class="code-string">"DELETE FROM table WHERE date < '2025-01-01'"</span>)</code></pre>
+        </section>
+
+        <!-- Maintenance Section -->
+        <section id="maintenance">
+            <h2>Maintenance</h2>
+
+            <h3>Configuration Update Workflows</h3>
+
+            <div class="collapsible">
+                <div class="collapsible-header" onclick="toggleCollapsible(this)">
+                    <span>Zone Updates (Monthly/Quarterly)</span>
+                    <span class="collapsible-chevron">&#9660;</span>
+                </div>
+                <div class="collapsible-content">
+                    <ol>
+                        <li>Run <code>python -m ontrac.maintenance.generate_zones --start-date 2025-01-01</code></li>
+                        <li>Script analyzes invoice data to find mode zones per ZIP</li>
+                        <li>Archives old zones.csv with timestamp</li>
+                        <li>Merges updated values (keeps original where no invoice data)</li>
+                        <li>Run tests: <code>pytest</code></li>
+                        <li>Upload: <code>python -m ontrac.scripts.upload_expected --incremental</code></li>
+                    </ol>
+                </div>
+            </div>
+
+            <div class="collapsible">
+                <div class="collapsible-header" onclick="toggleCollapsible(this)">
+                    <span>Base Rates Update (Annual)</span>
+                    <span class="collapsible-chevron">&#9660;</span>
+                </div>
+                <div class="collapsible-content">
+                    <ol>
+                        <li>Receive new rate card from OnTrac contract</li>
+                        <li>Update <code>ontrac/data/base_rates.csv</code></li>
+                        <li>Update version in <code>ontrac/version.py</code></li>
+                        <li>Run tests: <code>pytest</code></li>
+                        <li>Full recalculation: <code>python -m ontrac.scripts.upload_expected --full</code></li>
+                    </ol>
+                </div>
+            </div>
+
+            <div class="collapsible">
+                <div class="collapsible-header" onclick="toggleCollapsible(this)">
+                    <span>Fuel Rate Update (Weekly)</span>
+                    <span class="collapsible-chevron">&#9660;</span>
+                </div>
+                <div class="collapsible-content">
+                    <ol>
+                        <li>Check OnTrac website for current fuel rate</li>
+                        <li>Update <code>LIST_RATE</code> in <code>ontrac/data/fuel.py</code></li>
+                        <li>Calculate new <code>RATE = LIST_RATE * (1 - DISCOUNT)</code></li>
+                        <li>Update version in <code>ontrac/version.py</code></li>
+                        <li>Upload: <code>python -m ontrac.scripts.upload_expected --incremental</code></li>
+                    </ol>
+                </div>
+            </div>
+
+            <div class="collapsible">
+                <div class="collapsible-header" onclick="toggleCollapsible(this)">
+                    <span>Surcharge Pricing Change</span>
+                    <span class="collapsible-chevron">&#9660;</span>
+                </div>
+                <div class="collapsible-content">
+                    <ol>
+                        <li>Identify changed surcharge in contract</li>
+                        <li>Update surcharge class in <code>ontrac/surcharges/</code></li>
+                        <li>Modify <code>list_price</code>, <code>discount</code>, or <code>allocation_rate</code></li>
+                        <li>Update version</li>
+                        <li>Run tests and upload</li>
+                    </ol>
+                </div>
+            </div>
+        </section>
+
+        <!-- Data Flow Section -->
+        <section id="data-flow">
+            <h2>Complete Data Flow</h2>
+
+            <div class="diagram">
+                <div class="diagram-title">End-to-End Processing Pipeline</div>
+                <div class="flow-diagram">
+                    <div class="flow-box source">PCS Database</div>
+                    <div class="flow-label">pcs_shipments.sql (mm&rarr;in, kg&rarr;lbs)</div>
+                    <div class="flow-arrow">&darr;</div>
+
+                    <div class="flow-box data">Raw Shipment DataFrame</div>
+                    <div class="flow-label">supplement_shipments()</div>
+                    <div class="flow-arrow">&darr;</div>
+
+                    <div class="flow-box process">+ Calculated Dimensions</div>
+                    <div class="flow-label">cubic_in, longest_side, length_plus_girth</div>
+                    <div class="flow-arrow">&darr;</div>
+
+                    <div class="flow-box process">+ Zone Information</div>
+                    <div class="flow-label">3-tier lookup: ZIP &rarr; State Mode &rarr; Default 5</div>
+                    <div class="flow-arrow">&darr;</div>
+
+                    <div class="flow-box process">+ Billable Weight</div>
+                    <div class="flow-label">DIM factor 250, threshold 1728</div>
+                    <div class="flow-arrow">&darr;</div>
+
+                    <div class="flow-box data">Supplemented DataFrame</div>
+                    <div class="flow-label">calculate()</div>
+                    <div class="flow-arrow">&darr;</div>
+
+                    <div class="flow-box process">Phase 1: Base Surcharges</div>
+                    <div class="flow-label">OML/LPS/AHS (exclusive), DAS/EDAS (exclusive), RES</div>
+                    <div class="flow-arrow">&darr;</div>
+
+                    <div class="flow-box process">Phase 2: Dependent Surcharges</div>
+                    <div class="flow-label">DEM_* (check base flags + demand period)</div>
+                    <div class="flow-arrow">&darr;</div>
+
+                    <div class="flow-box process">Phase 3: Min Billable Weight</div>
+                    <div class="flow-label">Enforce OML&rarr;150, LPS&rarr;90, AHS&rarr;30</div>
+                    <div class="flow-arrow">&darr;</div>
+
+                    <div class="flow-box process">Phase 4: Base Rate Lookup</div>
+                    <div class="flow-label">Join (zone, weight bracket) &rarr; cost_base</div>
+                    <div class="flow-arrow">&darr;</div>
+
+                    <div class="flow-box process">Phase 5-6: Costs & Fuel</div>
+                    <div class="flow-label">subtotal + fuel (12.675%) = total</div>
+                    <div class="flow-arrow">&darr;</div>
+
+                    <div class="flow-box output">Final DataFrame</div>
+                    <div class="flow-label">push_data()</div>
+                    <div class="flow-arrow">&darr;</div>
+
+                    <div class="flow-box source">Redshift: expected_shipping_costs_ontrac</div>
+                    <div class="flow-arrow">&darr;</div>
+
+                    <div class="flow-box decision">JOIN with actual_shipping_costs</div>
+                    <div class="flow-arrow">&darr;</div>
+
+                    <div class="flow-box output">Accuracy Report (HTML)</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Interactive Demo Section -->
+        <section id="demo">
+            <h2>Interactive Demo</h2>
+
+            <p>Try the cost calculation logic interactively. This demonstrates the same calculations performed by the Python pipeline.</p>
+
+            <div class="interactive-demo">
+                <h4>Shipment Details</h4>
+                <div class="demo-input">
+                    <div class="demo-field">
+                        <label>Length (inches)</label>
+                        <input type="number" id="length" value="24" min="1">
+                    </div>
+                    <div class="demo-field">
+                        <label>Width (inches)</label>
+                        <input type="number" id="width" value="18" min="1">
+                    </div>
+                    <div class="demo-field">
+                        <label>Height (inches)</label>
+                        <input type="number" id="height" value="12" min="1">
+                    </div>
+                    <div class="demo-field">
+                        <label>Weight (lbs)</label>
+                        <input type="number" id="weight" value="15" min="0.1" step="0.1">
+                    </div>
+                    <div class="demo-field">
+                        <label>Zone</label>
+                        <select id="zone">
+                            <option value="2">Zone 2</option>
+                            <option value="3">Zone 3</option>
+                            <option value="4">Zone 4</option>
+                            <option value="5" selected>Zone 5</option>
+                            <option value="6">Zone 6</option>
+                            <option value="7">Zone 7</option>
+                            <option value="8">Zone 8</option>
+                        </select>
+                    </div>
+                    <div class="demo-field">
+                        <label>DAS Zone</label>
+                        <select id="das">
+                            <option value="NO" selected>NO (Standard)</option>
+                            <option value="DAS">DAS</option>
+                            <option value="EDAS">EDAS</option>
+                        </select>
+                    </div>
+                    <div class="demo-field">
+                        <label>Demand Period</label>
+                        <select id="demand">
+                            <option value="no" selected>No (Standard)</option>
+                            <option value="yes">Yes (Peak Season)</option>
+                        </select>
+                    </div>
+                </div>
+                <button class="demo-button" onclick="calculateCost()">Calculate Cost</button>
+
+                <div class="demo-result" id="result" style="display: none;">
+                    <!-- Results will be inserted here -->
+                </div>
+            </div>
+        </section>
+
+        <!-- Design Decisions Section -->
+        <section id="decisions">
+            <h2>Key Design Decisions</h2>
+
+            <div class="card">
+                <h4>1. Two-Stage Pipeline</h4>
+                <p><strong>Decision:</strong> Separate supplement_shipments() from calculate()</p>
+                <p><strong>Rationale:</strong> Separation of concerns allows reuse of supplemented data, enables separate testing, and makes debugging easier when issues arise in either stage.</p>
+            </div>
+
+            <div class="card">
+                <h4>2. Polars DataFrames</h4>
+                <p><strong>Decision:</strong> Use Polars instead of Pandas</p>
+                <p><strong>Rationale:</strong> Polars provides faster vectorized operations, better memory efficiency for large datasets, and expression-based API that maps well to surcharge condition logic.</p>
+            </div>
+
+            <div class="card">
+                <h4>3. Three-Tier Zone Fallback</h4>
+                <p><strong>Decision:</strong> ZIP exact match &rarr; State mode &rarr; Default zone 5</p>
+                <p><strong>Rationale:</strong> Maximizes coverage while minimizing worst-case error. Zone 5 is middle ground that won't wildly over/under-estimate costs for unknown ZIPs.</p>
+            </div>
+
+            <div class="card">
+                <h4>4. Allocated Residential Surcharge</h4>
+                <p><strong>Decision:</strong> Spread RES cost evenly at 95% instead of per-shipment prediction</p>
+                <p><strong>Rationale:</strong> We cannot determine residential vs commercial at ship time. Historical data shows ~95% residential. Spreading the expected cost evenly is more accurate than binary guessing.</p>
+            </div>
+
+            <div class="card">
+                <h4>5. Exclusivity Groups</h4>
+                <p><strong>Decision:</strong> Only one surcharge per group applies (highest priority wins)</p>
+                <p><strong>Rationale:</strong> Matches carrier billing logic - a package can't be charged both LPS and AHS since they're related size-based fees. Priority system ensures predictable behavior.</p>
+            </div>
+
+            <div class="card">
+                <h4>6. Two-Phase Surcharge Processing</h4>
+                <p><strong>Decision:</strong> BASE surcharges first, then DEPENDENT surcharges</p>
+                <p><strong>Rationale:</strong> Demand surcharges reference base surcharge flags. Processing in phases ensures flags exist before they're referenced.</p>
+            </div>
+
+            <div class="card">
+                <h4>7. Version Stamping</h4>
+                <p><strong>Decision:</strong> Stamp all output with calculator version</p>
+                <p><strong>Rationale:</strong> Essential for audit trail. When comparing expected vs actual, we need to know which version of rates/rules produced the expected values.</p>
+            </div>
+        </section>
+
+        <!-- New Carrier Section -->
+        <section id="new-carrier">
+            <h2>Adding New Carriers</h2>
+
+            <p>The architecture is designed to support additional carriers. Here's how to implement a calculator for a new carrier.</p>
+
+            <div class="highlight highlight-success">
+                <strong>Key Principle:</strong> Each carrier gets its own directory under the root, following the same structure as <code>ontrac/</code>. Shared components live in <code>shared/</code>.
+            </div>
+
+            <h3>Implementation Steps</h3>
+
+            <div class="timeline">
+                <div class="timeline-item">
+                    <div class="timeline-title">1. Create Carrier Directory Structure</div>
+                    <div class="timeline-desc">
+                        <pre><code>newcarrier/
+&#9500;&#9472;&#9472; calculate_costs.py    <span class="code-comment"># Main orchestrator</span>
+&#9500;&#9472;&#9472; version.py             <span class="code-comment"># Version stamp</span>
+&#9500;&#9472;&#9472; data/
+&#9474;   &#9500;&#9472;&#9472; zones.csv          <span class="code-comment"># Carrier-specific zones</span>
+&#9474;   &#9500;&#9472;&#9472; base_rates.csv     <span class="code-comment"># Carrier rate card</span>
+&#9474;   &#9492;&#9472;&#9472; fuel.py            <span class="code-comment"># Fuel config</span>
+&#9500;&#9472;&#9472; surcharges/            <span class="code-comment"># Carrier-specific surcharges</span>
+&#9500;&#9472;&#9472; sources/               <span class="code-comment"># Data loaders</span>
+&#9492;&#9472;&#9472; scripts/               <span class="code-comment"># CLI tools</span></code></pre>
+                    </div>
+                </div>
+
+                <div class="timeline-item">
+                    <div class="timeline-title">2. Define Surcharges</div>
+                    <div class="timeline-desc">
+                        Create classes inheriting from <code>shared.surcharges.Surcharge</code>:
+                        <ul>
+                            <li>Set <code>name</code>, <code>list_price</code>, <code>discount</code></li>
+                            <li>Configure <code>exclusivity_group</code> and <code>priority</code> if mutually exclusive</li>
+                            <li>Override <code>conditions()</code> with Polars expression for trigger logic</li>
+                            <li>Set <code>min_billable_weight</code> if applicable</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="timeline-item">
+                    <div class="timeline-title">3. Configure Data Sources</div>
+                    <div class="timeline-desc">
+                        <ul>
+                            <li>Create rate card CSV with carrier's pricing structure</li>
+                            <li>Build zone mapping (may differ significantly from OnTrac)</li>
+                            <li>Configure fuel surcharge rates</li>
+                            <li>Define billable weight rules (DIM factor varies by carrier)</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="timeline-item">
+                    <div class="timeline-title">4. Implement calculate_costs.py</div>
+                    <div class="timeline-desc">
+                        Follow the two-stage pattern:
+                        <ul>
+                            <li><code>supplement_shipments(df)</code> - Enrich with zones, dimensions, weights</li>
+                            <li><code>calculate(df)</code> - Apply surcharges, lookup rates, calculate totals</li>
+                            <li><code>calculate_costs(df)</code> - Orchestrator combining both stages</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="timeline-item">
+                    <div class="timeline-title">5. Adapt Scripts</div>
+                    <div class="timeline-desc">
+                        Copy and modify scripts from <code>ontrac/scripts/</code>:
+                        <ul>
+                            <li>Update imports to use new carrier module</li>
+                            <li>Adjust database table names</li>
+                            <li>Modify comparison reports for carrier-specific metrics</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="timeline-item">
+                    <div class="timeline-title">6. Write Tests</div>
+                    <div class="timeline-desc">
+                        Create comprehensive tests covering:
+                        <ul>
+                            <li>Each surcharge's trigger conditions</li>
+                            <li>Exclusivity group behavior</li>
+                            <li>Rate lookup accuracy</li>
+                            <li>End-to-end cost calculations</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <h3>Carrier-Specific Considerations</h3>
+
+            <table>
+                <tr><th>Component</th><th>What May Vary</th></tr>
+                <tr><td>Zones</td><td>Different zone definitions, origin points, zone counts</td></tr>
+                <tr><td>DIM Factor</td><td>FedEx uses 139, UPS uses 139, OnTrac uses 250</td></tr>
+                <tr><td>Surcharges</td><td>Different fees, thresholds, exclusivity rules</td></tr>
+                <tr><td>Fuel</td><td>Different base rates, calculation methods</td></tr>
+                <tr><td>Minimums</td><td>Different minimum charges and weight requirements</td></tr>
+            </table>
+
+            <h3>Reusable Components</h3>
+
+            <div class="grid grid-2">
+                <div class="card">
+                    <h4>From <code>shared/</code></h4>
+                    <ul>
+                        <li><code>database/</code> - All DB operations</li>
+                        <li><code>surcharges/base.py</code> - Surcharge ABC</li>
+                        <li><code>sql/</code> - Generic SQL patterns</li>
+                    </ul>
+                </div>
+                <div class="card">
+                    <h4>Patterns to Follow</h4>
+                    <ul>
+                        <li>Two-stage pipeline structure</li>
+                        <li>Exclusivity group handling</li>
+                        <li>Version stamping</li>
+                        <li>Test organization</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <footer style="margin-top: 60px; padding-top: 20px; border-top: 1px solid var(--border); color: var(--text-muted); font-size: 0.875rem;">
+            <p>OnTrac Shipping Cost Calculator Documentation - Version 2025.12.05</p>
+            <p>Generated for internal technical reference</p>
+        </footer>
+    </main>
+
+    <script>
+        // Tab functionality
+        function showTab(event, tabId) {
+            const container = event.target.closest('.tabs');
+
+            container.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
+            container.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+
+            event.target.classList.add('active');
+            container.querySelector('#' + tabId).classList.add('active');
+        }
+
+        // Collapsible functionality
+        function toggleCollapsible(header) {
+            header.classList.toggle('active');
+            const content = header.nextElementSibling;
+            content.classList.toggle('show');
+        }
+
+        // Navigation highlighting
+        document.addEventListener('scroll', function() {
+            const sections = document.querySelectorAll('section');
+            const navLinks = document.querySelectorAll('.nav-link');
+
+            let current = '';
+            sections.forEach(section => {
+                const sectionTop = section.offsetTop;
+                if (scrollY >= sectionTop - 100) {
+                    current = section.getAttribute('id');
+                }
+            });
+
+            navLinks.forEach(link => {
+                link.classList.remove('active');
+                if (link.getAttribute('href') === '#' + current) {
+                    link.classList.add('active');
+                }
+            });
+        });
+
+        // Interactive demo calculator
+        function calculateCost() {
+            const length = parseFloat(document.getElementById('length').value);
+            const width = parseFloat(document.getElementById('width').value);
+            const height = parseFloat(document.getElementById('height').value);
+            const weight = parseFloat(document.getElementById('weight').value);
+            const zone = parseInt(document.getElementById('zone').value);
+            const das = document.getElementById('das').value;
+            const inDemand = document.getElementById('demand').value === 'yes';
+
+            // Calculate dimensions
+            const cubicIn = length * width * height;
+            const dims = [length, width, height].sort((a, b) => b - a);
+            const longest = dims[0];
+            const secondLongest = dims[1];
+            const lengthPlusGirth = longest + 2 * (dims[1] + dims[2]);
+
+            // DIM weight
+            const dimThreshold = 1728;
+            const dimFactor = 250;
+            let dimWeight = 0;
+            let usesDim = false;
+            let billableWeight = weight;
+
+            if (cubicIn > dimThreshold) {
+                dimWeight = cubicIn / dimFactor;
+                if (dimWeight > weight) {
+                    usesDim = true;
+                    billableWeight = dimWeight;
+                }
+            }
+
+            // Surcharges
+            const surcharges = {
+                oml: { triggered: false, cost: 0, minWeight: 150 },
+                lps: { triggered: false, cost: 0, minWeight: 90 },
+                ahs: { triggered: false, cost: 0, minWeight: 30 },
+                das: { triggered: false, cost: 0 },
+                edas: { triggered: false, cost: 0 },
+                res: { triggered: true, cost: 0.61 * 0.95 },
+                dem_res: { triggered: false, cost: 0 },
+                dem_ahs: { triggered: false, cost: 0 },
+                dem_lps: { triggered: false, cost: 0 },
+                dem_oml: { triggered: false, cost: 0 }
+            };
+
+            // Dimensional exclusivity (OML > LPS > AHS)
+            if (weight > 150 || longest > 108 || lengthPlusGirth > 165) {
+                surcharges.oml.triggered = true;
+                surcharges.oml.cost = 1300;
+            } else if (longest > 72 || cubicIn > 17280) {
+                surcharges.lps.triggered = true;
+                surcharges.lps.cost = 260 * 0.4; // 60% discount
+            } else if (weight > 50 || longest > 48 || secondLongest > 30 || cubicIn > 8640) {
+                surcharges.ahs.triggered = true;
+                surcharges.ahs.cost = 32 * 0.3; // 70% discount
+            }
+
+            // Delivery area exclusivity (EDAS > DAS)
+            if (das === 'EDAS') {
+                surcharges.edas.triggered = true;
+                surcharges.edas.cost = 8.30 * 0.4;
+            } else if (das === 'DAS') {
+                surcharges.das.triggered = true;
+                surcharges.das.cost = 6.15 * 0.4;
+            }
+
+            // Demand surcharges
+            if (inDemand) {
+                surcharges.dem_res.triggered = true;
+                surcharges.dem_res.cost = 1.00 * 0.5 * 0.95;
+
+                if (surcharges.ahs.triggered) {
+                    surcharges.dem_ahs.triggered = true;
+                    surcharges.dem_ahs.cost = 11.00 * 0.5;
+                }
+                if (surcharges.lps.triggered) {
+                    surcharges.dem_lps.triggered = true;
+                    surcharges.dem_lps.cost = 105.00 * 0.5;
+                }
+                if (surcharges.oml.triggered) {
+                    surcharges.dem_oml.triggered = true;
+                    surcharges.dem_oml.cost = 550.00 * 0.5;
+                }
+            }
+
+            // Apply minimum billable weights
+            let effectiveWeight = billableWeight;
+            if (surcharges.oml.triggered && billableWeight < 150) {
+                effectiveWeight = 150;
+            } else if (surcharges.lps.triggered && billableWeight < 90) {
+                effectiveWeight = 90;
+            } else if (surcharges.ahs.triggered && billableWeight < 30) {
+                effectiveWeight = 30;
+            }
+
+            // Base rate lookup (simplified - real implementation uses CSV)
+            const baseRates = {
+                2: { base: 4.00, perLb: 0.15 },
+                3: { base: 4.00, perLb: 0.20 },
+                4: { base: 4.21, perLb: 0.25 },
+                5: { base: 4.21, perLb: 0.30 },
+                6: { base: 4.41, perLb: 0.35 },
+                7: { base: 4.52, perLb: 0.40 },
+                8: { base: 4.68, perLb: 0.45 }
+            };
+
+            const zoneRate = baseRates[zone];
+            const costBase = zoneRate.base + (Math.ceil(effectiveWeight) - 1) * zoneRate.perLb;
+
+            // Calculate totals
+            const surchargeTotal = Object.values(surcharges).reduce((sum, s) => sum + (s.triggered ? s.cost : 0), 0);
+            const costSubtotal = costBase + surchargeTotal;
+            const fuelRate = 0.12675;
+            const costFuel = costSubtotal * fuelRate;
+            const costTotal = costSubtotal + costFuel;
+
+            // Build result HTML
+            let html = `
+                <h4>Calculation Results</h4>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                    <div>
+                        <h5>Dimensions</h5>
+                        <table style="font-size: 0.85rem;">
+                            <tr><td>Cubic Inches</td><td><strong>${cubicIn.toLocaleString()}</strong></td></tr>
+                            <tr><td>Longest Side</td><td>${longest}"</td></tr>
+                            <tr><td>2nd Longest</td><td>${secondLongest}"</td></tr>
+                            <tr><td>Length + Girth</td><td>${lengthPlusGirth}"</td></tr>
+                        </table>
+
+                        <h5 style="margin-top: 16px;">Weight</h5>
+                        <table style="font-size: 0.85rem;">
+                            <tr><td>Actual Weight</td><td>${weight} lbs</td></tr>
+                            <tr><td>DIM Weight</td><td>${dimWeight.toFixed(1)} lbs</td></tr>
+                            <tr><td>Uses DIM</td><td>${usesDim ? 'Yes' : 'No'}</td></tr>
+                            <tr><td>Billable Weight</td><td><strong>${billableWeight.toFixed(1)} lbs</strong></td></tr>
+                            ${effectiveWeight !== billableWeight ? `<tr><td>After Min Enforcement</td><td><strong>${effectiveWeight} lbs</strong></td></tr>` : ''}
+                        </table>
+                    </div>
+                    <div>
+                        <h5>Surcharges Applied</h5>
+                        <table style="font-size: 0.85rem;">
+                            ${Object.entries(surcharges).filter(([_, s]) => s.triggered).map(([name, s]) =>
+                                `<tr><td>${name.toUpperCase()}</td><td>$${s.cost.toFixed(2)}</td></tr>`
+                            ).join('')}
+                        </table>
+
+                        <h5 style="margin-top: 16px;">Cost Breakdown</h5>
+                        <table style="font-size: 0.85rem;">
+                            <tr><td>Base Rate (Zone ${zone})</td><td>$${costBase.toFixed(2)}</td></tr>
+                            <tr><td>Surcharges</td><td>$${surchargeTotal.toFixed(2)}</td></tr>
+                            <tr><td>Subtotal</td><td>$${costSubtotal.toFixed(2)}</td></tr>
+                            <tr><td>Fuel (12.675%)</td><td>$${costFuel.toFixed(2)}</td></tr>
+                            <tr style="background: #f0fdf4;"><td><strong>TOTAL</strong></td><td><strong>$${costTotal.toFixed(2)}</strong></td></tr>
+                        </table>
+                    </div>
+                </div>
+            `;
+
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = html;
+            resultDiv.style.display = 'block';
+        }
+
+        // Smooth scroll for navigation
+        document.querySelectorAll('.nav-link').forEach(link => {
+            link.addEventListener('click', function(e) {
+                e.preventDefault();
+                const targetId = this.getAttribute('href').substring(1);
+                const targetElement = document.getElementById(targetId);
+                targetElement.scrollIntoView({ behavior: 'smooth' });
+            });
+        });
+    </script>
+</body>
+</html>

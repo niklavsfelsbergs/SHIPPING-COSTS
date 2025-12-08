@@ -33,7 +33,7 @@ EXPECTED_TABLE = "shipping_costs.expected_shipping_costs_ontrac"
 ACTUAL_TABLE = "shipping_costs.actual_shipping_costs_ontrac"
 
 SQL_DIR = Path(__file__).parent / "sql"
-OUTPUT_DIR = Path(__file__).parent.parent / "output" / "accuracy_reports"
+OUTPUT_DIR = Path(__file__).parent / "output" / "accuracy_reports"
 
 # Deterministic surcharges (have specific triggering conditions)
 DETERMINISTIC_SURCHARGES = ["oml", "lps", "ahs", "das", "edas"]

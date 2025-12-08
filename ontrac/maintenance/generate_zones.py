@@ -26,12 +26,12 @@ from pathlib import Path
 import polars as pl
 
 from shared.database import pull_data
-from ontrac.data import load_zones, DATA_DIR
+from ontrac.data import load_zones, REFERENCE_DIR
 
 
 SQL_FILE = Path(__file__).parent / "sql" / "zone_analysis.sql"
-ZONES_FILE = DATA_DIR / "zones.csv"
-ARCHIVE_DIR = DATA_DIR / "archive"
+ZONES_FILE = REFERENCE_DIR / "zones.csv"
+ARCHIVE_DIR = REFERENCE_DIR / "archive"
 
 
 def load_invoice_data(start_date: str | None = None, end_date: str | None = None) -> pl.DataFrame:

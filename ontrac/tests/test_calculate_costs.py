@@ -314,7 +314,7 @@ class TestCostCalculations:
 
     def test_fuel_calculation(self, base_shipment):
         """Fuel should be subtotal * FUEL_RATE."""
-        from ontrac.data.fuel import RATE as FUEL_RATE
+        from ontrac.data.reference.fuel import RATE as FUEL_RATE
         df = run_pipeline(base_shipment)
         expected_fuel = df["cost_subtotal"][0] * FUEL_RATE
         assert df["cost_fuel"][0] == pytest.approx(expected_fuel)

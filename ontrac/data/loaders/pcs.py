@@ -10,7 +10,8 @@ from typing import Optional
 import sys
 
 # Add root directory to path for shared imports
-ROOT_DIR = Path(__file__).parent.parent.parent
+# Path: ontrac/data/loaders/pcs.py -> SHIPPING-COSTS (4 levels up)
+ROOT_DIR = Path(__file__).parent.parent.parent.parent
 sys.path.insert(0, str(ROOT_DIR))
 from shared.database import pull_data
 
