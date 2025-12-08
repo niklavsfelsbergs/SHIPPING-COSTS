@@ -28,8 +28,8 @@ ROOT_DIR = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(ROOT_DIR))
 
 from shared.database import pull_data, execute_query, push_data
-from ontrac.loaders import load_pcs_shipments, DEFAULT_START_DATE, DEFAULT_PRODUCTION_SITES
-from ontrac.core import supplement_shipments, calculate
+from ontrac.sources import load_pcs_shipments, DEFAULT_START_DATE, DEFAULT_PRODUCTION_SITES
+from ontrac.pipeline import supplement_shipments, calculate
 
 
 # =============================================================================

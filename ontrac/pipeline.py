@@ -1,21 +1,188 @@
 """
-Calculate Shipping Costs
+OnTrac Shipping Cost Pipeline
 
-Main orchestrator that applies surcharges and calculates costs.
+Two-stage pipeline:
+1. supplement_shipments() - Enrich with zones, dimensions, billable weight
+2. calculate() - Apply surcharges and calculate costs
 """
 
 import polars as pl
 
-from ..surcharges import (
+from .data import (
+    load_rates,
+    load_zones,
+    FUEL_RATE,
+    DIM_FACTOR,
+    DIM_THRESHOLD,
+    THRESHOLD_FIELD,
+    FACTOR_FIELD,
+)
+from .surcharges import (
     ALL,
     BASE,
     DEPENDENT,
     get_exclusivity_group,
     get_unique_exclusivity_groups,
 )
-from .inputs import load_rates, FUEL_RATE
-from ..version import VERSION
+from .version import VERSION
 
+
+# =============================================================================
+# SUPPLEMENT SHIPMENTS
+# =============================================================================
+
+def supplement_shipments(
+    df: pl.DataFrame,
+    zones: pl.DataFrame | None = None
+) -> pl.DataFrame:
+    """
+    Supplement shipment data with zone and weight calculations.
+
+    Args:
+        df: Raw shipment DataFrame
+        zones: Zone mapping DataFrame (loaded if not provided)
+
+    Returns:
+        DataFrame with added columns:
+            - cubic_in, longest_side_in, second_longest_in, length_plus_girth
+            - shipping_zone, das_zone
+            - dim_weight_lbs, uses_dim_weight, billable_weight_lbs
+    """
+    if zones is None:
+        zones = load_zones()
+
+    df = _add_calculated_dimensions(df)
+    df = _lookup_zones(df, zones)
+    df = _add_billable_weight(df)
+
+    return df
+
+
+def _add_calculated_dimensions(df: pl.DataFrame) -> pl.DataFrame:
+    """Add calculated dimensional columns."""
+    return df.with_columns([
+        # Cubic inches
+        (pl.col("length_in") * pl.col("width_in") * pl.col("height_in"))
+        .alias("cubic_in"),
+
+        # Longest dimension
+        pl.max_horizontal("length_in", "width_in", "height_in")
+        .alias("longest_side_in"),
+
+        # Second longest dimension
+        pl.concat_list(["length_in", "width_in", "height_in"])
+        .list.sort(descending=True)
+        .list.get(1)
+        .alias("second_longest_in"),
+
+        # Length + Girth (longest + 2 * sum of other two)
+        (
+            pl.max_horizontal("length_in", "width_in", "height_in") +
+            2 * (
+                pl.col("length_in") + pl.col("width_in") + pl.col("height_in") -
+                pl.max_horizontal("length_in", "width_in", "height_in")
+            )
+        ).alias("length_plus_girth"),
+    ])
+
+
+def _lookup_zones(df: pl.DataFrame, zones: pl.DataFrame) -> pl.DataFrame:
+    """
+    Add zone data to shipments based on shipping ZIP code.
+
+    Uses three-tier fallback:
+    1. Exact ZIP code match
+    2. State-level mode (most common zone for the state)
+    3. Default zone 5
+    """
+    # Normalize ZIP code to 5 digits with leading zeros
+    df = df.with_columns(
+        pl.col("shipping_zip_code")
+        .cast(pl.Utf8)
+        .str.slice(0, 5)
+        .str.zfill(5)
+        .alias("_zip_normalized")
+    )
+
+    zones_subset = zones.select(["zip_code", "das", "shipping_state", "phx_zone", "cmh_zone"])
+
+    # State-level fallback (mode zone per state)
+    state_zones = (
+        zones
+        .group_by("shipping_state")
+        .agg([
+            pl.col("phx_zone").mode().first().alias("_state_phx_zone"),
+            pl.col("cmh_zone").mode().first().alias("_state_cmh_zone"),
+            pl.lit("NO").alias("_state_das"),
+        ])
+    )
+
+    # Join on ZIP code
+    df = df.join(zones_subset, left_on="_zip_normalized", right_on="zip_code", how="left")
+
+    # Join state fallback
+    df = df.join(state_zones, left_on="shipping_region", right_on="shipping_state", how="left")
+
+    # Coalesce: ZIP zone -> state zone -> default zone 5
+    df = df.with_columns([
+        pl.coalesce(["phx_zone", "_state_phx_zone", pl.lit(5)]).alias("_phx_zone_final"),
+        pl.coalesce(["cmh_zone", "_state_cmh_zone", pl.lit(5)]).alias("_cmh_zone_final"),
+        pl.coalesce(["das", "_state_das"]).alias("das_zone"),
+    ])
+
+    # Select zone based on production site
+    df = df.with_columns(
+        pl.when(pl.col("production_site") == "Phoenix")
+        .then(pl.col("_phx_zone_final"))
+        .when(pl.col("production_site") == "Columbus")
+        .then(pl.col("_cmh_zone_final"))
+        .otherwise(pl.lit(5))
+        .alias("shipping_zone")
+    )
+
+    # Drop intermediate columns
+    df = df.drop([
+        "_zip_normalized",
+        "phx_zone", "cmh_zone",
+        "_state_phx_zone", "_state_cmh_zone", "_state_das",
+        "_phx_zone_final", "_cmh_zone_final",
+        "shipping_state",
+    ])
+
+    return df
+
+
+def _add_billable_weight(df: pl.DataFrame) -> pl.DataFrame:
+    """
+    Calculate dimensional weight and billable weight.
+
+    Billable weight is the greater of actual weight and dimensional weight,
+    but only when the threshold field exceeds DIM_THRESHOLD.
+    """
+    # Calculate dimensional weight
+    df = df.with_columns(
+        (pl.col(FACTOR_FIELD) / DIM_FACTOR).alias("dim_weight_lbs")
+    )
+
+    # Determine if dim weight applies and calculate billable weight
+    df = df.with_columns([
+        pl.when(pl.col(THRESHOLD_FIELD) > DIM_THRESHOLD)
+        .then(pl.col("dim_weight_lbs") > pl.col("weight_lbs"))
+        .otherwise(False)
+        .alias("uses_dim_weight"),
+
+        pl.when(pl.col(THRESHOLD_FIELD) > DIM_THRESHOLD)
+        .then(pl.max_horizontal("weight_lbs", "dim_weight_lbs"))
+        .otherwise(pl.col("weight_lbs"))
+        .alias("billable_weight_lbs"),
+    ])
+
+    return df
+
+
+# =============================================================================
+# CALCULATE COSTS
+# =============================================================================
 
 def calculate(df: pl.DataFrame) -> pl.DataFrame:
     """
@@ -30,9 +197,6 @@ def calculate(df: pl.DataFrame) -> pl.DataFrame:
     Processing order:
         1. BASE surcharges      - don't reference other surcharge flags
         2. DEPENDENT surcharges - reference flags from phase 1 (via depends_on)
-
-    Within each phase, surcharges with the same exclusivity_group compete.
-    Only the highest priority (lowest number) wins.
     """
     # Phase 1: Apply base surcharges (don't reference other surcharge flags)
     df = _apply_surcharges(df, BASE)
@@ -56,10 +220,6 @@ def calculate(df: pl.DataFrame) -> pl.DataFrame:
 
     return df
 
-
-# =============================================================================
-# SURCHARGE APPLICATION
-# =============================================================================
 
 def _apply_surcharges(df: pl.DataFrame, surcharges: list) -> pl.DataFrame:
     """
@@ -104,7 +264,6 @@ def _apply_exclusive_group(df: pl.DataFrame, group_name: str) -> pl.DataFrame:
     Apply mutually exclusive surcharges within a group.
 
     Only the highest priority surcharge (lowest number) that matches wins.
-    Once one matches, the rest are excluded.
     """
     group = get_exclusivity_group(group_name)
     exclusion_mask = pl.lit(False)
@@ -130,16 +289,11 @@ def _apply_exclusive_group(df: pl.DataFrame, group_name: str) -> pl.DataFrame:
     return df
 
 
-# =============================================================================
-# BILLABLE WEIGHT ADJUSTMENT
-# =============================================================================
-
 def _apply_min_billable_weights(df: pl.DataFrame) -> pl.DataFrame:
     """
     Apply minimum billable weights from triggered surcharges.
 
     Surcharges like OML, LPS, AHS enforce minimum billable weights.
-    When triggered, billable_weight_lbs is raised to at least the minimum.
     """
     surcharges_with_min = [s for s in ALL if s.min_billable_weight is not None]
 
@@ -147,7 +301,6 @@ def _apply_min_billable_weights(df: pl.DataFrame) -> pl.DataFrame:
         return df
 
     # Sort by min_billable_weight descending (highest minimum first)
-    # This ensures the highest applicable minimum wins
     surcharges_with_min.sort(key=lambda s: s.min_billable_weight, reverse=True)
 
     # Build chained when/then expression
@@ -163,17 +316,8 @@ def _apply_min_billable_weights(df: pl.DataFrame) -> pl.DataFrame:
     return df.with_columns(expr.alias("billable_weight_lbs"))
 
 
-# =============================================================================
-# RATE LOOKUP
-# =============================================================================
-
 def _lookup_base_rate(df: pl.DataFrame) -> pl.DataFrame:
-    """
-    Look up base shipping rate by zone and weight bracket.
-
-    Raises:
-        ValueError: If any shipments have no matching rate bracket.
-    """
+    """Look up base shipping rate by zone and weight bracket."""
     input_count = len(df)
     rates = load_rates()
 
@@ -204,10 +348,6 @@ def _lookup_base_rate(df: pl.DataFrame) -> pl.DataFrame:
     return df
 
 
-# =============================================================================
-# COST CALCULATION
-# =============================================================================
-
 def _calculate_subtotal(df: pl.DataFrame) -> pl.DataFrame:
     """Calculate cost_subtotal as sum of base rate and all surcharge costs."""
     cost_cols = ["cost_base"] + [f"cost_{s.name.lower()}" for s in ALL]
@@ -231,3 +371,9 @@ def _calculate_total(df: pl.DataFrame) -> pl.DataFrame:
 def _stamp_version(df: pl.DataFrame) -> pl.DataFrame:
     """Stamp calculator version on output."""
     return df.with_columns(pl.lit(VERSION).alias("calculator_version"))
+
+
+__all__ = [
+    "supplement_shipments",
+    "calculate",
+]
