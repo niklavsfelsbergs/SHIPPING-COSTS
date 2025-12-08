@@ -41,6 +41,10 @@ ACTUAL_TABLE = "shipping_costs.actual_shipping_costs_ontrac"
 SHARED_SQL_DIR = ROOT_DIR / "shared" / "sql"
 ONTRAC_SQL_DIR = Path(__file__).parent / "sql"
 
+# Date window for matching tracking numbers to invoices
+# Prevents wrong matches if tracking numbers are reused over time
+DATE_WINDOW_DAYS = 120
+
 # Columns to upload (matches original table order)
 UPLOAD_COLUMNS = [
     "pcs_orderid",
@@ -147,17 +151,17 @@ def delete_actuals_for_orderids(orderids: list[int], dry_run: bool = False) -> i
 # =============================================================================
 
 def get_orderids_from_expected(start_date: str | None = None) -> pl.DataFrame:
-    """Get all pcs_orderids from expected costs table."""
-    query = f"SELECT DISTINCT pcs_orderid FROM {EXPECTED_TABLE}"
+    """Get pcs_orderids and ship_dates from expected costs table."""
+    query = f"SELECT DISTINCT pcs_orderid, ship_date FROM {EXPECTED_TABLE}"
     if start_date:
         query += f" WHERE pcs_created::date >= '{start_date}'::date"
     return pull_data(query)
 
 
 def get_orderids_without_actuals(limit: int | None = None) -> pl.DataFrame:
-    """Get pcs_orderids from expected costs that have NO rows in actual costs."""
+    """Get pcs_orderids without actuals, including ship_date for date-range matching."""
     query = f"""
-        SELECT e.pcs_orderid
+        SELECT e.pcs_orderid, e.ship_date
         FROM {EXPECTED_TABLE} e
         LEFT JOIN {ACTUAL_TABLE} a ON e.pcs_orderid = a.pcs_orderid
         WHERE a.pcs_orderid IS NULL
@@ -212,6 +216,47 @@ def get_invoice_data_batched(tracking_numbers: list[str], batch_size: int = 5000
     return pl.concat(all_results)
 
 
+def join_tracking_with_invoices(
+    tracking_df: pl.DataFrame,
+    invoice_df: pl.DataFrame,
+    orderids_df: pl.DataFrame,
+) -> pl.DataFrame:
+    """
+    Join tracking numbers with invoice data using a date window.
+
+    Matches where billing_date is within DATE_WINDOW_DAYS of ship_date.
+    This prevents incorrect matches if tracking numbers are reused over time.
+
+    Args:
+        tracking_df: DataFrame with pcs_orderid, trackingnumber
+        invoice_df: DataFrame with trackingnumber, billing_date, and cost columns
+        orderids_df: DataFrame with pcs_orderid, ship_date
+
+    Returns:
+        Merged DataFrame with only matches within the date window
+    """
+    # Add ship_date to tracking_df via orderids_df
+    tracking_with_date = tracking_df.join(
+        orderids_df.select(["pcs_orderid", "ship_date"]),
+        on="pcs_orderid",
+        how="left"
+    )
+
+    # Join with invoice data on trackingnumber
+    merged = tracking_with_date.join(invoice_df, on="trackingnumber", how="inner")
+
+    # Filter to date window: billing_date between ship_date and ship_date + N days
+    merged = merged.filter(
+        (pl.col("billing_date") >= pl.col("ship_date")) &
+        (pl.col("billing_date") <= pl.col("ship_date") + pl.duration(days=DATE_WINDOW_DAYS))
+    )
+
+    # Drop the ship_date column (not needed for upload)
+    merged = merged.drop("ship_date")
+
+    return merged
+
+
 # =============================================================================
 # MODE HANDLERS
 # =============================================================================
@@ -254,10 +299,14 @@ def run_full_mode(
         print("No invoice data found. Nothing to insert.")
         return 0
 
-    # Step 4: Join tracking_df with invoice_df to get pcs_orderid
+    # Step 4: Join tracking_df with invoice_df using date window
     print("\nStep 4: Preparing data for upload...")
-    merged_df = tracking_df.join(invoice_df, on="trackingnumber", how="inner")
-    print(f"  {len(merged_df):,} rows ready for upload")
+    merged_df = join_tracking_with_invoices(tracking_df, invoice_df, orderids_df)
+    print(f"  {len(merged_df):,} rows matched within {DATE_WINDOW_DAYS}-day window")
+
+    if len(merged_df) == 0:
+        print("No invoice data matched within date window. Nothing to insert.")
+        return 0
 
     # Add timestamp
     merged_df = merged_df.with_columns(
@@ -273,7 +322,7 @@ def run_full_mode(
     print("=" * 60)
     print(f"Orderids in expected costs: {len(orderids_df):,}")
     print(f"Tracking numbers found: {len(tracking_df):,}")
-    print(f"Invoice records to insert: {len(merged_df):,}")
+    print(f"Invoice records matched (within {DATE_WINDOW_DAYS}-day window): {len(merged_df):,}")
 
     if len(merged_df) > 0:
         total_actual = merged_df["actual_total"].sum()
@@ -332,13 +381,13 @@ def run_incremental_mode(
         print("\nNo invoice data found. Nothing to insert.")
         return 0
 
-    # Step 4: Join tracking_df with invoice_df
+    # Step 4: Join tracking_df with invoice_df using date window
     print("\nStep 4: Preparing data for upload...")
-    merged_df = tracking_df.join(invoice_df, on="trackingnumber", how="inner")
-    print(f"  {len(merged_df):,} rows ready for upload")
+    merged_df = join_tracking_with_invoices(tracking_df, invoice_df, orderids_df)
+    print(f"  {len(merged_df):,} rows matched within {DATE_WINDOW_DAYS}-day window")
 
     if len(merged_df) == 0:
-        print("\nNo matching invoice data. Nothing to insert.")
+        print("\nNo invoice data matched within date window. Nothing to insert.")
         return 0
 
     # Add timestamp
@@ -355,7 +404,7 @@ def run_incremental_mode(
     print("=" * 60)
     print(f"Orders without actuals: {len(orderids_df):,}")
     print(f"Tracking numbers found: {len(tracking_df):,}")
-    print(f"Invoice records matched: {len(merged_df):,}")
+    print(f"Invoice records matched (within {DATE_WINDOW_DAYS}-day window): {len(merged_df):,}")
 
     if len(merged_df) > 0:
         total_actual = merged_df["actual_total"].sum()
@@ -420,10 +469,14 @@ def run_days_mode(
         print("No invoice data found. Nothing to insert.")
         return 0
 
-    # Step 5: Join and prepare
+    # Step 5: Join and prepare using date window
     print("\nStep 5: Preparing data for upload...")
-    merged_df = tracking_df.join(invoice_df, on="trackingnumber", how="inner")
-    print(f"  {len(merged_df):,} rows ready for upload")
+    merged_df = join_tracking_with_invoices(tracking_df, invoice_df, orderids_df)
+    print(f"  {len(merged_df):,} rows matched within {DATE_WINDOW_DAYS}-day window")
+
+    if len(merged_df) == 0:
+        print("\nNo invoice data matched within date window. Nothing to insert.")
+        return 0
 
     # Add timestamp
     merged_df = merged_df.with_columns(
@@ -441,7 +494,7 @@ def run_days_mode(
     print(f"Orderids in range: {len(orderids_df):,}")
     print(f"Rows deleted: {deleted:,}")
     print(f"Tracking numbers found: {len(tracking_df):,}")
-    print(f"Invoice records to insert: {len(merged_df):,}")
+    print(f"Invoice records matched (within {DATE_WINDOW_DAYS}-day window): {len(merged_df):,}")
 
     if len(merged_df) > 0:
         total_actual = merged_df["actual_total"].sum()
