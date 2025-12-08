@@ -6,6 +6,18 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Shipping cost calculator for OnTrac carrier. Calculates expected shipping costs from PCS (production system) shipment data, uploads to Redshift database, and compares against actual invoice costs.
 
+## Setup (Required)
+
+This project is a Python package. Install it before running any scripts:
+
+```bash
+pip install -e .
+```
+
+This registers `shared` and `ontrac` as importable packages. The `-e` flag means "editable" - code changes take effect immediately without reinstalling.
+
+For Docker/production deployment, use `pip install .` (without `-e`).
+
 ## Commands
 
 ### Run Tests

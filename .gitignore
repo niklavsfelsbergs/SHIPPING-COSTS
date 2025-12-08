@@ -45,3 +45,7 @@ tests/data/debug_*.csv
 # Generated reports
 ontrac/output/
 comparison_report*.html
+
+# Local planning/review docs
+REVIEW.md
+REFACTOR_PLAN.md

@@ -7,16 +7,12 @@ Pulls shipment data from the PCS database.
 import polars as pl
 from pathlib import Path
 from typing import Optional
-import sys
 
-# Add root directory to path for shared imports
-# Path: ontrac/data/loaders/pcs.py -> SHIPPING-COSTS (4 levels up)
-ROOT_DIR = Path(__file__).parent.parent.parent.parent
-sys.path.insert(0, str(ROOT_DIR))
+import shared
 from shared.database import pull_data
 
 
-SQL_FILE = ROOT_DIR / "shared" / "sql" / "pcs_shipments.sql"
+SQL_FILE = Path(shared.__file__).parent / "sql" / "pcs_shipments.sql"
 
 # Defaults for OnTrac
 DEFAULT_CARRIER = "ONTRAC"

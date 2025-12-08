@@ -18,16 +18,12 @@ Usage:
 """
 
 import argparse
-import sys
 from pathlib import Path
 from datetime import datetime, timedelta
 
 import polars as pl
 
-# Add root directory to path for imports
-ROOT_DIR = Path(__file__).parent.parent.parent
-sys.path.insert(0, str(ROOT_DIR))
-
+import shared
 from shared.database import pull_data, execute_query, push_data, get_connection
 
 
@@ -38,7 +34,7 @@ from shared.database import pull_data, execute_query, push_data, get_connection
 EXPECTED_TABLE = "shipping_costs.expected_shipping_costs_ontrac"
 ACTUAL_TABLE = "shipping_costs.actual_shipping_costs_ontrac"
 
-SHARED_SQL_DIR = ROOT_DIR / "shared" / "sql"
+SHARED_SQL_DIR = Path(shared.__file__).parent / "sql"
 ONTRAC_SQL_DIR = Path(__file__).parent / "sql"
 
 # Date window for matching tracking numbers to invoices

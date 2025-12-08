@@ -1,0 +1,19 @@
+[project]
+name = "shipping-costs"
+version = "0.1.0"
+description = "Shipping cost calculators for carrier invoice validation"
+requires-python = ">=3.10"
+dependencies = [
+    "polars",
+    "pandas",
+    "redshift-connector",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["shared*", "ontrac*"]

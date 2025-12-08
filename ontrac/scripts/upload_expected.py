@@ -17,15 +17,9 @@ Usage:
 """
 
 import argparse
-import sys
-from pathlib import Path
 from datetime import datetime, timedelta
 
 import polars as pl
-
-# Add root directory to path for imports
-ROOT_DIR = Path(__file__).parent.parent.parent
-sys.path.insert(0, str(ROOT_DIR))
 
 from shared.database import pull_data, execute_query, push_data
 from ontrac.data import load_pcs_shipments, DEFAULT_START_DATE, DEFAULT_PRODUCTION_SITES
