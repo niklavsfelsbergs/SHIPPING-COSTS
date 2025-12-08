@@ -258,6 +258,110 @@ def join_tracking_with_invoices(
 # MODE HANDLERS
 # =============================================================================
 
+def _fetch_and_join_invoice_data(
+    orderids_df: pl.DataFrame,
+    tracking_step: int = 2,
+    invoice_step: int = 3,
+    join_step: int = 4,
+) -> tuple[pl.DataFrame, pl.DataFrame, pl.DataFrame] | None:
+    """
+    Fetch tracking numbers and invoice data, then join them.
+
+    Args:
+        orderids_df: DataFrame with pcs_orderid and ship_date columns
+        tracking_step: Step number for tracking fetch
+        invoice_step: Step number for invoice fetch
+        join_step: Step number for join operation
+
+    Returns:
+        Tuple of (tracking_df, invoice_df, merged_df) or None if no data found
+    """
+    pcs_orderids = orderids_df["pcs_orderid"].to_list()
+
+    # Get tracking numbers
+    print(f"\nStep {tracking_step}: Getting tracking numbers...")
+    tracking_df = get_tracking_numbers(pcs_orderids)
+    print(f"  Found {len(tracking_df):,} tracking numbers")
+
+    if len(tracking_df) == 0:
+        print("No tracking numbers found. Nothing to process.")
+        return None
+
+    # Get invoice data
+    print(f"\nStep {invoice_step}: Pulling invoice data...")
+    tracking_numbers = tracking_df["trackingnumber"].to_list()
+    invoice_df = get_invoice_data_batched(tracking_numbers)
+    print(f"  Found {len(invoice_df):,} invoice records")
+
+    if len(invoice_df) == 0:
+        print("No invoice data found. Nothing to insert.")
+        return None
+
+    # Join tracking with invoice data
+    print(f"\nStep {join_step}: Preparing data for upload...")
+    merged_df = join_tracking_with_invoices(tracking_df, invoice_df, orderids_df)
+    print(f"  {len(merged_df):,} rows matched within {DATE_WINDOW_DAYS}-day window")
+
+    if len(merged_df) == 0:
+        print("No invoice data matched within date window. Nothing to insert.")
+        return None
+
+    # Add timestamp and select columns
+    merged_df = merged_df.with_columns(
+        pl.lit(datetime.now()).alias("dw_timestamp")
+    ).select(UPLOAD_COLUMNS)
+
+    return tracking_df, invoice_df, merged_df
+
+
+def _print_summary_and_upload(
+    merged_df: pl.DataFrame,
+    orderids_df: pl.DataFrame,
+    tracking_df: pl.DataFrame,
+    batch_size: int,
+    dry_run: bool,
+    upload_step: int,
+    summary_lines: list[str],
+) -> int:
+    """
+    Print summary and upload data.
+
+    Args:
+        merged_df: Prepared DataFrame to upload
+        orderids_df: Original orderids DataFrame (for count)
+        tracking_df: Tracking numbers DataFrame (for count)
+        batch_size: Rows per INSERT batch
+        dry_run: If True, don't upload
+        upload_step: Step number for upload
+        summary_lines: Additional lines to print before standard stats
+
+    Returns:
+        Number of rows uploaded
+    """
+    print("\n" + "=" * 60)
+    print("SUMMARY")
+    print("=" * 60)
+    for line in summary_lines:
+        print(line)
+    print(f"Tracking numbers found: {len(tracking_df):,}")
+    print(f"Invoice records matched (within {DATE_WINDOW_DAYS}-day window): {len(merged_df):,}")
+
+    if len(merged_df) > 0:
+        total_actual = merged_df["actual_total"].sum()
+        avg_actual = merged_df["actual_total"].mean()
+        print(f"Total actual cost: ${total_actual:,.2f}")
+        print(f"Avg actual cost: ${avg_actual:,.2f}")
+
+    print(f"\nStep {upload_step}: Uploading to database...")
+
+    if dry_run:
+        print(f"  [DRY RUN] Would insert {len(merged_df):,} rows into {ACTUAL_TABLE}")
+        return len(merged_df)
+
+    push_data(merged_df, ACTUAL_TABLE, batch_size=batch_size)
+    return len(merged_df)
+
+
 def run_full_mode(
     batch_size: int,
     dry_run: bool,
@@ -276,67 +380,25 @@ def run_full_mode(
         print("No orderids found in expected costs table. Nothing to process.")
         return 0
 
-    # Step 2: Get tracking numbers
-    print("\nStep 2: Getting tracking numbers...")
-    pcs_orderids = orderids_df["pcs_orderid"].to_list()
-    tracking_df = get_tracking_numbers(pcs_orderids)
-    print(f"  Found {len(tracking_df):,} tracking numbers")
-
-    if len(tracking_df) == 0:
-        print("No tracking numbers found. Nothing to process.")
+    # Steps 2-4: Fetch and join data
+    result = _fetch_and_join_invoice_data(orderids_df)
+    if result is None:
         return 0
+    tracking_df, invoice_df, merged_df = result
 
-    # Step 3: Get invoice data
-    print("\nStep 3: Pulling invoice data...")
-    tracking_numbers = tracking_df["trackingnumber"].to_list()
-    invoice_df = get_invoice_data_batched(tracking_numbers)
-    print(f"  Found {len(invoice_df):,} invoice records")
-
-    if len(invoice_df) == 0:
-        print("No invoice data found. Nothing to insert.")
-        return 0
-
-    # Step 4: Join tracking_df with invoice_df using date window
-    print("\nStep 4: Preparing data for upload...")
-    merged_df = join_tracking_with_invoices(tracking_df, invoice_df, orderids_df)
-    print(f"  {len(merged_df):,} rows matched within {DATE_WINDOW_DAYS}-day window")
-
-    if len(merged_df) == 0:
-        print("No invoice data matched within date window. Nothing to insert.")
-        return 0
-
-    # Add timestamp
-    merged_df = merged_df.with_columns(
-        pl.lit(datetime.now()).alias("dw_timestamp")
-    )
-
-    # Select columns in order
-    merged_df = merged_df.select(UPLOAD_COLUMNS)
-
-    # Summary
-    print("\n" + "=" * 60)
-    print("SUMMARY")
-    print("=" * 60)
-    print(f"Orderids in expected costs: {len(orderids_df):,}")
-    print(f"Tracking numbers found: {len(tracking_df):,}")
-    print(f"Invoice records matched (within {DATE_WINDOW_DAYS}-day window): {len(merged_df):,}")
-
-    if len(merged_df) > 0:
-        total_actual = merged_df["actual_total"].sum()
-        avg_actual = merged_df["actual_total"].mean()
-        print(f"Total actual cost: ${total_actual:,.2f}")
-        print(f"Avg actual cost: ${avg_actual:,.2f}")
-
-    # Step 5: Delete existing and insert fresh
+    # Step 5: Delete existing and upload
     print("\nStep 5: Refreshing actual costs table...")
     delete_all_actuals(dry_run=dry_run)
 
-    if dry_run:
-        print(f"  [DRY RUN] Would insert {len(merged_df):,} rows into {ACTUAL_TABLE}")
-        return len(merged_df)
-
-    push_data(merged_df, ACTUAL_TABLE, batch_size=batch_size)
-    return len(merged_df)
+    return _print_summary_and_upload(
+        merged_df=merged_df,
+        orderids_df=orderids_df,
+        tracking_df=tracking_df,
+        batch_size=batch_size,
+        dry_run=dry_run,
+        upload_step=6,
+        summary_lines=[f"Orderids in expected costs: {len(orderids_df):,}"],
+    )
 
 
 def run_incremental_mode(
@@ -358,66 +420,21 @@ def run_incremental_mode(
         print("\nAll orders already have actual costs. Nothing to process.")
         return 0
 
-    # Step 2: Get tracking numbers
-    print("\nStep 2: Getting tracking numbers...")
-    pcs_orderids = orderids_df["pcs_orderid"].to_list()
-    tracking_df = get_tracking_numbers(pcs_orderids)
-    print(f"  Found {len(tracking_df):,} tracking numbers")
-
-    if len(tracking_df) == 0:
-        print("\nNo tracking numbers found. Nothing to process.")
+    # Steps 2-4: Fetch and join data
+    result = _fetch_and_join_invoice_data(orderids_df)
+    if result is None:
         return 0
+    tracking_df, invoice_df, merged_df = result
 
-    # Step 3: Pull invoice data
-    print("\nStep 3: Pulling invoice data...")
-    tracking_numbers = tracking_df["trackingnumber"].to_list()
-    invoice_df = get_invoice_data_batched(tracking_numbers)
-    print(f"  Found {len(invoice_df):,} invoice records")
-
-    if len(invoice_df) == 0:
-        print("\nNo invoice data found. Nothing to insert.")
-        return 0
-
-    # Step 4: Join tracking_df with invoice_df using date window
-    print("\nStep 4: Preparing data for upload...")
-    merged_df = join_tracking_with_invoices(tracking_df, invoice_df, orderids_df)
-    print(f"  {len(merged_df):,} rows matched within {DATE_WINDOW_DAYS}-day window")
-
-    if len(merged_df) == 0:
-        print("\nNo invoice data matched within date window. Nothing to insert.")
-        return 0
-
-    # Add timestamp
-    merged_df = merged_df.with_columns(
-        pl.lit(datetime.now()).alias("dw_timestamp")
+    return _print_summary_and_upload(
+        merged_df=merged_df,
+        orderids_df=orderids_df,
+        tracking_df=tracking_df,
+        batch_size=batch_size,
+        dry_run=dry_run,
+        upload_step=5,
+        summary_lines=[f"Orders without actuals: {len(orderids_df):,}"],
     )
-
-    # Select columns in order
-    merged_df = merged_df.select(UPLOAD_COLUMNS)
-
-    # Summary
-    print("\n" + "=" * 60)
-    print("SUMMARY")
-    print("=" * 60)
-    print(f"Orders without actuals: {len(orderids_df):,}")
-    print(f"Tracking numbers found: {len(tracking_df):,}")
-    print(f"Invoice records matched (within {DATE_WINDOW_DAYS}-day window): {len(merged_df):,}")
-
-    if len(merged_df) > 0:
-        total_actual = merged_df["actual_total"].sum()
-        avg_actual = merged_df["actual_total"].mean()
-        print(f"Total actual cost: ${total_actual:,.2f}")
-        print(f"Avg actual cost: ${avg_actual:,.2f}")
-
-    # Step 5: Insert
-    print("\nStep 5: Uploading to database...")
-
-    if dry_run:
-        print(f"  [DRY RUN] Would insert {len(merged_df):,} rows into {ACTUAL_TABLE}")
-        return len(merged_df)
-
-    push_data(merged_df, ACTUAL_TABLE, batch_size=batch_size)
-    return len(merged_df)
 
 
 def run_days_mode(
@@ -447,67 +464,30 @@ def run_days_mode(
     print(f"\nStep 2: Deleting existing actuals for {len(pcs_orderids):,} orderids...")
     deleted = delete_actuals_for_orderids(pcs_orderids, dry_run=dry_run)
 
-    # Step 3: Get tracking numbers
-    print("\nStep 3: Getting tracking numbers...")
-    tracking_df = get_tracking_numbers(pcs_orderids)
-    print(f"  Found {len(tracking_df):,} tracking numbers")
-
-    if len(tracking_df) == 0:
-        print("No tracking numbers found. Nothing to process.")
-        return 0
-
-    # Step 4: Get invoice data
-    print("\nStep 4: Pulling invoice data...")
-    tracking_numbers = tracking_df["trackingnumber"].to_list()
-    invoice_df = get_invoice_data_batched(tracking_numbers)
-    print(f"  Found {len(invoice_df):,} invoice records")
-
-    if len(invoice_df) == 0:
-        print("No invoice data found. Nothing to insert.")
-        return 0
-
-    # Step 5: Join and prepare using date window
-    print("\nStep 5: Preparing data for upload...")
-    merged_df = join_tracking_with_invoices(tracking_df, invoice_df, orderids_df)
-    print(f"  {len(merged_df):,} rows matched within {DATE_WINDOW_DAYS}-day window")
-
-    if len(merged_df) == 0:
-        print("\nNo invoice data matched within date window. Nothing to insert.")
-        return 0
-
-    # Add timestamp
-    merged_df = merged_df.with_columns(
-        pl.lit(datetime.now()).alias("dw_timestamp")
+    # Steps 3-5: Fetch and join data
+    result = _fetch_and_join_invoice_data(
+        orderids_df,
+        tracking_step=3,
+        invoice_step=4,
+        join_step=5,
     )
+    if result is None:
+        return 0
+    tracking_df, invoice_df, merged_df = result
 
-    # Select columns in order
-    merged_df = merged_df.select(UPLOAD_COLUMNS)
-
-    # Summary
-    print("\n" + "=" * 60)
-    print("SUMMARY")
-    print("=" * 60)
-    print(f"Date range: {start_date} to today ({days} days)")
-    print(f"Orderids in range: {len(orderids_df):,}")
-    print(f"Rows deleted: {deleted:,}")
-    print(f"Tracking numbers found: {len(tracking_df):,}")
-    print(f"Invoice records matched (within {DATE_WINDOW_DAYS}-day window): {len(merged_df):,}")
-
-    if len(merged_df) > 0:
-        total_actual = merged_df["actual_total"].sum()
-        avg_actual = merged_df["actual_total"].mean()
-        print(f"Total actual cost: ${total_actual:,.2f}")
-        print(f"Avg actual cost: ${avg_actual:,.2f}")
-
-    # Step 6: Insert
-    print("\nStep 6: Uploading to database...")
-
-    if dry_run:
-        print(f"  [DRY RUN] Would insert {len(merged_df):,} rows into {ACTUAL_TABLE}")
-        return len(merged_df)
-
-    push_data(merged_df, ACTUAL_TABLE, batch_size=batch_size)
-    return len(merged_df)
+    return _print_summary_and_upload(
+        merged_df=merged_df,
+        orderids_df=orderids_df,
+        tracking_df=tracking_df,
+        batch_size=batch_size,
+        dry_run=dry_run,
+        upload_step=6,
+        summary_lines=[
+            f"Date range: {start_date} to today ({days} days)",
+            f"Orderids in range: {len(orderids_df):,}",
+            f"Rows deleted: {deleted:,}",
+        ],
+    )
 
 
 # =============================================================================

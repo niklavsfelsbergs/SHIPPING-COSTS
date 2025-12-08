@@ -186,24 +186,37 @@ def run_pipeline(
 # MODE HANDLERS
 # =============================================================================
 
-def run_full_mode(
+def _run_calculation_and_upload(
+    start_date: str,
+    rows_deleted: int,
     production_sites: list[str],
     batch_size: int,
     dry_run: bool,
+    date_range_suffix: str = "",
+    show_net_change: bool = False,
+    calc_step_num: int = 2,
+    upload_step_num: int = 3,
 ) -> int:
-    """Full mode: Delete all, recalculate from 2025-01-01."""
-    print("=" * 60)
-    print("FULL MODE - EXPECTED COSTS")
-    print("=" * 60)
+    """
+    Common logic for calculating costs and uploading results.
 
-    # Step 1: Delete all existing rows
-    print("\nStep 1: Deleting all existing rows...")
-    deleted = delete_all(dry_run=dry_run)
+    Args:
+        start_date: Date to start calculation from (YYYY-MM-DD)
+        rows_deleted: Number of rows deleted in previous step (for summary)
+        production_sites: Production sites to include
+        batch_size: Rows per INSERT batch
+        dry_run: If True, don't upload
+        date_range_suffix: Extra text for date range line (e.g., " (7 days)")
+        show_net_change: If True, show net change in summary
+        calc_step_num: Step number for calculation step
+        upload_step_num: Step number for upload step
 
-    # Step 2: Calculate from default start date
-    print(f"\nStep 2: Calculating expected costs from {DEFAULT_START_DATE}...")
+    Returns:
+        Number of rows uploaded (or would be uploaded if dry_run)
+    """
+    print(f"\nStep {calc_step_num}: Calculating expected costs from {start_date}...")
     df = run_pipeline(
-        start_date=DEFAULT_START_DATE,
+        start_date=start_date,
         end_date=None,
         production_sites=production_sites,
     )
@@ -216,9 +229,11 @@ def run_full_mode(
     print("\n" + "=" * 60)
     print("UPLOAD SUMMARY")
     print("=" * 60)
-    print(f"Rows deleted: {deleted:,}")
+    print(f"Rows deleted: {rows_deleted:,}")
     print(f"New rows to upload: {len(df):,}")
-    print(f"Date range: {DEFAULT_START_DATE} to today")
+    if show_net_change:
+        print(f"Net change: {len(df) - rows_deleted:+,}")
+    print(f"Date range: {start_date} to today{date_range_suffix}")
     print(f"Total expected cost: ${df['cost_total'].sum():,.2f}")
     print(f"Avg per shipment: ${df['cost_total'].mean():,.2f}")
 
@@ -227,10 +242,32 @@ def run_full_mode(
         return len(df)
 
     # Upload
-    print(f"\nStep 3: Uploading to {TABLE_NAME}...")
+    print(f"\nStep {upload_step_num}: Uploading to {TABLE_NAME}...")
     push_data(df, TABLE_NAME, batch_size=batch_size)
 
     return len(df)
+
+
+def run_full_mode(
+    production_sites: list[str],
+    batch_size: int,
+    dry_run: bool,
+) -> int:
+    """Full mode: Delete all, recalculate from 2025-01-01."""
+    print("=" * 60)
+    print("FULL MODE - EXPECTED COSTS")
+    print("=" * 60)
+
+    print("\nStep 1: Deleting all existing rows...")
+    deleted = delete_all(dry_run=dry_run)
+
+    return _run_calculation_and_upload(
+        start_date=DEFAULT_START_DATE,
+        rows_deleted=deleted,
+        production_sites=production_sites,
+        batch_size=batch_size,
+        dry_run=dry_run,
+    )
 
 
 def run_incremental_mode(
@@ -243,7 +280,6 @@ def run_incremental_mode(
     print("INCREMENTAL MODE - EXPECTED COSTS")
     print("=" * 60)
 
-    # Step 1: Get max pcs_created
     print("\nStep 1: Finding latest data in table...")
     max_pcs_created = get_max_pcs_created()
 
@@ -256,42 +292,19 @@ def run_incremental_mode(
         print(f"  Max pcs_created: {max_pcs_created}")
         print(f"  Will process from: {start_date}")
 
-        # Step 2: Delete rows for that date (handles partial day)
         print(f"\nStep 2: Deleting data from {start_date} onwards...")
         rows_deleted = delete_from_date(start_date, dry_run=dry_run)
 
-    # Step 3: Calculate from start_date onward
-    print(f"\nStep 3: Calculating expected costs from {start_date}...")
-    df = run_pipeline(
+    return _run_calculation_and_upload(
         start_date=start_date,
-        end_date=None,
+        rows_deleted=rows_deleted,
         production_sites=production_sites,
+        batch_size=batch_size,
+        dry_run=dry_run,
+        show_net_change=True,
+        calc_step_num=3,
+        upload_step_num=4,
     )
-
-    if len(df) == 0:
-        print("\nNo shipments found for the specified date range.")
-        return 0
-
-    # Print summary
-    print("\n" + "=" * 60)
-    print("UPLOAD SUMMARY")
-    print("=" * 60)
-    print(f"Rows deleted: {rows_deleted:,}")
-    print(f"New rows to upload: {len(df):,}")
-    print(f"Net change: {len(df) - rows_deleted:+,}")
-    print(f"Date range: {start_date} to today")
-    print(f"Total expected cost: ${df['cost_total'].sum():,.2f}")
-    print(f"Avg per shipment: ${df['cost_total'].mean():,.2f}")
-
-    if dry_run:
-        print(f"\n[DRY RUN] Would upload to: {TABLE_NAME}")
-        return len(df)
-
-    # Upload
-    print(f"\nStep 4: Uploading to {TABLE_NAME}...")
-    push_data(df, TABLE_NAME, batch_size=batch_size)
-
-    return len(df)
 
 
 def run_days_mode(
@@ -305,45 +318,20 @@ def run_days_mode(
     print(f"DAYS MODE ({days} days) - EXPECTED COSTS")
     print("=" * 60)
 
-    # Calculate start date
     start_date = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
 
-    # Step 1: Delete rows from start_date onwards
     print(f"\nStep 1: Deleting rows from {start_date} onwards...")
     rows_deleted = delete_from_date(start_date, dry_run=dry_run)
 
-    # Step 2: Calculate from start_date onward
-    print(f"\nStep 2: Calculating expected costs from {start_date}...")
-    df = run_pipeline(
+    return _run_calculation_and_upload(
         start_date=start_date,
-        end_date=None,
+        rows_deleted=rows_deleted,
         production_sites=production_sites,
+        batch_size=batch_size,
+        dry_run=dry_run,
+        date_range_suffix=f" ({days} days)",
+        show_net_change=True,
     )
-
-    if len(df) == 0:
-        print("\nNo shipments found for the specified date range.")
-        return 0
-
-    # Print summary
-    print("\n" + "=" * 60)
-    print("UPLOAD SUMMARY")
-    print("=" * 60)
-    print(f"Rows deleted: {rows_deleted:,}")
-    print(f"New rows to upload: {len(df):,}")
-    print(f"Net change: {len(df) - rows_deleted:+,}")
-    print(f"Date range: {start_date} to today ({days} days)")
-    print(f"Total expected cost: ${df['cost_total'].sum():,.2f}")
-    print(f"Avg per shipment: ${df['cost_total'].mean():,.2f}")
-
-    if dry_run:
-        print(f"\n[DRY RUN] Would upload to: {TABLE_NAME}")
-        return len(df)
-
-    # Upload
-    print(f"\nStep 3: Uploading to {TABLE_NAME}...")
-    push_data(df, TABLE_NAME, batch_size=batch_size)
-
-    return len(df)
 
 
 # =============================================================================
