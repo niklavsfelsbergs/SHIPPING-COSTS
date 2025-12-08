@@ -8,7 +8,7 @@ Interactive CLI tool to calculate expected shipping costs for a single shipment.
 import polars as pl
 from datetime import date
 
-from ontrac.pipeline import supplement_shipments, calculate
+from ontrac.calculate_costs import calculate_costs
 from ontrac.version import VERSION
 
 
@@ -162,8 +162,7 @@ def main():
         df = create_shipment_df(shipment)
 
         # Run through pipeline
-        df = supplement_shipments(df)
-        df = calculate(df)
+        df = calculate_costs(df)
 
         # Print results
         print_results(df, shipment)

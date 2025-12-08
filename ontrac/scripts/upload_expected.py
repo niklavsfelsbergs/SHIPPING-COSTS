@@ -29,7 +29,7 @@ sys.path.insert(0, str(ROOT_DIR))
 
 from shared.database import pull_data, execute_query, push_data
 from ontrac.sources import load_pcs_shipments, DEFAULT_START_DATE, DEFAULT_PRODUCTION_SITES
-from ontrac.pipeline import supplement_shipments, calculate
+from ontrac.calculate_costs import calculate_costs
 
 
 # =============================================================================
@@ -172,13 +172,9 @@ def run_pipeline(
     if len(df) == 0:
         return pl.DataFrame()
 
-    # Supplement with zones and dimensions
-    print("  Supplementing shipment data...")
-    df = supplement_shipments(df)
-
     # Calculate costs
     print("  Calculating costs...")
-    df = calculate(df)
+    df = calculate_costs(df)
 
     # Add timestamp
     df = df.with_columns(

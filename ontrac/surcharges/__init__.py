@@ -31,6 +31,12 @@ ALL = [OML, LPS, AHS, DAS, EDAS, RES, DEM_RES, DEM_AHS, DEM_LPS, DEM_OML]
 # =============================================================================
 # PROCESSING GROUPS
 # =============================================================================
+#
+# Surcharges are processed in two phases because demand surcharges (DEM_*)
+# depend on base surcharge flags. For example, DEM_AHS only applies when
+# surcharge_ahs=True AND ship_date is in demand period.
+#
+# Phase 1 creates the flags, Phase 2 references them via depends_on.
 
 # Phase 1: Base surcharges (don't reference other surcharge flags)
 BASE = [s for s in ALL if s.depends_on is None]

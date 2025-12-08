@@ -4,63 +4,108 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-OnTrac shipping cost calculator that computes expected shipping costs based on package dimensions, weight, zones, and various surcharges. Uses Polars for data processing and connects to Redshift for data operations.
+Shipping cost calculator for OnTrac carrier. Calculates expected shipping costs from PCS (production system) shipment data, uploads to Redshift database, and compares against actual invoice costs.
 
-## Common Commands
+## Commands
 
+### Run Tests
 ```bash
-# Run tests
-pytest tests/test_pipeline.py -v
+pytest                                # Run all tests
+pytest tests/test_calculate_costs.py  # Run specific test file
+pytest -v                             # Verbose output
+```
 
-# Run single test
-pytest tests/test_pipeline.py::TestSurchargeFlags::test_ahs_weight_trigger -v
+### Interactive Calculator
+```bash
+python -m ontrac.scripts.calculator    # CLI tool to calculate cost for single shipment
+```
 
-# Run pipeline on mock data (outputs to tests/data/)
-python tests/run_pipeline.py
+### Upload Expected Costs to Database
+```bash
+python -m ontrac.scripts.upload_expected --full         # Full recalculation from 2025-01-01
+python -m ontrac.scripts.upload_expected --incremental  # From latest date in DB
+python -m ontrac.scripts.upload_expected --days 7       # Last N days
+python -m ontrac.scripts.upload_expected --dry-run      # Preview without changes
+```
 
-# Interactive calculator CLI
-python -m ontrac.scripts.calculator
+### Compare Expected vs Actual
+```bash
+python -m ontrac.scripts.compare_expected_to_actuals
+python -m ontrac.scripts.compare_expected_to_actuals --invoice INV-12345
+python -m ontrac.scripts.compare_expected_to_actuals --date_from 2025-01-01 --date_to 2025-01-31
+```
+
+### Update Zones from Invoice Data
+```bash
+python -m ontrac.maintenance.generate_zones
+python -m ontrac.maintenance.generate_zones --start-date 2025-01-01
 ```
 
 ## Architecture
 
-### Pipeline Flow
+### Cost Calculator (`ontrac/calculate_costs.py`)
+DataFrame in, DataFrame out. Main entry point:
+```python
+from ontrac.calculate_costs import calculate_costs
+result = calculate_costs(df)  # df must have required columns (see module docstring)
 ```
-load_pcs_shipments() → supplement_shipments() → calculate() → output
+
+Two-stage calculation (also available separately for debugging):
+1. `supplement_shipments()` - Enriches raw shipment data with zones, dimensions, billable weight
+2. `calculate()` - Applies surcharges and calculates costs
+
+### Surcharges (`ontrac/surcharges/`)
+Each surcharge is a class inheriting from `Surcharge` (defined in `shared/surcharges/base.py`):
+- **Pricing**: `list_price`, `discount`
+- **Exclusivity**: Surcharges in same `exclusivity_group` compete; lowest `priority` wins (e.g., OML > LPS > AHS for dimensional)
+- **Dependencies**: `depends_on` references another surcharge flag (for demand surcharges)
+- **Side effects**: `min_billable_weight` enforces minimum when triggered
+
+Processing order:
+1. BASE surcharges (OML, LPS, AHS, DAS, EDAS, RES) - don't reference other surcharge flags
+2. DEPENDENT surcharges (DEM_RES, DEM_AHS, DEM_LPS, DEM_OML) - reference BASE flags
+
+### Data Sources
+- `ontrac/sources/pcs.py` - Loads shipment data from PCS database
+- `ontrac/data/zones.csv` - ZIP code to zone mapping (PHX and CMH production sites)
+- `ontrac/data/base_rates.csv` - Rate card by weight bracket and zone
+- `ontrac/data/fuel.py` - Weekly fuel surcharge rate
+- `ontrac/data/billable_weight.py` - DIM factor configuration
+
+### Database (`shared/database/`)
+- Connects to Redshift (`bi_stage_dev`)
+- Requires `shared/database/pass.txt` with password (not in git)
+- `pull_data()` - Execute SELECT, returns Polars DataFrame
+- `push_data()` - Upload DataFrame to table
+
+## Key Patterns
+
+### Zone Lookup with Fallback
+Zone lookup uses three-tier fallback:
+1. Exact ZIP code match
+2. State-level mode (most common zone for state)
+3. Default zone 5
+
+### Surcharge Conditions
+Override `conditions()` method with Polars expression:
+```python
+@classmethod
+def conditions(cls) -> pl.Expr:
+    return pl.col("weight_lbs") > cls.WEIGHT_LBS
 ```
 
-1. **Sources** (`ontrac/sources/`) - Load shipment data from sources (e.g., PCS)
-2. **Pipeline** (`ontrac/pipeline.py`) - `supplement_shipments()` enriches with zones/dimensions/billable weight, `calculate()` applies surcharges and computes costs
+### Version Stamping
+Update `ontrac/version.py` when changing rates/config. Version is stamped on all calculator output for audit trail.
 
-### Surcharge System
+## Configuration Updates
 
-Surcharges inherit from shared `Surcharge` base class (`shared/surcharges/base.py`). Carrier-specific surcharges live in `ontrac/surcharges/`. Key concepts:
+See `ontrac/maintenance/README.md` for detailed instructions on updating:
+- Base rates (annually with contract renewals)
+- Zones (monthly/quarterly from invoice data)
+- Surcharge list prices and discounts
+- Fuel rate (weekly)
+- Demand period dates (annually)
 
-- **Processing phases**: BASE surcharges first (no dependencies), then DEPENDENT surcharges (reference other surcharge flags via `depends_on`)
-- **Exclusivity groups**: Surcharges in same group compete; only highest priority wins (e.g., OML > LPS > AHS in "dimensional" group)
-- **Allocated surcharges**: Applied to all shipments at a rate (e.g., RES at 95% allocation)
-- **Demand period**: Seasonal surcharges use `in_period()` helper and `period_start`/`period_end` attributes
+## Slash Commands
 
-### Key Data Files
-
-- `ontrac/data/` - Reference data and loaders (`load_rates()`, `load_zones()`)
-- `ontrac/data/base_rates.csv` - Shipping rates by weight bracket and zone
-- `ontrac/data/zones.csv` - ZIP code to zone mapping with DAS classification
-- `ontrac/data/fuel.py` - Fuel surcharge rate constants
-- `ontrac/data/billable_weight.py` - DIM factor and threshold constants
-
-### Versioning
-
-Single `VERSION` constant in `ontrac/version.py`. Each calculation stamps `calculator_version` on output. Historical recalculation done via git checkout.
-
-### Database
-
-`shared/database/__init__.py` provides `pull_data()`, `push_data()`, `execute_query()` for Redshift operations. Requires `shared/database/pass.txt` (gitignored) for credentials.
-
-## Column Schema
-
-Required input columns: `ship_date`, `production_site`, `shipping_zip_code`, `shipping_region`, `length_in`, `width_in`, `height_in`, `weight_lbs`
-
-Supplement adds: `cubic_in`, `longest_side_in`, `second_longest_in`, `length_plus_girth`, `shipping_zone`, `das_zone`, `dim_weight_lbs`, `uses_dim_weight`, `billable_weight_lbs`
-
-Calculate adds: `surcharge_*` flags, `cost_*` amounts, `cost_base`, `cost_subtotal`, `cost_fuel`, `cost_total`, `calculator_version`
+- `/review-config` - Compare current config against OnTrac contract documents and website

@@ -1,9 +1,37 @@
 """
-OnTrac Shipping Cost Pipeline
+OnTrac Shipping Cost Calculator
 
-Two-stage pipeline:
-1. supplement_shipments() - Enrich with zones, dimensions, billable weight
-2. calculate() - Apply surcharges and calculate costs
+DataFrame in, DataFrame out. The input can come from any source (PCS database,
+CSV, manual creation) as long as it contains the required columns. The output
+is the same DataFrame with calculation columns and costs appended.
+
+REQUIRED INPUT COLUMNS
+----------------------
+    ship_date           - Date for demand period checks
+    production_site     - "Phoenix" or "Columbus" (determines zone)
+    shipping_zip_code   - Destination ZIP (5-digit)
+    shipping_region     - State name (fallback for zone lookup)
+    length_in           - Package length in inches
+    width_in            - Package width in inches
+    height_in           - Package height in inches
+    weight_lbs          - Actual weight in pounds
+
+OUTPUT COLUMNS ADDED
+--------------------
+    supplement_shipments() adds:
+        - cubic_in, longest_side_in, second_longest_in, length_plus_girth
+        - shipping_zone, das_zone
+        - dim_weight_lbs, uses_dim_weight, billable_weight_lbs
+
+    calculate() adds:
+        - surcharge_* flags (oml, lps, ahs, das, edas, res, dem_*)
+        - cost_* amounts (base, oml, lps, ahs, das, edas, res, dem_*, subtotal, fuel, total)
+        - calculator_version
+
+USAGE
+-----
+    from ontrac.calculate_costs import calculate_costs
+    result = calculate_costs(df)
 """
 
 import polars as pl
@@ -25,6 +53,32 @@ from .surcharges import (
     get_unique_exclusivity_groups,
 )
 from .version import VERSION
+
+
+# =============================================================================
+# MAIN ENTRY POINT
+# =============================================================================
+
+def calculate_costs(
+    df: pl.DataFrame,
+    zones: pl.DataFrame | None = None
+) -> pl.DataFrame:
+    """
+    Calculate shipping costs for a shipment DataFrame.
+
+    This is the main entry point. Takes raw shipment data and returns
+    the same DataFrame with all calculation columns and costs appended.
+
+    Args:
+        df: Raw shipment DataFrame with required columns (see module docstring)
+        zones: Zone mapping DataFrame (loaded from zones.csv if not provided)
+
+    Returns:
+        DataFrame with supplemented data, surcharge flags, and costs
+    """
+    df = supplement_shipments(df, zones)
+    df = calculate(df)
+    return df
 
 
 # =============================================================================
@@ -90,10 +144,17 @@ def _lookup_zones(df: pl.DataFrame, zones: pl.DataFrame) -> pl.DataFrame:
     """
     Add zone data to shipments based on shipping ZIP code.
 
-    Uses three-tier fallback:
-    1. Exact ZIP code match
-    2. State-level mode (most common zone for the state)
-    3. Default zone 5
+    ORIGIN-DEPENDENT ZONES
+    ----------------------
+    The same destination ZIP has different zones depending on origin.
+    zones.csv contains phx_zone and cmh_zone columns - we select based
+    on the production_site field (Phoenix or Columbus).
+
+    THREE-TIER FALLBACK
+    -------------------
+    1. Exact ZIP code match from zones.csv
+    2. State-level mode (most common zone for that state)
+    3. Default zone 5 (mid-range, minimizes worst-case pricing error)
     """
     # Normalize ZIP code to 5 digits with leading zeros
     df = df.with_columns(
@@ -374,6 +435,7 @@ def _stamp_version(df: pl.DataFrame) -> pl.DataFrame:
 
 
 __all__ = [
+    "calculate_costs",
     "supplement_shipments",
     "calculate",
 ]

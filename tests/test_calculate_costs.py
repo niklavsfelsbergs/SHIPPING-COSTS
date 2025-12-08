@@ -14,7 +14,7 @@ import pytest
 import polars as pl
 from datetime import date
 
-from ontrac.pipeline import supplement_shipments, calculate
+from ontrac.calculate_costs import calculate_costs, supplement_shipments, calculate
 from ontrac.surcharges import OML, LPS, AHS, DAS, EDAS, RES, DEM_RES, DEM_AHS
 
 
