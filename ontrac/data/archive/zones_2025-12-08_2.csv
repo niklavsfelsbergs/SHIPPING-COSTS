@@ -2291,7 +2291,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 92856,California,4,5,NO
 95033,California,4,5,NO
 02451,Massachusetts,8,5,NO
-95326,California,4,5,DAS
+95326,California,4,5,NO
 91764,California,4,5,NO
 29745,South Carolina,7,4,NO
 41166,Kentucky,7,8,EDAS
@@ -3070,7 +3070,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 10511,New York,8,5,NO
 95860,California,4,5,NO
 89411,Nevada,3,4,DAS
-45614,Ohio,7,3,EDAS
+45614,Ohio,7,3,NO
 46406,Indiana,7,5,DAS
 95211,California,4,5,NO
 10022,New York,8,4,EDAS
@@ -3808,7 +3808,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 90189,California,4,5,NO
 34109,Florida,8,5,NO
 97086,Oregon,6,5,NO
-48848,Michigan,7,3,DAS
+48848,Michigan,7,3,NO
 76208,Texas,5,5,DAS
 60630,Illinois,7,3,NO
 08873,New Jersey,8,4,NO
@@ -4411,7 +4411,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 60160,Illinois,7,3,NO
 37062,Tennessee,7,3,NO
 14607,New York,8,4,NO
-53058,Wisconsin,7,4,DAS
+53058,Wisconsin,7,4,NO
 77536,Texas,6,5,DAS
 85287,Arizona,2,8,NO
 53167,Wisconsin,7,8,DAS
@@ -8103,7 +8103,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 95913,California,5,5,EDAS
 97361,Oregon,5,5,EDAS
 10018,New York,8,5,EDAS
-91207,California,7,5,NO
+91207,California,4,5,NO
 17538,Pennsylvania,8,4,NO
 94122,California,5,5,NO
 20880,Maryland,8,5,NO
@@ -8936,7 +8936,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 19132,Pennsylvania,8,4,NO
 89128,Nevada,3,4,NO
 27606,North Carolina,8,4,NO
-22560,Virginia,8,5,DAS
+22560,Virginia,8,5,NO
 60136,Illinois,7,8,NO
 84103,Utah,4,4,NO
 06320,Connecticut,8,4,NO
@@ -9372,7 +9372,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 33884,Florida,8,5,EDAS
 95633,California,5,5,DAS
 85297,Arizona,2,8,NO
-95224,California,4,5,EDAS
+95224,California,4,5,NO
 14605,New York,8,4,NO
 41018,Kentucky,7,2,NO
 33436,Florida,8,5,NO
@@ -9804,7 +9804,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 92325,California,3,5,NO
 84074,Utah,4,4,NO
 92626,California,4,5,NO
-25510,West Virginia,7,8,DAS
+25510,West Virginia,7,8,NO
 02370,Massachusetts,8,5,NO
 98020,Washington,6,5,NO
 24141,Virginia,8,3,DAS

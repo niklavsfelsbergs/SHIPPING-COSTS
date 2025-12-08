@@ -52,7 +52,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 84047,Utah,4,4,NO
 53204,Wisconsin,6,4,NO
 10551,New York,8,5,NO
-45211,Ohio,7,2,NO
+45211,Ohio,7,3,NO
 32187,Florida,8,5,EDAS
 33162,Florida,8,5,NO
 91793,California,4,5,NO
@@ -101,7 +101,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 85258,Arizona,2,8,NO
 84774,Utah,4,4,EDAS
 84601,Utah,4,4,EDAS
-11104,New York,8,4,NO
+11104,New York,8,5,NO
 48473,Michigan,7,3,NO
 78617,Texas,5,5,NO
 43035,Ohio,7,2,NO
@@ -173,7 +173,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 45652,Ohio,7,3,EDAS
 90806,California,4,5,NO
 20102,District Of Columbia,8,8,NO
-44307,Ohio,7,2,NO
+44307,Ohio,7,3,NO
 07935,New Jersey,8,4,DAS
 19804,Delaware,8,4,NO
 95615,California,4,5,EDAS
@@ -197,7 +197,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 77466,Texas,4,5,EDAS
 43050,Ohio,7,2,EDAS
 40353,Kentucky,7,2,NO
-45216,Ohio,7,2,NO
+45216,Ohio,7,3,NO
 37189,Tennessee,7,5,DAS
 80537,Colorado,4,8,EDAS
 22211,Virginia,8,5,NO
@@ -319,7 +319,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 33566,Florida,8,5,NO
 01060,Massachusetts,8,4,NO
 54016,Wisconsin,6,4,NO
-60025,Illinois,7,3,NO
+60025,Illinois,7,8,NO
 13428,New York,8,5,DAS
 78719,Texas,5,5,NO
 96003,California,5,5,EDAS
@@ -396,7 +396,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 33706,Florida,7,5,DAS
 53095,Wisconsin,7,4,DAS
 94206,California,4,5,NO
-96035,California,5,5,EDAS
+96035,California,4,5,EDAS
 06538,Connecticut,8,8,NO
 32835,Florida,8,5,NO
 01545,Massachusetts,8,5,NO
@@ -481,7 +481,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 33415,Florida,8,5,NO
 91762,California,4,5,NO
 06120,Connecticut,8,4,NO
-95524,California,5,5,EDAS
+95524,California,4,5,DAS
 23834,Virginia,8,4,NO
 89106,Nevada,3,4,NO
 98136,Washington,6,5,NO
@@ -587,7 +587,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 32250,Florida,7,5,NO
 93510,California,4,5,EDAS
 80261,Colorado,4,8,NO
-38114,Tennessee,7,4,NO
+38114,Tennessee,7,5,NO
 11758,New York,8,4,NO
 53018,Wisconsin,7,4,NO
 43212,Ohio,7,2,NO
@@ -644,7 +644,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 08831,New Jersey,8,4,NO
 94552,California,5,5,NO
 07105,New Jersey,8,4,NO
-53177,Wisconsin,7,8,NO
+53177,Wisconsin,6,8,NO
 33445,Florida,8,5,NO
 84720,Utah,4,4,EDAS
 21010,Maryland,8,5,DAS
@@ -707,7 +707,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 33955,Florida,8,5,NO
 08846,New Jersey,8,4,NO
 18942,Pennsylvania,8,4,DAS
-45419,Ohio,7,2,NO
+45419,Ohio,7,3,NO
 60563,Illinois,7,3,NO
 07825,New Jersey,8,4,EDAS
 37090,Tennessee,7,3,NO
@@ -736,7 +736,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 76226,Texas,5,5,DAS
 33578,Florida,8,5,NO
 06114,Connecticut,8,4,NO
-20733,Maryland,8,4,NO
+20733,Maryland,8,5,DAS
 60042,Illinois,7,8,NO
 11709,New York,8,5,NO
 21054,Maryland,8,4,NO
@@ -838,9 +838,9 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 95452,California,4,5,EDAS
 30348,Georgia,7,3,NO
 95712,California,4,5,NO
-28016,North Carolina,8,4,NO
+28016,North Carolina,8,4,DAS
 91011,California,4,5,EDAS
-37020,Tennessee,7,3,NO
+37020,Tennessee,7,5,DAS
 94518,California,5,5,NO
 34982,Florida,8,5,EDAS
 95152,California,4,5,NO
@@ -858,7 +858,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 14202,New York,8,3,NO
 33125,Florida,8,5,NO
 60450,Illinois,7,8,NO
-23069,Virginia,8,4,NO
+23069,Virginia,8,5,NO
 30058,Georgia,7,4,NO
 94160,California,4,5,NO
 01590,Massachusetts,8,5,DAS
@@ -909,7 +909,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 76527,Texas,5,5,NO
 10578,New York,8,5,DAS
 85723,Arizona,2,8,NO
-53045,Wisconsin,7,4,NO
+53045,Wisconsin,7,8,NO
 18421,Pennsylvania,8,4,DAS
 10553,New York,8,5,NO
 08899,New Jersey,8,4,NO
@@ -978,7 +978,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 27054,North Carolina,8,3,DAS
 63138,Missouri,6,5,NO
 48146,Michigan,7,4,NO
-10012,New York,8,4,EDAS
+10012,New York,8,5,EDAS
 20852,Maryland,8,4,NO
 97756,Oregon,5,5,EDAS
 84118,Utah,4,4,NO
@@ -1063,7 +1063,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 20115,District Of Columbia,8,8,NO
 93669,California,4,5,EDAS
 86011,Arizona,2,8,EDAS
-12143,New York,8,5,NO
+12143,New York,8,5,DAS
 21017,Maryland,8,4,NO
 38107,Tennessee,6,4,NO
 02212,Massachusetts,8,4,NO
@@ -1245,7 +1245,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 06762,Connecticut,8,4,DAS
 48045,Michigan,7,3,NO
 92137,California,4,5,NO
-14026,New York,8,3,NO
+14026,New York,8,5,NO
 38118,Tennessee,7,4,NO
 40313,Kentucky,7,8,EDAS
 13152,New York,8,4,NO
@@ -1276,7 +1276,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 14623,New York,8,4,NO
 10002,New York,8,4,EDAS
 91108,California,4,5,NO
-30312,Georgia,7,4,NO
+30312,Georgia,7,3,NO
 75146,Texas,5,5,NO
 92318,California,4,5,NO
 48327,Michigan,7,3,NO
@@ -1302,7 +1302,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 93750,California,4,5,NO
 01529,Massachusetts,8,5,DAS
 22158,Virginia,8,5,NO
-21620,Maryland,8,4,EDAS
+21620,Maryland,8,5,DAS
 96103,California,4,5,EDAS
 97296,Oregon,5,5,NO
 91185,California,4,5,NO
@@ -1326,7 +1326,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 10462,New York,8,4,NO
 32738,Florida,8,5,DAS
 06199,Connecticut,8,8,NO
-16412,Pennsylvania,8,3,NO
+16412,Pennsylvania,8,4,NO
 19341,Pennsylvania,8,4,NO
 98531,Washington,6,5,EDAS
 28173,North Carolina,7,4,NO
@@ -1462,7 +1462,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 20774,Maryland,8,4,NO
 10151,New York,8,5,EDAS
 92147,California,4,5,EDAS
-92250,California,3,5,EDAS
+92250,California,3,5,NO
 80530,Colorado,4,8,NO
 94662,California,4,5,NO
 93225,California,4,5,EDAS
@@ -1503,7 +1503,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 95135,California,4,5,NO
 15289,Pennsylvania,8,4,NO
 29731,South Carolina,7,8,NO
-02116,Massachusetts,8,5,NO
+02116,Massachusetts,8,4,NO
 84746,Utah,3,4,EDAS
 07008,New Jersey,8,4,NO
 11950,New York,8,5,DAS
@@ -1648,7 +1648,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 92277,California,3,5,EDAS
 19074,Pennsylvania,8,4,NO
 30324,Georgia,7,4,NO
-21120,Maryland,8,4,NO
+21120,Maryland,8,5,EDAS
 93105,California,4,5,EDAS
 98446,Washington,6,5,NO
 91380,California,4,5,NO
@@ -1718,7 +1718,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 20175,District Of Columbia,8,4,NO
 93118,California,4,5,NO
 53146,Wisconsin,7,4,NO
-25143,West Virginia,7,2,EDAS
+25143,West Virginia,7,8,DAS
 11715,New York,8,4,NO
 92178,California,4,5,NO
 33015,Florida,8,5,NO
@@ -1798,7 +1798,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 93953,California,4,5,NO
 32266,Florida,7,5,NO
 53716,Wisconsin,6,4,NO
-01860,Massachusetts,8,5,DAS
+01860,Massachusetts,8,4,DAS
 91412,California,4,5,NO
 34787,Florida,8,5,NO
 98337,Washington,5,5,NO
@@ -1857,7 +1857,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 07857,New Jersey,8,4,NO
 34690,Florida,8,5,DAS
 45430,Ohio,7,2,NO
-49265,Michigan,7,4,EDAS
+49265,Michigan,7,4,DAS
 93441,California,4,5,EDAS
 80108,Colorado,4,8,NO
 63133,Missouri,6,4,NO
@@ -1898,7 +1898,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 30620,Georgia,7,4,EDAS
 91737,California,4,5,NO
 15140,Pennsylvania,8,4,NO
-02857,Rhode Island,8,5,EDAS
+02857,Rhode Island,8,4,EDAS
 93654,California,4,5,NO
 12144,New York,8,4,NO
 20017,District Of Columbia,8,4,NO
@@ -1929,7 +1929,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 21061,Maryland,8,4,NO
 02739,Massachusetts,8,5,DAS
 90230,California,4,5,NO
-37737,Tennessee,7,5,NO
+37737,Tennessee,7,5,DAS
 33467,Florida,8,5,NO
 01921,Massachusetts,8,4,DAS
 20866,Maryland,8,4,NO
@@ -1962,7 +1962,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 77073,Texas,6,5,NO
 98131,Washington,5,5,NO
 13066,New York,8,4,NO
-53402,Wisconsin,7,3,NO
+53402,Wisconsin,6,3,NO
 17517,Pennsylvania,8,4,DAS
 18078,Pennsylvania,8,4,DAS
 85307,Arizona,2,8,NO
@@ -2135,7 +2135,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 29720,South Carolina,7,4,DAS
 85382,Arizona,2,8,NO
 77051,Texas,6,5,NO
-23662,Virginia,8,4,NO
+23662,Virginia,8,5,NO
 23509,Virginia,8,5,NO
 23235,Virginia,8,4,NO
 53140,Wisconsin,7,4,NO
@@ -2157,7 +2157,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 20732,Maryland,8,4,NO
 19048,Pennsylvania,8,4,NO
 80128,Colorado,4,8,NO
-21154,Maryland,8,4,DAS
+21154,Maryland,8,5,EDAS
 63115,Missouri,6,5,NO
 34731,Florida,8,5,DAS
 48212,Michigan,7,4,NO
@@ -2207,7 +2207,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 47150,Indiana,7,2,NO
 53012,Wisconsin,7,4,NO
 02339,Massachusetts,8,5,NO
-92539,California,3,5,EDAS
+92539,California,4,5,EDAS
 33948,Florida,8,5,NO
 93258,California,4,5,NO
 85710,Arizona,2,8,NO
@@ -2289,7 +2289,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 30342,Georgia,7,4,NO
 10465,New York,8,4,NO
 92856,California,4,5,NO
-95033,California,4,5,NO
+95033,California,4,5,EDAS
 02451,Massachusetts,8,5,NO
 95326,California,4,5,DAS
 91764,California,4,5,NO
@@ -2335,7 +2335,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 93545,California,4,5,EDAS
 27248,North Carolina,8,3,EDAS
 37216,Tennessee,7,3,NO
-14901,New York,8,4,DAS
+14901,New York,8,5,DAS
 34715,Florida,8,5,NO
 98685,Washington,6,5,NO
 08002,New Jersey,8,4,NO
@@ -2405,7 +2405,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 93219,California,4,5,EDAS
 95019,California,4,5,NO
 23882,Virginia,8,5,EDAS
-10464,New York,8,4,NO
+10464,New York,8,5,NO
 78737,Texas,5,5,NO
 33773,Florida,8,5,NO
 06118,Connecticut,8,4,NO
@@ -2464,7 +2464,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 91792,California,4,5,NO
 19032,Pennsylvania,8,4,NO
 08722,New Jersey,8,4,NO
-60181,Illinois,7,3,NO
+60181,Illinois,7,8,NO
 45229,Ohio,7,3,NO
 80045,Colorado,4,8,NO
 60432,Illinois,7,3,NO
@@ -2532,11 +2532,11 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 08043,New Jersey,8,4,NO
 37060,Tennessee,7,5,EDAS
 44024,Ohio,7,2,DAS
-93546,California,4,5,EDAS
+93546,California,4,5,DAS
 92831,California,4,5,NO
 60440,Illinois,7,3,NO
 30260,Georgia,7,3,NO
-14428,New York,8,4,NO
+14428,New York,8,5,NO
 92102,California,3,5,NO
 33572,Florida,8,5,NO
 46226,Indiana,7,2,NO
@@ -2548,7 +2548,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 44215,Ohio,7,3,NO
 77507,Texas,6,5,DAS
 37015,Tennessee,7,3,NO
-48197,Michigan,7,3,NO
+48197,Michigan,7,4,NO
 85037,Arizona,2,8,NO
 44117,Ohio,7,2,NO
 32082,Florida,7,5,NO
@@ -2681,7 +2681,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 22207,Virginia,8,4,NO
 92835,California,4,5,NO
 93901,California,4,5,NO
-02896,Rhode Island,8,5,DAS
+02896,Rhode Island,8,4,DAS
 90007,California,4,5,NO
 53126,Wisconsin,7,8,NO
 15317,Pennsylvania,8,2,NO
@@ -2690,9 +2690,9 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 96099,California,4,5,NO
 93015,California,4,5,NO
 95172,California,4,5,NO
-01522,Massachusetts,8,5,DAS
+01522,Massachusetts,8,4,DAS
 80127,Colorado,4,8,NO
-40118,Kentucky,7,2,NO
+40118,Kentucky,7,8,NO
 80202,Colorado,4,8,NO
 95836,California,4,5,NO
 22122,Virginia,8,5,NO
@@ -2753,7 +2753,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 12747,New York,8,4,DAS
 55444,Minnesota,6,4,NO
 85034,Arizona,2,8,NO
-92340,California,3,5,NO
+92340,California,4,5,NO
 84180,Utah,3,4,NO
 78957,Texas,5,5,DAS
 11561,New York,8,4,NO
@@ -2807,7 +2807,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 19086,Pennsylvania,8,4,NO
 21281,Maryland,8,5,NO
 06518,Connecticut,8,4,NO
-11977,New York,8,4,EDAS
+11977,New York,8,5,DAS
 33180,Florida,8,5,NO
 60083,Illinois,7,3,NO
 11428,New York,8,4,NO
@@ -3053,10 +3053,10 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 20042,District Of Columbia,8,8,NO
 75040,Texas,5,5,NO
 01815,Massachusetts,8,4,NO
-48604,Michigan,7,3,NO
+48604,Michigan,7,4,NO
 92341,California,4,5,EDAS
 92058,California,3,5,NO
-76071,Texas,5,5,DAS
+76071,Texas,4,5,DAS
 22649,Virginia,8,5,DAS
 32207,Florida,7,5,NO
 76058,Texas,5,5,DAS
@@ -3095,7 +3095,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 08081,New Jersey,8,4,NO
 90650,California,4,5,NO
 84126,Utah,3,4,NO
-13159,New York,8,4,NO
+13159,New York,8,5,NO
 07470,New Jersey,8,4,NO
 90051,California,4,5,NO
 86336,Arizona,2,8,EDAS
@@ -3207,7 +3207,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 46064,Indiana,7,2,NO
 01945,Massachusetts,8,5,NO
 80960,Colorado,4,8,NO
-48165,Michigan,7,4,DAS
+48165,Michigan,7,4,NO
 27040,North Carolina,8,3,EDAS
 18032,Pennsylvania,8,4,DAS
 60652,Illinois,7,3,NO
@@ -3307,7 +3307,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 02825,Rhode Island,8,5,EDAS
 53086,Wisconsin,7,8,NO
 75228,Texas,5,5,NO
-60447,Illinois,7,3,EDAS
+60447,Illinois,6,3,EDAS
 93962,California,4,5,NO
 23117,Virginia,8,4,DAS
 02330,Massachusetts,8,5,DAS
@@ -3319,7 +3319,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 91746,California,4,5,NO
 27265,North Carolina,8,3,EDAS
 18347,Pennsylvania,8,4,NO
-93518,California,4,5,EDAS
+93518,California,4,5,NO
 84301,Utah,3,4,EDAS
 08104,New Jersey,8,4,NO
 93643,California,4,5,EDAS
@@ -3371,7 +3371,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 19072,Pennsylvania,8,4,NO
 34231,Florida,8,5,DAS
 98047,Washington,6,5,NO
-43223,Ohio,7,2,NO
+43223,Ohio,7,3,NO
 95013,California,4,5,DAS
 07079,New Jersey,8,4,NO
 89107,Nevada,3,4,NO
@@ -3431,11 +3431,11 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 33309,Florida,8,5,NO
 94702,California,5,5,NO
 40047,Kentucky,7,2,NO
-11426,New York,8,4,NO
+11426,New York,8,5,NO
 01013,Massachusetts,8,4,NO
 34747,Florida,8,5,NO
 10468,New York,8,4,NO
-19734,Delaware,8,4,DAS
+19734,Delaware,8,5,DAS
 17578,Pennsylvania,8,4,NO
 97524,Oregon,5,5,EDAS
 85721,Arizona,2,8,NO
@@ -3747,7 +3747,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 98075,Washington,6,5,NO
 33198,Florida,8,5,NO
 37709,Tennessee,7,3,NO
-24087,Virginia,8,3,NO
+24087,Virginia,8,5,EDAS
 12477,New York,8,4,DAS
 93745,California,4,5,NO
 98102,Washington,6,5,NO
@@ -3784,7 +3784,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 08066,New Jersey,8,4,NO
 53202,Wisconsin,7,4,NO
 11411,New York,8,4,NO
-12208,New York,8,4,NO
+12208,New York,8,5,NO
 22657,Virginia,8,3,DAS
 94803,California,5,5,NO
 90088,California,4,5,NO
@@ -3795,7 +3795,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 48386,Michigan,7,3,NO
 21771,Maryland,8,4,NO
 34217,Florida,8,5,DAS
-10037,New York,8,4,NO
+10037,New York,8,5,NO
 27103,North Carolina,8,3,EDAS
 44720,Ohio,7,2,NO
 76092,Texas,5,5,NO
@@ -3863,7 +3863,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 78056,Texas,5,5,DAS
 92647,California,4,5,NO
 94290,California,4,5,NO
-92377,California,3,5,NO
+92377,California,4,5,NO
 06092,Connecticut,8,8,DAS
 48150,Michigan,7,3,NO
 91522,California,4,5,NO
@@ -3958,7 +3958,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 23039,Virginia,8,4,NO
 99336,Washington,5,5,EDAS
 53925,Wisconsin,7,8,NO
-28682,North Carolina,7,3,NO
+28682,North Carolina,7,4,NO
 34610,Florida,8,5,NO
 20002,District Of Columbia,8,4,NO
 06495,Connecticut,8,8,NO
@@ -4021,7 +4021,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 32828,Florida,8,5,NO
 48213,Michigan,7,4,NO
 10171,New York,8,5,EDAS
-21057,Maryland,8,4,NO
+21057,Maryland,8,5,DAS
 85275,Arizona,2,8,NO
 10546,New York,8,5,NO
 01862,Massachusetts,8,4,NO
@@ -4066,7 +4066,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 84791,Utah,3,4,NO
 28601,North Carolina,7,3,DAS
 94999,California,4,5,NO
-10707,New York,8,4,NO
+10707,New York,8,5,NO
 63045,Missouri,6,5,NO
 90099,California,4,5,NO
 93007,California,4,5,NO
@@ -4191,7 +4191,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 30030,Georgia,7,4,NO
 77539,Texas,6,5,DAS
 80218,Colorado,4,8,NO
-32195,Florida,7,5,EDAS
+32195,Florida,8,5,EDAS
 08724,New Jersey,8,4,NO
 08317,New Jersey,8,4,DAS
 30359,Georgia,7,3,NO
@@ -4265,7 +4265,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 30022,Georgia,7,4,NO
 32825,Florida,8,5,NO
 44123,Ohio,7,2,NO
-21219,Maryland,8,4,NO
+21219,Maryland,8,5,NO
 94535,California,4,5,NO
 92596,California,3,5,NO
 90703,California,4,5,NO
@@ -4303,7 +4303,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 06375,Connecticut,8,8,DAS
 02906,Rhode Island,8,5,NO
 01773,Massachusetts,8,4,DAS
-89448,Nevada,4,4,EDAS
+89448,Nevada,3,4,DAS
 06877,Connecticut,8,4,DAS
 21074,Maryland,8,4,NO
 06101,Connecticut,8,8,NO
@@ -4379,7 +4379,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 02915,Rhode Island,8,5,NO
 90745,California,4,5,NO
 43040,Ohio,7,2,NO
-89501,Nevada,4,4,NO
+89501,Nevada,3,4,NO
 95670,California,5,5,NO
 33143,Florida,8,5,NO
 13244,New York,8,4,NO
@@ -4437,7 +4437,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 83704,Idaho,5,8,NO
 06705,Connecticut,8,4,NO
 40504,Kentucky,7,2,NO
-01451,Massachusetts,8,5,DAS
+01451,Massachusetts,8,4,DAS
 44035,Ohio,7,2,NO
 33024,Florida,8,5,NO
 96154,California,4,5,NO
@@ -4577,7 +4577,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 15085,Pennsylvania,8,4,NO
 83814,Idaho,6,8,NO
 15229,Pennsylvania,8,4,NO
-12775,New York,8,4,NO
+12775,New York,8,5,DAS
 60616,Illinois,7,3,NO
 85087,Arizona,2,8,NO
 92084,California,3,5,NO
@@ -4621,7 +4621,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 10504,New York,8,4,NO
 96097,California,5,5,EDAS
 18336,Pennsylvania,8,4,NO
-33763,Florida,7,5,NO
+33763,Florida,8,5,NO
 38654,Mississippi,6,4,NO
 75211,Texas,5,5,NO
 13492,New York,8,4,NO
@@ -4748,7 +4748,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 15340,Pennsylvania,8,4,DAS
 94602,California,5,5,NO
 32832,Florida,8,5,NO
-18822,Pennsylvania,8,4,NO
+18822,Pennsylvania,8,4,DAS
 10996,New York,8,5,NO
 55042,Minnesota,6,4,NO
 25506,West Virginia,7,8,EDAS
@@ -4818,7 +4818,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 16059,Pennsylvania,8,3,NO
 45371,Ohio,7,2,NO
 44310,Ohio,7,2,NO
-30268,Georgia,7,4,NO
+30268,Georgia,7,3,DAS
 80936,Colorado,4,8,NO
 07701,New Jersey,8,4,NO
 98684,Washington,6,5,NO
@@ -4867,9 +4867,9 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 20065,District Of Columbia,8,8,NO
 24136,Virginia,8,5,EDAS
 78229,Texas,5,5,NO
-43146,Ohio,7,2,NO
+43146,Ohio,7,3,NO
 48068,Michigan,7,4,NO
-30504,Georgia,7,4,DAS
+30504,Georgia,7,3,DAS
 48277,Michigan,7,4,NO
 44273,Ohio,7,3,DAS
 25106,West Virginia,7,8,EDAS
@@ -4915,12 +4915,12 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 27401,North Carolina,8,4,NO
 53703,Wisconsin,6,4,NO
 95634,California,4,5,EDAS
-06517,Connecticut,8,4,NO
+06517,Connecticut,8,8,NO
 76266,Texas,5,5,EDAS
 44081,Ohio,7,2,DAS
 80010,Colorado,4,8,NO
 92708,California,4,5,NO
-32234,Florida,8,5,NO
+32234,Florida,8,5,EDAS
 08695,New Jersey,8,4,NO
 43619,Ohio,7,2,NO
 93420,California,4,5,DAS
@@ -5047,13 +5047,13 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 10965,New York,8,4,NO
 92603,California,4,5,NO
 85274,Arizona,2,8,NO
-78266,Texas,5,5,NO
+78266,Texas,4,5,DAS
 77015,Texas,6,5,NO
 43617,Ohio,7,2,NO
 78251,Texas,5,5,NO
 90293,California,4,5,NO
 17030,Pennsylvania,8,4,EDAS
-12207,New York,8,4,NO
+12207,New York,8,5,NO
 11768,New York,8,4,NO
 95348,California,4,5,EDAS
 78744,Texas,5,5,NO
@@ -5264,7 +5264,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 85737,Arizona,2,8,NO
 95864,California,5,5,NO
 78257,Texas,5,5,NO
-38108,Tennessee,6,4,NO
+38108,Tennessee,7,4,NO
 77031,Texas,6,5,NO
 94120,California,4,5,NO
 19320,Pennsylvania,8,4,DAS
@@ -5422,7 +5422,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 19066,Pennsylvania,8,4,NO
 19462,Pennsylvania,8,4,NO
 75189,Texas,5,5,NO
-17584,Pennsylvania,8,4,DAS
+17584,Pennsylvania,8,4,NO
 46219,Indiana,7,2,NO
 92114,California,3,5,NO
 62204,Illinois,6,8,DAS
@@ -5664,7 +5664,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 32726,Florida,8,5,DAS
 90503,California,4,5,NO
 78610,Texas,5,5,NO
-95983,California,5,5,EDAS
+95983,California,4,5,EDAS
 11367,New York,8,4,NO
 75007,Texas,5,5,NO
 13126,New York,8,4,NO
@@ -5742,7 +5742,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 85718,Arizona,2,8,NO
 17090,Pennsylvania,8,4,DAS
 23230,Virginia,8,4,NO
-33781,Florida,7,5,NO
+33781,Florida,8,5,NO
 33785,Florida,8,5,NO
 08544,New Jersey,8,4,NO
 30277,Georgia,7,4,NO
@@ -5757,7 +5757,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 93708,California,4,5,NO
 85236,Arizona,2,8,NO
 53182,Wisconsin,7,8,NO
-11955,New York,8,4,DAS
+11955,New York,8,5,DAS
 32033,Florida,8,5,NO
 01775,Massachusetts,8,4,DAS
 15228,Pennsylvania,8,2,NO
@@ -5765,7 +5765,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 45415,Ohio,7,2,NO
 84098,Utah,4,4,NO
 94960,California,5,5,NO
-23507,Virginia,8,4,NO
+23507,Virginia,8,5,NO
 33703,Florida,8,5,NO
 90408,California,4,5,NO
 85204,Arizona,2,8,NO
@@ -5876,7 +5876,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 84170,Utah,3,4,NO
 11552,New York,8,4,NO
 97077,Oregon,5,5,NO
-22213,Virginia,8,4,NO
+22213,Virginia,8,5,NO
 91340,California,4,5,NO
 44233,Ohio,7,3,NO
 30094,Georgia,7,4,NO
@@ -5904,7 +5904,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 84302,Utah,4,4,EDAS
 93933,California,4,5,NO
 93278,California,4,5,NO
-97426,Oregon,5,5,EDAS
+97426,Oregon,5,5,DAS
 32065,Florida,7,5,DAS
 02127,Massachusetts,8,5,NO
 11691,New York,8,4,NO
@@ -5979,7 +5979,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 53717,Wisconsin,6,4,NO
 75182,Texas,5,5,NO
 34266,Florida,8,5,DAS
-95638,California,5,5,NO
+95638,California,4,5,EDAS
 14534,New York,8,4,NO
 21224,Maryland,8,4,NO
 34119,Florida,8,5,NO
@@ -6008,7 +6008,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 48362,Michigan,7,3,NO
 95949,California,5,5,DAS
 10004,New York,8,4,EDAS
-78224,Texas,5,5,NO
+78224,Texas,4,5,NO
 08755,New Jersey,8,4,NO
 33810,Florida,8,5,NO
 55407,Minnesota,6,4,NO
@@ -6103,7 +6103,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 25555,West Virginia,7,8,EDAS
 91730,California,4,5,NO
 27596,North Carolina,8,4,NO
-98447,Washington,6,5,NO
+98447,Washington,5,5,NO
 78602,Texas,5,5,DAS
 40229,Kentucky,7,2,NO
 48376,Michigan,7,4,NO
@@ -6154,7 +6154,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 12586,New York,8,4,NO
 14610,New York,8,4,NO
 07305,New Jersey,8,4,NO
-13743,New York,8,4,NO
+13743,New York,8,5,EDAS
 20041,District Of Columbia,8,8,NO
 15321,Pennsylvania,8,4,NO
 92067,California,3,5,NO
@@ -6173,7 +6173,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 23219,Virginia,8,4,NO
 37931,Tennessee,7,3,NO
 80302,Colorado,4,8,DAS
-01731,Massachusetts,8,5,NO
+01731,Massachusetts,8,4,NO
 34120,Florida,8,5,DAS
 25511,West Virginia,7,8,EDAS
 95953,California,5,5,EDAS
@@ -6330,7 +6330,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 03070,New Hampshire,8,5,DAS
 20198,District Of Columbia,8,8,EDAS
 85340,Arizona,2,8,NO
-10523,New York,8,4,NO
+10523,New York,8,5,NO
 95110,California,4,5,NO
 80022,Colorado,4,8,NO
 98273,Washington,6,5,NO
@@ -6544,7 +6544,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 97123,Oregon,6,5,NO
 08041,New Jersey,8,4,EDAS
 53189,Wisconsin,7,8,NO
-21158,Maryland,8,4,DAS
+21158,Maryland,8,5,DAS
 85215,Arizona,2,8,NO
 85326,Arizona,2,8,DAS
 19078,Pennsylvania,8,4,NO
@@ -6649,7 +6649,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 01107,Massachusetts,8,4,NO
 15204,Pennsylvania,8,4,NO
 11853,New York,8,5,NO
-92282,California,3,5,DAS
+92282,California,4,5,EDAS
 84130,Utah,3,4,NO
 25541,West Virginia,7,2,NO
 55388,Minnesota,6,4,EDAS
@@ -6680,7 +6680,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 25503,West Virginia,7,8,EDAS
 91319,California,4,5,NO
 95573,California,5,5,EDAS
-31558,Georgia,7,4,DAS
+31558,Georgia,7,3,DAS
 45219,Ohio,7,2,NO
 44128,Ohio,7,3,NO
 44677,Ohio,7,3,DAS
@@ -6777,7 +6777,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 93591,California,4,5,EDAS
 60472,Illinois,6,8,DAS
 63385,Missouri,6,4,NO
-21047,Maryland,8,4,NO
+21047,Maryland,8,5,DAS
 13775,New York,8,5,EDAS
 94937,California,4,5,EDAS
 91372,California,4,5,NO
@@ -6859,7 +6859,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 21034,Maryland,8,5,EDAS
 01923,Massachusetts,8,5,NO
 95628,California,5,5,NO
-11366,New York,8,4,NO
+11366,New York,8,5,NO
 90048,California,4,5,NO
 85726,Arizona,2,8,NO
 20882,Maryland,8,5,DAS
@@ -6884,7 +6884,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 10960,New York,8,5,NO
 55442,Minnesota,6,4,NO
 08221,New Jersey,8,4,DAS
-22309,Virginia,8,4,NO
+22309,Virginia,8,5,NO
 91604,California,4,5,NO
 90265,California,4,5,DAS
 08527,New Jersey,8,4,NO
@@ -6899,7 +6899,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 02141,Massachusetts,8,4,NO
 34638,Florida,8,5,NO
 95141,California,4,5,EDAS
-01944,Massachusetts,8,5,DAS
+01944,Massachusetts,8,4,DAS
 37861,Tennessee,7,3,DAS
 15020,Pennsylvania,8,4,DAS
 23091,Virginia,8,5,EDAS
@@ -7030,7 +7030,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 99205,Washington,6,5,NO
 90312,California,4,5,NO
 12015,New York,8,5,DAS
-60406,Illinois,7,3,NO
+60406,Illinois,7,8,NO
 24091,Virginia,8,3,EDAS
 94586,California,4,5,EDAS
 94117,California,5,5,NO
@@ -7062,7 +7062,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 97309,Oregon,5,5,NO
 97351,Oregon,5,5,EDAS
 46260,Indiana,7,5,NO
-13827,New York,8,4,NO
+13827,New York,8,5,DAS
 38569,Tennessee,7,5,EDAS
 55110,Minnesota,6,4,NO
 30276,Georgia,7,4,DAS
@@ -7154,7 +7154,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 17502,Pennsylvania,8,4,NO
 41014,Kentucky,7,2,NO
 80904,Colorado,4,8,NO
-60561,Illinois,7,3,NO
+60561,Illinois,7,8,NO
 48186,Michigan,7,3,NO
 21727,Maryland,8,4,EDAS
 16442,Pennsylvania,8,4,EDAS
@@ -7242,7 +7242,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 94659,California,4,5,NO
 16404,Pennsylvania,8,4,EDAS
 41169,Kentucky,7,8,NO
-27976,North Carolina,8,4,NO
+27976,North Carolina,8,4,EDAS
 33496,Florida,8,5,NO
 33625,Florida,8,5,NO
 02828,Rhode Island,8,5,NO
@@ -7359,7 +7359,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 85051,Arizona,2,8,NO
 13031,New York,8,4,NO
 48104,Michigan,7,3,NO
-49251,Michigan,7,4,NO
+49251,Michigan,7,4,EDAS
 94513,California,5,5,NO
 28146,North Carolina,7,4,DAS
 95161,California,4,5,NO
@@ -7470,7 +7470,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 91614,California,4,5,NO
 24555,Virginia,8,5,EDAS
 18923,Pennsylvania,8,4,DAS
-30184,Georgia,7,4,NO
+30184,Georgia,7,3,EDAS
 43064,Ohio,7,2,NO
 45458,Ohio,7,2,NO
 34743,Florida,8,5,NO
@@ -7533,7 +7533,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 53076,Wisconsin,7,8,EDAS
 18655,Pennsylvania,8,4,NO
 07753,New Jersey,8,4,NO
-95903,California,5,5,DAS
+95903,California,4,5,DAS
 20903,Maryland,8,4,NO
 84713,Utah,4,4,EDAS
 92402,California,4,5,NO
@@ -7595,7 +7595,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 97116,Oregon,6,5,DAS
 19001,Pennsylvania,8,4,NO
 48255,Michigan,7,4,NO
-43206,Ohio,7,2,NO
+43206,Ohio,7,3,NO
 63134,Missouri,6,5,NO
 19716,Delaware,8,5,DAS
 21704,Maryland,8,4,DAS
@@ -7624,7 +7624,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 85296,Arizona,2,8,NO
 08557,New Jersey,8,4,EDAS
 85018,Arizona,2,8,NO
-02858,Rhode Island,8,5,DAS
+02858,Rhode Island,8,4,DAS
 17603,Pennsylvania,8,4,NO
 92551,California,3,5,NO
 19977,Delaware,8,4,DAS
@@ -7791,7 +7791,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 34637,Florida,8,5,NO
 19055,Pennsylvania,8,4,NO
 31192,Georgia,7,3,NO
-16507,Pennsylvania,8,3,NO
+16507,Pennsylvania,8,4,NO
 48038,Michigan,7,3,DAS
 25446,West Virginia,7,3,EDAS
 92078,California,3,5,NO
@@ -8246,7 +8246,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 60503,Illinois,7,3,NO
 32254,Florida,8,5,NO
 84131,Utah,3,4,NO
-27262,North Carolina,8,3,EDAS
+27262,North Carolina,8,4,EDAS
 28150,North Carolina,7,4,DAS
 76028,Texas,5,5,NO
 95838,California,5,5,NO
@@ -8285,7 +8285,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 80977,Colorado,4,8,NO
 80217,Colorado,4,8,NO
 77036,Texas,6,5,NO
-13417,New York,8,4,NO
+13417,New York,8,5,NO
 93063,California,4,5,NO
 94572,California,5,5,NO
 89103,Nevada,3,4,NO
@@ -8498,7 +8498,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 80419,Colorado,4,8,NO
 95446,California,4,5,EDAS
 93532,California,4,5,EDAS
-21904,Maryland,8,4,DAS
+21904,Maryland,8,5,DAS
 91221,California,4,5,NO
 63304,Missouri,6,4,NO
 32720,Florida,8,5,DAS
@@ -8557,8 +8557,8 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 30087,Georgia,7,4,NO
 02464,Massachusetts,8,5,NO
 80166,Colorado,4,8,NO
-95695,California,5,5,NO
-32131,Florida,8,5,DAS
+95695,California,4,5,DAS
+32131,Florida,8,5,EDAS
 07423,New Jersey,8,4,NO
 95253,California,4,5,EDAS
 93276,California,4,5,NO
@@ -8576,7 +8576,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 75042,Texas,5,5,NO
 95307,California,4,5,NO
 94035,California,4,5,NO
-14586,New York,8,4,NO
+14586,New York,8,5,NO
 27529,North Carolina,8,4,NO
 20003,District Of Columbia,8,4,NO
 23479,Virginia,8,5,NO
@@ -8691,7 +8691,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 93044,California,4,5,NO
 92111,California,3,5,NO
 43533,Ohio,7,2,NO
-06901,Connecticut,8,4,NO
+06901,Connecticut,8,8,NO
 02132,Massachusetts,8,5,NO
 97339,Oregon,5,5,DAS
 75181,Texas,5,5,NO
@@ -8706,7 +8706,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 47303,Indiana,7,2,EDAS
 45243,Ohio,7,2,NO
 25414,West Virginia,7,3,DAS
-60410,Illinois,7,3,NO
+60410,Illinois,6,3,NO
 45251,Ohio,7,2,NO
 06360,Connecticut,8,4,DAS
 16510,Pennsylvania,8,3,NO
@@ -8784,7 +8784,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 98014,Washington,6,5,NO
 63053,Missouri,6,5,NO
 34786,Florida,8,5,NO
-53170,Wisconsin,7,8,NO
+53170,Wisconsin,6,8,NO
 60107,Illinois,7,3,NO
 98138,Washington,5,5,NO
 27360,North Carolina,8,3,EDAS
@@ -8851,7 +8851,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 01532,Massachusetts,8,5,NO
 38017,Tennessee,6,4,NO
 90077,California,4,5,NO
-78751,Texas,5,5,NO
+78751,Texas,4,5,NO
 94005,California,4,5,NO
 80301,Colorado,4,8,NO
 60190,Illinois,7,3,NO
@@ -8905,7 +8905,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 78264,Texas,5,5,NO
 08057,New Jersey,8,4,NO
 46113,Indiana,7,5,NO
-15148,Pennsylvania,8,2,NO
+15148,Pennsylvania,8,4,NO
 77093,Texas,6,5,NO
 80256,Colorado,4,8,NO
 93140,California,4,5,NO
@@ -8951,7 +8951,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 98284,Washington,6,5,DAS
 92075,California,3,5,NO
 11953,New York,8,4,DAS
-02134,Massachusetts,8,5,NO
+02134,Massachusetts,8,4,NO
 23279,Virginia,8,5,NO
 32833,Florida,8,5,NO
 19602,Pennsylvania,8,4,EDAS
@@ -9072,7 +9072,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 93405,California,4,5,DAS
 20695,Maryland,8,4,NO
 85298,Arizona,2,8,NO
-24064,Virginia,8,5,NO
+24064,Virginia,8,5,DAS
 93283,California,4,5,EDAS
 85061,Arizona,2,8,NO
 44216,Ohio,7,2,NO
@@ -9160,13 +9160,13 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 85127,Arizona,2,8,NO
 95867,California,4,5,NO
 90043,California,4,5,NO
-95425,California,5,5,DAS
+95425,California,4,5,DAS
 80540,Colorado,4,8,EDAS
 22181,Virginia,8,4,NO
 93619,California,4,5,NO
 76209,Texas,5,5,DAS
 46176,Indiana,7,2,DAS
-78861,Texas,5,5,EDAS
+78861,Texas,4,5,EDAS
 95032,California,4,5,NO
 23038,Virginia,8,5,EDAS
 34956,Florida,8,5,EDAS
@@ -9269,7 +9269,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 12456,New York,8,4,DAS
 06035,Connecticut,8,4,DAS
 63102,Missouri,6,5,NO
-33704,Florida,7,5,NO
+33704,Florida,8,5,NO
 43558,Ohio,7,2,NO
 08093,New Jersey,8,4,NO
 27278,North Carolina,8,3,NO
@@ -9386,7 +9386,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 89437,Nevada,3,4,NO
 78606,Texas,4,5,EDAS
 48116,Michigan,7,3,NO
-27937,North Carolina,8,4,DAS
+27937,North Carolina,8,4,EDAS
 06926,Connecticut,8,8,NO
 60539,Illinois,6,8,NO
 07647,New Jersey,8,4,NO
@@ -9485,7 +9485,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 12572,New York,8,5,DAS
 10566,New York,8,4,NO
 77013,Texas,6,5,NO
-45122,Ohio,7,2,NO
+45122,Ohio,7,3,DAS
 91042,California,4,5,NO
 77506,Texas,4,5,NO
 93208,California,4,5,DAS
@@ -9612,7 +9612,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 90606,California,4,5,NO
 95531,California,5,5,EDAS
 60504,Illinois,7,3,NO
-97070,Oregon,6,5,NO
+97070,Oregon,5,5,NO
 17046,Pennsylvania,8,4,NO
 93902,California,4,5,DAS
 16046,Pennsylvania,8,3,NO
@@ -9623,7 +9623,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 34113,Florida,8,5,DAS
 33026,Florida,8,5,NO
 93035,California,4,5,EDAS
-12084,New York,8,4,NO
+12084,New York,8,5,NO
 27214,North Carolina,8,3,DAS
 27703,North Carolina,8,4,NO
 53534,Wisconsin,6,4,NO
@@ -9635,7 +9635,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 98354,Washington,6,5,NO
 38637,Mississippi,6,4,NO
 27612,North Carolina,8,4,NO
-13905,New York,8,4,NO
+13905,New York,8,5,NO
 48361,Michigan,7,4,NO
 08318,New Jersey,8,4,DAS
 40510,Kentucky,7,8,NO
@@ -9675,7 +9675,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 77095,Texas,6,5,NO
 45014,Ohio,7,2,NO
 95746,California,5,5,NO
-01906,Massachusetts,8,5,NO
+01906,Massachusetts,8,4,NO
 91021,California,4,5,NO
 93712,California,4,5,NO
 21082,Maryland,8,5,DAS
@@ -9756,7 +9756,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 78248,Texas,5,5,NO
 30076,Georgia,7,4,NO
 85003,Arizona,2,8,NO
-23457,Virginia,8,4,NO
+23457,Virginia,8,5,DAS
 28637,North Carolina,8,4,NO
 93778,California,4,5,NO
 92232,California,4,5,NO
@@ -9852,7 +9852,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 45502,Ohio,7,2,NO
 19135,Pennsylvania,8,4,NO
 01845,Massachusetts,8,5,NO
-53158,Wisconsin,7,4,NO
+53158,Wisconsin,7,8,NO
 60602,Illinois,7,8,NO
 94578,California,5,5,NO
 55103,Minnesota,6,4,NO
@@ -9963,7 +9963,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 78228,Texas,5,5,NO
 48164,Michigan,7,3,NO
 32163,Florida,7,5,EDAS
-22514,Virginia,8,4,NO
+22514,Virginia,8,5,EDAS
 02465,Massachusetts,8,4,NO
 02493,Massachusetts,8,5,NO
 01566,Massachusetts,8,4,DAS
@@ -9980,7 +9980,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 11223,New York,8,4,NO
 95682,California,5,5,DAS
 33765,Florida,8,5,NO
-20607,Maryland,8,4,NO
+20607,Maryland,8,5,DAS
 98004,Washington,6,5,NO
 94978,California,4,5,NO
 19560,Pennsylvania,8,4,EDAS
@@ -10131,7 +10131,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 98087,Washington,6,5,NO
 07624,New Jersey,8,4,NO
 89523,Nevada,4,4,NO
-12159,New York,8,4,NO
+12159,New York,8,5,NO
 18414,Pennsylvania,8,4,DAS
 22712,Virginia,8,5,DAS
 37029,Tennessee,7,3,NO
@@ -10287,10 +10287,10 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 30152,Georgia,7,4,NO
 49269,Michigan,7,4,EDAS
 77586,Texas,6,5,DAS
-06231,Connecticut,8,4,DAS
+06231,Connecticut,8,8,DAS
 27958,North Carolina,8,4,DAS
 44710,Ohio,7,3,NO
-46202,Indiana,7,2,NO
+46202,Indiana,7,5,NO
 99211,Washington,5,5,NO
 55419,Minnesota,6,4,NO
 20069,District Of Columbia,8,8,NO
@@ -10334,7 +10334,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 37772,Tennessee,7,3,NO
 06070,Connecticut,8,4,NO
 44647,Ohio,7,2,NO
-63143,Missouri,6,4,NO
+63143,Missouri,6,5,NO
 08008,New Jersey,8,4,DAS
 30290,Georgia,7,4,NO
 60043,Illinois,6,8,NO
@@ -10493,11 +10493,11 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 92879,California,4,5,NO
 41121,Kentucky,7,8,EDAS
 91921,California,4,5,NO
-14059,New York,8,3,NO
+14059,New York,8,5,NO
 21217,Maryland,8,4,NO
 02919,Rhode Island,8,5,NO
 55055,Minnesota,5,4,NO
-95636,California,5,5,EDAS
+95636,California,4,5,EDAS
 15236,Pennsylvania,8,2,NO
 01915,Massachusetts,8,5,NO
 75246,Texas,4,5,NO
@@ -10545,7 +10545,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 28702,North Carolina,8,4,EDAS
 78753,Texas,5,5,NO
 02420,Massachusetts,8,5,NO
-06019,Connecticut,8,4,DAS
+06019,Connecticut,8,8,DAS
 94519,California,5,5,NO
 10269,New York,8,5,NO
 11507,New York,8,4,NO
@@ -10595,7 +10595,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 38076,Tennessee,7,5,EDAS
 90096,California,4,5,NO
 07734,New Jersey,8,4,NO
-92548,California,3,5,NO
+92548,California,4,5,DAS
 53546,Wisconsin,6,4,NO
 84408,Utah,3,4,DAS
 95481,California,4,5,NO
@@ -10632,7 +10632,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 97075,Oregon,5,5,NO
 76065,Texas,5,5,NO
 33433,Florida,8,5,NO
-44264,Ohio,7,2,NO
+44264,Ohio,7,3,DAS
 90020,California,4,5,NO
 37924,Tennessee,7,3,NO
 95502,California,4,5,NO
@@ -10649,7 +10649,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 44023,Ohio,7,2,NO
 77098,Texas,6,5,NO
 55373,Minnesota,5,4,NO
-37807,Tennessee,7,3,DAS
+37807,Tennessee,7,5,DAS
 06002,Connecticut,8,4,NO
 16440,Pennsylvania,8,3,NO
 89406,Nevada,4,4,EDAS
@@ -10663,7 +10663,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 92314,California,3,5,DAS
 85026,Arizona,2,8,NO
 16509,Pennsylvania,8,3,NO
-95693,California,5,5,NO
+95693,California,4,5,EDAS
 44125,Ohio,7,2,NO
 31136,Georgia,7,3,NO
 16428,Pennsylvania,8,3,DAS
@@ -10817,7 +10817,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 33880,Florida,8,5,DAS
 43609,Ohio,7,2,NO
 48037,Michigan,7,4,NO
-55415,Minnesota,6,4,NO
+55415,Minnesota,5,4,NO
 34471,Florida,7,5,EDAS
 94296,California,4,5,NO
 32822,Florida,8,5,NO
@@ -10885,7 +10885,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 10213,New York,8,5,NO
 32223,Florida,7,5,NO
 15202,Pennsylvania,8,2,NO
-37184,Tennessee,7,3,DAS
+37184,Tennessee,7,5,EDAS
 27704,North Carolina,8,4,NO
 63137,Missouri,6,4,NO
 93943,California,4,5,NO
@@ -10896,7 +10896,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 17050,Pennsylvania,8,4,NO
 12538,New York,8,4,DAS
 28290,North Carolina,8,4,NO
-95543,California,5,5,EDAS
+95543,California,5,5,NO
 16137,Pennsylvania,8,3,NO
 85262,Arizona,2,8,EDAS
 21793,Maryland,8,4,DAS
@@ -10998,7 +10998,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 91188,California,4,5,NO
 08083,New Jersey,8,4,NO
 18603,Pennsylvania,8,4,DAS
-91962,California,3,5,EDAS
+91962,California,4,5,EDAS
 92028,California,3,5,DAS
 24088,Virginia,8,5,EDAS
 90510,California,4,5,NO
@@ -11045,7 +11045,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 95472,California,5,5,NO
 06479,Connecticut,8,8,DAS
 95717,California,4,5,EDAS
-21210,Maryland,8,4,NO
+21210,Maryland,8,5,NO
 34741,Florida,8,5,NO
 98133,Washington,6,5,NO
 75252,Texas,5,5,NO
@@ -11274,7 +11274,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 77365,Texas,6,5,NO
 92026,California,3,5,NO
 80533,Colorado,4,8,NO
-28658,North Carolina,7,3,NO
+28658,North Carolina,8,3,NO
 20710,Maryland,8,5,NO
 93940,California,4,5,NO
 02720,Massachusetts,8,5,NO
@@ -11449,7 +11449,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 24974,West Virginia,7,8,EDAS
 20050,District Of Columbia,8,8,NO
 97301,Oregon,5,5,DAS
-22134,Virginia,8,4,DAS
+22134,Virginia,8,5,DAS
 85302,Arizona,2,8,NO
 20712,Maryland,8,5,NO
 91214,California,4,5,NO
@@ -11583,7 +11583,7 @@ zip_code,shipping_state,phx_zone,cmh_zone,das
 95112,California,4,5,NO
 77004,Texas,6,5,NO
 85653,Arizona,2,8,DAS
-80651,Colorado,4,8,NO
+80651,Colorado,4,8,DAS
 37210,Tennessee,7,3,NO
 16316,Pennsylvania,8,3,NO
 10314,New York,8,4,NO
