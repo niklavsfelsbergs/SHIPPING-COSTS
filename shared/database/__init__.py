@@ -174,6 +174,20 @@ def execute_query(query: str, commit: bool = True) -> None:
         raise RuntimeError(f"Error executing query: {e}")
 
 
+def _format_value(value) -> str:
+    """Format a value for SQL insertion."""
+    if value is None or (isinstance(value, float) and pd.isna(value)):
+        return "NULL"
+    elif isinstance(value, str):
+        return "'" + value.replace("'", "''") + "'"
+    elif isinstance(value, bool):
+        return "TRUE" if value else "FALSE"
+    elif hasattr(value, 'isoformat'):  # date/datetime
+        return "'" + str(value) + "'"
+    else:
+        return str(value)
+
+
 def push_data(
     data: Union[pl.DataFrame, pd.DataFrame],
     table_name: str,
@@ -209,7 +223,7 @@ def push_data(
     if if_exists not in ("append", "replace", "fail"):
         raise ValueError(f"if_exists must be 'append', 'replace', or 'fail', got '{if_exists}'")
 
-    # Extract rows and columns efficiently
+    # Extract rows and columns efficiently (avoid iterrows)
     if isinstance(data, pl.DataFrame):
         columns = data.columns
         rows = data.rows()
@@ -249,11 +263,7 @@ def push_data(
         except Exception as e:
             raise RuntimeError(f"Failed to drop table: {e}")
 
-    # Build parameterized INSERT statement
     column_list = ", ".join(columns)
-    placeholders = ", ".join(["%s"] * len(columns))
-    insert_sql = f"INSERT INTO {table_name} ({column_list}) VALUES ({placeholders})"
-
     batches = (total_rows + batch_size - 1) // batch_size
 
     if verbose:
@@ -267,7 +277,14 @@ def push_data(
             end_idx = min(start_idx + batch_size, total_rows)
             batch = rows[start_idx:end_idx]
 
-            cursor.executemany(insert_sql, batch)
+            # Build VALUES clause from batch
+            values_list = []
+            for row in batch:
+                row_values = ", ".join(_format_value(v) for v in row)
+                values_list.append(f"({row_values})")
+
+            insert_sql = f"INSERT INTO {table_name} ({column_list}) VALUES {', '.join(values_list)}"
+            cursor.execute(insert_sql)
 
             if verbose:
                 print(f"  Batch {batch_idx + 1}/{batches}: rows {start_idx + 1:,}-{end_idx:,}")

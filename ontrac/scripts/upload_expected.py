@@ -399,8 +399,8 @@ Examples:
     parser.add_argument(
         "--batch-size",
         type=int,
-        default=1000,
-        help="Number of rows per INSERT batch (default: 1000)"
+        default=5000,
+        help="Number of rows per INSERT batch (default: 5000)"
     )
     parser.add_argument(
         "--dry-run",
