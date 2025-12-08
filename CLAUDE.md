@@ -34,7 +34,7 @@ load_pcs_shipments() → supplement_shipments() → calculate() → output
 
 ### Surcharge System
 
-Surcharges are defined as classes inheriting from `Surcharge` base class in `ontrac/surcharges/`. Key concepts:
+Surcharges inherit from shared `Surcharge` base class (`shared/surcharges/base.py`). Carrier-specific surcharges live in `ontrac/surcharges/`. Key concepts:
 
 - **Processing phases**: BASE surcharges first (no dependencies), then DEPENDENT surcharges (reference other surcharge flags via `depends_on`)
 - **Exclusivity groups**: Surcharges in same group compete; only highest priority wins (e.g., OML > LPS > AHS in "dimensional" group)
