@@ -437,6 +437,7 @@
             padding: 16px;
             background: var(--bg);
             border-radius: 8px;
+            white-space: pre-wrap;
         }
 
         .tree-folder { color: #2563eb; font-weight: 500; }
@@ -656,7 +657,7 @@
     <nav class="nav">
         <div class="nav-header">
             <h1>OnTrac Calculator</h1>
-            <p>Technical Documentation v2025.12.05</p>
+            <p>Technical Documentation v2025.12.08</p>
         </div>
 
         <div class="nav-section">
@@ -775,6 +776,7 @@ result = <span class="code-function">calculate_costs</span>(df)
                         <div class="arch-boxes">
                             <div class="arch-box scripts">calculator.py</div>
                             <div class="arch-box scripts">upload_expected.py</div>
+                            <div class="arch-box scripts">upload_actuals.py</div>
                             <div class="arch-box scripts">compare_expected_to_actuals.py</div>
                         </div>
                     </div>
@@ -800,10 +802,10 @@ result = <span class="code-function">calculate_costs</span>(df)
                     <div class="arch-layer">
                         <div class="arch-layer-label">Data</div>
                         <div class="arch-boxes">
-                            <div class="arch-box data">zones.csv</div>
-                            <div class="arch-box data">base_rates.csv</div>
-                            <div class="arch-box data">fuel.py</div>
-                            <div class="arch-box data">billable_weight.py</div>
+                            <div class="arch-box data">loaders/pcs.py</div>
+                            <div class="arch-box data">reference/zones.csv</div>
+                            <div class="arch-box data">reference/base_rates.csv</div>
+                            <div class="arch-box data">reference/fuel.py</div>
                         </div>
                     </div>
                     <div class="arch-layer">
@@ -846,11 +848,16 @@ result = <span class="code-function">calculate_costs</span>(df)
 <span class="tree-folder">&#9500;&#9472;&#9472; ontrac/</span> <span class="tree-desc"># OnTrac-specific calculator</span>
 &#9474;   <span class="tree-file">&#9500;&#9472;&#9472; calculate_costs.py</span> <span class="tree-desc"># Main orchestrator (2-stage pipeline)</span>
 &#9474;   <span class="tree-file">&#9500;&#9472;&#9472; version.py</span> <span class="tree-desc"># Version stamp for audit trail</span>
-&#9474;   <span class="tree-folder">&#9500;&#9472;&#9472; data/</span> <span class="tree-desc"># Reference data and loaders</span>
-&#9474;   &#9474;   <span class="tree-file">&#9500;&#9472;&#9472; zones.csv</span> <span class="tree-desc"># ZIP to zone mappings (PHX + CMH)</span>
-&#9474;   &#9474;   <span class="tree-file">&#9500;&#9472;&#9472; base_rates.csv</span> <span class="tree-desc"># Rate card by weight x zone</span>
-&#9474;   &#9474;   <span class="tree-file">&#9500;&#9472;&#9472; fuel.py</span> <span class="tree-desc"># Fuel surcharge config</span>
-&#9474;   &#9474;   <span class="tree-file">&#9492;&#9472;&#9472; billable_weight.py</span> <span class="tree-desc"># DIM factor configuration</span>
+&#9474;   <span class="tree-folder">&#9500;&#9472;&#9472; data/</span> <span class="tree-desc"># Data management</span>
+&#9474;   &#9474;   <span class="tree-folder">&#9500;&#9472;&#9472; loaders/</span> <span class="tree-desc"># Dynamic data loaders</span>
+&#9474;   &#9474;   &#9474;   <span class="tree-file">&#9492;&#9472;&#9472; pcs.py</span> <span class="tree-desc"># Load shipments from PCS database</span>
+&#9474;   &#9474;   <span class="tree-folder">&#9492;&#9472;&#9472; reference/</span> <span class="tree-desc"># Static reference data</span>
+&#9474;   &#9474;       <span class="tree-file">&#9500;&#9472;&#9472; zones.csv</span> <span class="tree-desc"># ZIP to zone mappings (PHX + CMH)</span>
+&#9474;   &#9474;       <span class="tree-file">&#9500;&#9472;&#9472; base_rates.csv</span> <span class="tree-desc"># Rate card by weight x zone</span>
+&#9474;   &#9474;       <span class="tree-file">&#9500;&#9472;&#9472; fuel.py</span> <span class="tree-desc"># Fuel surcharge config</span>
+&#9474;   &#9474;       <span class="tree-file">&#9500;&#9472;&#9472; billable_weight.py</span> <span class="tree-desc"># DIM factor configuration</span>
+&#9474;   &#9474;       <span class="tree-folder">&#9500;&#9472;&#9472; archive/</span> <span class="tree-desc"># Historical zone files</span>
+&#9474;   &#9474;       <span class="tree-folder">&#9492;&#9472;&#9472; contracts/</span> <span class="tree-desc"># Contract PDFs for reference</span>
 &#9474;   <span class="tree-folder">&#9500;&#9472;&#9472; surcharges/</span> <span class="tree-desc"># 10 surcharge implementations</span>
 &#9474;   &#9474;   <span class="tree-file">&#9500;&#9472;&#9472; over_maximum_limits.py</span> <span class="tree-desc"># OML (penalty)</span>
 &#9474;   &#9474;   <span class="tree-file">&#9500;&#9472;&#9472; large_package.py</span> <span class="tree-desc"># LPS</span>
@@ -859,12 +866,13 @@ result = <span class="code-function">calculate_costs</span>(df)
 &#9474;   &#9474;   <span class="tree-file">&#9500;&#9472;&#9472; extended_delivery_area.py</span> <span class="tree-desc"># EDAS</span>
 &#9474;   &#9474;   <span class="tree-file">&#9500;&#9472;&#9472; residential.py</span> <span class="tree-desc"># RES (allocated)</span>
 &#9474;   &#9474;   <span class="tree-file">&#9492;&#9472;&#9472; demand_*.py</span> <span class="tree-desc"># Seasonal demand surcharges</span>
-&#9474;   <span class="tree-folder">&#9500;&#9472;&#9472; sources/</span> <span class="tree-desc"># Data input sources</span>
-&#9474;   &#9474;   <span class="tree-file">&#9492;&#9472;&#9472; pcs.py</span> <span class="tree-desc"># Load from PCS database</span>
 &#9474;   <span class="tree-folder">&#9500;&#9472;&#9472; scripts/</span> <span class="tree-desc"># CLI tools</span>
 &#9474;   &#9474;   <span class="tree-file">&#9500;&#9472;&#9472; calculator.py</span> <span class="tree-desc"># Interactive single-shipment</span>
-&#9474;   &#9474;   <span class="tree-file">&#9500;&#9472;&#9472; upload_expected.py</span> <span class="tree-desc"># Batch upload to DB</span>
-&#9474;   &#9474;   <span class="tree-file">&#9492;&#9472;&#9472; compare_expected_to_actuals.py</span> <span class="tree-desc"># Accuracy reports</span>
+&#9474;   &#9474;   <span class="tree-file">&#9500;&#9472;&#9472; upload_expected.py</span> <span class="tree-desc"># Upload expected costs to DB</span>
+&#9474;   &#9474;   <span class="tree-file">&#9500;&#9472;&#9472; upload_actuals.py</span> <span class="tree-desc"># Upload actual costs from invoices</span>
+&#9474;   &#9474;   <span class="tree-file">&#9500;&#9472;&#9472; compare_expected_to_actuals.py</span> <span class="tree-desc"># Accuracy reports</span>
+&#9474;   &#9474;   <span class="tree-folder">&#9492;&#9472;&#9472; output/</span> <span class="tree-desc"># Generated reports</span>
+&#9474;   &#9474;       <span class="tree-folder">&#9492;&#9472;&#9472; accuracy_reports/</span> <span class="tree-desc"># HTML comparison reports</span>
 &#9474;   <span class="tree-folder">&#9500;&#9472;&#9472; maintenance/</span> <span class="tree-desc"># Config management</span>
 &#9474;   &#9474;   <span class="tree-file">&#9492;&#9472;&#9472; generate_zones.py</span> <span class="tree-desc"># Update zones from invoices</span>
 &#9474;   <span class="tree-folder">&#9492;&#9472;&#9472; tests/</span> <span class="tree-desc"># Unit tests</span>
@@ -1522,6 +1530,22 @@ python -m ontrac.scripts.upload_expected --dry-run</code></pre>
             </div>
 
             <div class="card">
+                <h4>Upload Actual Costs</h4>
+                <pre><code><span class="code-comment"># Pull actuals for orders without them (recommended)</span>
+python -m ontrac.scripts.upload_actuals --incremental
+
+<span class="code-comment"># Full refresh - delete all and repull</span>
+python -m ontrac.scripts.upload_actuals --full
+
+<span class="code-comment"># Last N days</span>
+python -m ontrac.scripts.upload_actuals --days 7
+
+<span class="code-comment"># Limit number of orders to process</span>
+python -m ontrac.scripts.upload_actuals --incremental --limit 1000</code></pre>
+                <p>Pull actual costs from OnTrac invoice data. Uses a 120-day date window when matching tracking numbers to invoices to prevent incorrect matches if tracking numbers are reused over time.</p>
+            </div>
+
+            <div class="card">
                 <h4>Compare Expected vs Actual</h4>
                 <pre><code><span class="code-comment"># All data</span>
 python -m ontrac.scripts.compare_expected_to_actuals
@@ -1594,7 +1618,7 @@ df = <span class="code-function">pull_data</span>(<span class="code-string">"SEL
                 <div class="collapsible-content">
                     <ol>
                         <li>Receive new rate card from OnTrac contract</li>
-                        <li>Update <code>ontrac/data/base_rates.csv</code></li>
+                        <li>Update <code>ontrac/data/reference/base_rates.csv</code></li>
                         <li>Update version in <code>ontrac/version.py</code></li>
                         <li>Run tests: <code>pytest</code></li>
                         <li>Full recalculation: <code>python -m ontrac.scripts.upload_expected --full</code></li>
@@ -1610,7 +1634,7 @@ df = <span class="code-function">pull_data</span>(<span class="code-string">"SEL
                 <div class="collapsible-content">
                     <ol>
                         <li>Check OnTrac website for current fuel rate</li>
-                        <li>Update <code>LIST_RATE</code> in <code>ontrac/data/fuel.py</code></li>
+                        <li>Update <code>LIST_RATE</code> in <code>ontrac/data/reference/fuel.py</code></li>
                         <li>Calculate new <code>RATE = LIST_RATE * (1 - DISCOUNT)</code></li>
                         <li>Update version in <code>ontrac/version.py</code></li>
                         <li>Upload: <code>python -m ontrac.scripts.upload_expected --incremental</code></li>
@@ -1829,11 +1853,13 @@ df = <span class="code-function">pull_data</span>(<span class="code-string">"SEL
 &#9500;&#9472;&#9472; calculate_costs.py    <span class="code-comment"># Main orchestrator</span>
 &#9500;&#9472;&#9472; version.py             <span class="code-comment"># Version stamp</span>
 &#9500;&#9472;&#9472; data/
-&#9474;   &#9500;&#9472;&#9472; zones.csv          <span class="code-comment"># Carrier-specific zones</span>
-&#9474;   &#9500;&#9472;&#9472; base_rates.csv     <span class="code-comment"># Carrier rate card</span>
-&#9474;   &#9492;&#9472;&#9472; fuel.py            <span class="code-comment"># Fuel config</span>
+&#9474;   &#9500;&#9472;&#9472; loaders/           <span class="code-comment"># Dynamic data loaders</span>
+&#9474;   &#9474;   &#9492;&#9472;&#9472; shipments.py   <span class="code-comment"># Load from source system</span>
+&#9474;   &#9492;&#9472;&#9472; reference/         <span class="code-comment"># Static reference data</span>
+&#9474;       &#9500;&#9472;&#9472; zones.csv      <span class="code-comment"># Carrier-specific zones</span>
+&#9474;       &#9500;&#9472;&#9472; base_rates.csv <span class="code-comment"># Carrier rate card</span>
+&#9474;       &#9492;&#9472;&#9472; fuel.py        <span class="code-comment"># Fuel config</span>
 &#9500;&#9472;&#9472; surcharges/            <span class="code-comment"># Carrier-specific surcharges</span>
-&#9500;&#9472;&#9472; sources/               <span class="code-comment"># Data loaders</span>
 &#9492;&#9472;&#9472; scripts/               <span class="code-comment"># CLI tools</span></code></pre>
                     </div>
                 </div>
