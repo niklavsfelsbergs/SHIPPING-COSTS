@@ -78,10 +78,17 @@ Summarize findings:
 
 ### 6. Suggest Updates (if needed)
 
-If discrepancies found:
-1. List specific file edits needed
-2. Remind: Update `ontrac/version.py` with new VERSION date
-3. Remind: Commit with descriptive message referencing contract/website change
+If discrepancies found, for EACH change provide:
+
+1. **What to change**: File path and specific edit
+2. **Source citation** (so human can verify):
+   - For contracts: Document name, page number, section/exhibit (e.g., "Third Amendment, page 2, Restated Exhibit C")
+   - For website: Exact section name and quote the relevant text (e.g., "Demand Surcharges section: 'October 25, 2025 to January 16, 2026'")
+3. **Current vs Expected**: Show the before/after values clearly
+
+Also remind:
+- Update `ontrac/version.py` with new VERSION date
+- Commit with descriptive message referencing contract/website change
 
 ### 7. Human Approval Required
 
