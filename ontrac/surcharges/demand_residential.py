@@ -5,7 +5,7 @@ Seasonal allocated surcharge applied during residential demand period.
 """
 
 import polars as pl
-from .base import Surcharge, in_period
+from shared.surcharges import Surcharge, in_period
 
 
 class DEM_RES(Surcharge):

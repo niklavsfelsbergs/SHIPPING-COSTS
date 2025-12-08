@@ -5,7 +5,7 @@ Applies to deliveries in designated delivery areas.
 """
 
 import polars as pl
-from .base import Surcharge
+from shared.surcharges import Surcharge
 
 
 class DAS(Surcharge):

@@ -5,7 +5,7 @@ Allocated surcharge - cannot predict per-shipment if residential or commercial.
 Cost spread across all shipments at historical rate.
 """
 
-from .base import Surcharge
+from shared.surcharges import Surcharge
 
 
 class RES(Surcharge):

@@ -11,7 +11,7 @@ Within each phase, surcharges with the same exclusivity_group compete -
 only the highest priority (lowest number) wins.
 """
 
-from .base import Surcharge, in_period
+from shared.surcharges import Surcharge, in_period
 from .over_maximum_limits import OML
 from .large_package import LPS
 from .additional_handling import AHS

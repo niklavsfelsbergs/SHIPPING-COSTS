@@ -5,7 +5,7 @@ Penalty surcharge for packages exceeding maximum size/weight limits.
 """
 
 import polars as pl
-from .base import Surcharge
+from shared.surcharges import Surcharge
 
 
 class OML(Surcharge):

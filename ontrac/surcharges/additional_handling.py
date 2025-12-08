@@ -5,7 +5,7 @@ Applies to packages that require additional handling due to size, weight, or sha
 """
 
 import polars as pl
-from .base import Surcharge
+from shared.surcharges import Surcharge
 
 
 class AHS(Surcharge):

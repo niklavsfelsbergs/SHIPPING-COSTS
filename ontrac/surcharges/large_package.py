@@ -5,7 +5,7 @@ Applies to packages that exceed large package thresholds but not OML limits.
 """
 
 import polars as pl
-from .base import Surcharge
+from shared.surcharges import Surcharge
 
 
 class LPS(Surcharge):

@@ -5,7 +5,7 @@ Applies to deliveries in extended (remote) delivery areas.
 """
 
 import polars as pl
-from .base import Surcharge
+from shared.surcharges import Surcharge
 
 
 class EDAS(Surcharge):

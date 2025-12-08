@@ -5,7 +5,7 @@ Seasonal surcharge applied when LPS triggers during peak period.
 """
 
 import polars as pl
-from .base import Surcharge, in_period
+from shared.surcharges import Surcharge, in_period
 
 
 class DEM_LPS(Surcharge):
