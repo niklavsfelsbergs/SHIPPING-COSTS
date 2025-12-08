@@ -10,9 +10,9 @@ Shipping cost calculator for OnTrac carrier. Calculates expected shipping costs 
 
 ### Run Tests
 ```bash
-pytest                                # Run all tests
-pytest tests/test_calculate_costs.py  # Run specific test file
-pytest -v                             # Verbose output
+pytest                                      # Run all tests
+pytest ontrac/tests/test_calculate_costs.py # Run specific test file
+pytest -v                                   # Verbose output
 ```
 
 ### Interactive Calculator

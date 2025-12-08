@@ -1,5 +1,5 @@
 """
-Unit Tests for OnTrac Pipeline
+Unit Tests for OnTrac Cost Calculator
 
 Tests surcharge logic, cost calculations, and edge cases.
 """
@@ -7,8 +7,8 @@ Tests surcharge logic, cost calculations, and edge cases.
 import sys
 from pathlib import Path
 
-# Add parent directory to path for imports
-sys.path.insert(0, str(Path(__file__).parent.parent))
+# Add project root to path for imports
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 import pytest
 import polars as pl
