@@ -88,7 +88,7 @@ Processing order:
 - Connects to Redshift (`bi_stage_dev`)
 - Requires `shared/database/pass.txt` with password (not in git)
 - `pull_data()` - Execute SELECT, returns Polars DataFrame
-- `push_data()` - Upload DataFrame to table
+- `push_data()` - Upload DataFrame to table (uses `executemany` with parameterized queries, batch size 5000, single commit at end)
 
 ## Key Patterns
 

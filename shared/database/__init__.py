@@ -9,7 +9,6 @@ import polars as pl
 import pandas as pd
 import redshift_connector
 from pathlib import Path
-from datetime import date
 from typing import Union, Literal, Optional
 
 
@@ -175,28 +174,11 @@ def execute_query(query: str, commit: bool = True) -> None:
         raise RuntimeError(f"Error executing query: {e}")
 
 
-def _format_value(value) -> str:
-    """
-    Format a value for SQL insertion, handling NULL values and proper escaping.
-    """
-    if pd.isna(value) or value is None:
-        return "NULL"
-    elif isinstance(value, str):
-        escaped = value.replace("'", "''")
-        return f"'{escaped}'"
-    elif isinstance(value, (date, pd.Timestamp)):
-        return f"'{str(value)}'"
-    elif isinstance(value, bool):
-        return "TRUE" if value else "FALSE"
-    else:
-        return str(value)
-
-
 def push_data(
     data: Union[pl.DataFrame, pd.DataFrame],
     table_name: str,
     if_exists: Literal["append", "replace", "fail"] = "append",
-    batch_size: int = 1000,
+    batch_size: int = 5000,
     verbose: bool = True
 ) -> bool:
     """
@@ -209,7 +191,7 @@ def push_data(
             - "append": Insert data into existing table
             - "replace": Drop table and recreate (use with caution!)
             - "fail": Raise error if table exists
-        batch_size: Number of rows per INSERT batch
+        batch_size: Number of rows per INSERT batch (default: 5000)
         verbose: If True, print progress messages
 
     Returns:
@@ -227,13 +209,17 @@ def push_data(
     if if_exists not in ("append", "replace", "fail"):
         raise ValueError(f"if_exists must be 'append', 'replace', or 'fail', got '{if_exists}'")
 
-    # Convert to pandas if it's a Polars DataFrame
+    # Extract rows and columns efficiently
     if isinstance(data, pl.DataFrame):
-        data_pd = data.to_pandas()
+        columns = data.columns
+        rows = data.rows()
     else:
-        data_pd = data.copy()
+        columns = list(data.columns)
+        rows = [tuple(row) for row in data.to_numpy()]
 
-    if len(data_pd) == 0:
+    total_rows = len(rows)
+
+    if total_rows == 0:
         if verbose:
             print("Warning: DataFrame is empty, nothing to upload")
         return True
@@ -263,15 +249,15 @@ def push_data(
         except Exception as e:
             raise RuntimeError(f"Failed to drop table: {e}")
 
-    # Get column names and prepare INSERT statement template
-    columns = list(data_pd.columns)
+    # Build parameterized INSERT statement
     column_list = ", ".join(columns)
+    placeholders = ", ".join(["%s"] * len(columns))
+    insert_sql = f"INSERT INTO {table_name} ({column_list}) VALUES ({placeholders})"
 
-    total_rows = len(data_pd)
     batches = (total_rows + batch_size - 1) // batch_size
 
     if verbose:
-        print(f"Uploading {total_rows} rows to {table_name} in {batches} batch(es)...")
+        print(f"Uploading {total_rows:,} rows to {table_name} in {batches} batch(es)...")
 
     try:
         cursor = conn.cursor()
@@ -279,28 +265,18 @@ def push_data(
         for batch_idx in range(batches):
             start_idx = batch_idx * batch_size
             end_idx = min(start_idx + batch_size, total_rows)
-            batch_df = data_pd.iloc[start_idx:end_idx]
+            batch = rows[start_idx:end_idx]
 
-            values_list = []
-            for _, row in batch_df.iterrows():
-                row_values = ", ".join([_format_value(row[col]) for col in columns])
-                values_list.append(f"({row_values})")
-
-            insert_sql = f"""
-                INSERT INTO {table_name} ({column_list})
-                VALUES {', '.join(values_list)}
-            """
-
-            cursor.execute(insert_sql)
-            conn.commit()
+            cursor.executemany(insert_sql, batch)
 
             if verbose:
-                print(f"  Batch {batch_idx + 1}/{batches}: Inserted rows {start_idx + 1}-{end_idx}")
+                print(f"  Batch {batch_idx + 1}/{batches}: rows {start_idx + 1:,}-{end_idx:,}")
 
+        conn.commit()  # Single commit at end
         cursor.close()
 
         if verbose:
-            print(f"Successfully uploaded all {total_rows} rows to {table_name}!")
+            print(f"Successfully uploaded {total_rows:,} rows to {table_name}")
 
         return True
 
