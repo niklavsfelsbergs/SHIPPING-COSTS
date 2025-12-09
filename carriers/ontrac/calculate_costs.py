@@ -30,7 +30,7 @@ OUTPUT COLUMNS ADDED
 
 USAGE
 -----
-    from ontrac.calculate_costs import calculate_costs
+    from carriers.ontrac.calculate_costs import calculate_costs
     result = calculate_costs(df)
 """
 

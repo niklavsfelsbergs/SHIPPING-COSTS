@@ -9,12 +9,12 @@ Calculates expected shipping costs for OnTrac carrier shipments, uploads them to
 | Task | Command |
 |------|---------|
 | **Review config against contracts** | **`/review-config`** |
-| Upload expected costs (incremental) | `python -m ontrac.scripts.upload_expected --incremental` |
-| Upload actual costs (incremental) | `python -m ontrac.scripts.upload_actuals --incremental` |
-| Compare expected vs actual | `python -m ontrac.scripts.compare_expected_to_actuals` |
-| Calculate single shipment | `python -m ontrac.scripts.calculator` |
-| Update zones from invoices | `python -m ontrac.maintenance.generate_zones` |
-| Run tests | `pytest ontrac/tests/` |
+| Upload expected costs (incremental) | `python -m carriers.ontrac.scripts.upload_expected --incremental` |
+| Upload actual costs (incremental) | `python -m carriers.ontrac.scripts.upload_actuals --incremental` |
+| Compare expected vs actual | `python -m carriers.ontrac.scripts.compare_expected_to_actuals` |
+| Calculate single shipment | `python -m carriers.ontrac.scripts.calculator` |
+| Update zones from invoices | `python -m carriers.ontrac.maintenance.generate_zones` |
+| Run tests | `pytest carriers/ontrac/tests/` |
 
 ---
 
@@ -39,16 +39,16 @@ Calculates expected shipping costs from PCS shipment data and uploads to the dat
 
 ```bash
 # Incremental: from latest date in DB (recommended for daily use)
-python -m ontrac.scripts.upload_expected --incremental
+python -m carriers.ontrac.scripts.upload_expected --incremental
 
 # Full: recalculate everything from 2025-01-01
-python -m ontrac.scripts.upload_expected --full
+python -m carriers.ontrac.scripts.upload_expected --full
 
 # Last N days only
-python -m ontrac.scripts.upload_expected --days 7
+python -m carriers.ontrac.scripts.upload_expected --days 7
 
 # Preview without making changes
-python -m ontrac.scripts.upload_expected --incremental --dry-run
+python -m carriers.ontrac.scripts.upload_expected --incremental --dry-run
 ```
 
 **Options:**
@@ -66,16 +66,16 @@ Pulls actual costs from OnTrac invoices and uploads to the database.
 
 ```bash
 # Incremental: only orders without actuals (recommended)
-python -m ontrac.scripts.upload_actuals --incremental
+python -m carriers.ontrac.scripts.upload_actuals --incremental
 
 # Full: delete all and repull from invoices
-python -m ontrac.scripts.upload_actuals --full
+python -m carriers.ontrac.scripts.upload_actuals --full
 
 # Last N days
-python -m ontrac.scripts.upload_actuals --days 7
+python -m carriers.ontrac.scripts.upload_actuals --days 7
 
 # Limit number of orders to process
-python -m ontrac.scripts.upload_actuals --incremental --limit 1000
+python -m carriers.ontrac.scripts.upload_actuals --incremental --limit 1000
 ```
 
 **Output table:** `shipping_costs.actual_shipping_costs_ontrac`
@@ -88,16 +88,16 @@ Generates an HTML accuracy report comparing calculated vs actual invoice costs.
 
 ```bash
 # All data
-python -m ontrac.scripts.compare_expected_to_actuals
+python -m carriers.ontrac.scripts.compare_expected_to_actuals
 
 # Specific invoice
-python -m ontrac.scripts.compare_expected_to_actuals --invoice INV-12345
+python -m carriers.ontrac.scripts.compare_expected_to_actuals --invoice INV-12345
 
 # Date range
-python -m ontrac.scripts.compare_expected_to_actuals --date_from 2025-01-01 --date_to 2025-01-31
+python -m carriers.ontrac.scripts.compare_expected_to_actuals --date_from 2025-01-01 --date_to 2025-01-31
 
 # Custom output file
-python -m ontrac.scripts.compare_expected_to_actuals --output my_report.html
+python -m carriers.ontrac.scripts.compare_expected_to_actuals --output my_report.html
 ```
 
 **Report includes:**
@@ -107,7 +107,7 @@ python -m ontrac.scripts.compare_expected_to_actuals --output my_report.html
 - Surcharge detection precision/recall
 - Top outliers by variance
 
-**Output:** `ontrac/scripts/output/accuracy_reports/comparison_report_YYYYMMDD_HHMMSS.html`
+**Output:** `carriers/ontrac/scripts/output/accuracy_reports/comparison_report_YYYYMMDD_HHMMSS.html`
 
 ---
 
@@ -116,7 +116,7 @@ python -m ontrac.scripts.compare_expected_to_actuals --output my_report.html
 CLI tool to calculate cost for a single shipment interactively.
 
 ```bash
-python -m ontrac.scripts.calculator
+python -m carriers.ontrac.scripts.calculator
 ```
 
 Prompts for:
@@ -135,23 +135,23 @@ Outputs detailed cost breakdown with surcharges.
 ### Daily Operations
 ```bash
 # 1. Upload new expected costs
-python -m ontrac.scripts.upload_expected --incremental
+python -m carriers.ontrac.scripts.upload_expected --incremental
 
 # 2. Upload new actuals (after invoices arrive)
-python -m ontrac.scripts.upload_actuals --incremental
+python -m carriers.ontrac.scripts.upload_actuals --incremental
 
 # 3. Generate accuracy report
-python -m ontrac.scripts.compare_expected_to_actuals
+python -m carriers.ontrac.scripts.compare_expected_to_actuals
 ```
 
 ### After Configuration Changes
 ```bash
 # 1. Run /review-config to verify changes are correct
 # 2. Run tests to verify changes
-pytest ontrac/tests/ -v
+pytest carriers/ontrac/tests/ -v
 
 # 3. Full recalculation
-python -m ontrac.scripts.upload_expected --full
+python -m carriers.ontrac.scripts.upload_expected --full
 ```
 
 ---
@@ -159,7 +159,7 @@ python -m ontrac.scripts.upload_expected --full
 ## Directory Structure
 
 ```
-ontrac/
+carriers/ontrac/
 ├── calculate_costs.py      # Core calculation pipeline
 ├── version.py              # Version stamp for audit trail
 ├── data/
@@ -199,7 +199,7 @@ ontrac/
 ### Two-Stage Calculation Pipeline
 
 ```python
-from ontrac.calculate_costs import calculate_costs
+from carriers.ontrac.calculate_costs import calculate_costs
 
 # Input: DataFrame with shipment data
 # Output: Same DataFrame with costs appended
@@ -208,7 +208,7 @@ result = calculate_costs(df)
 
 **Stage 1: `supplement_shipments()`**
 - Calculates dimensions (cubic inches, longest side, girth)
-- Looks up zones (3-tier fallback: ZIP → state mode → default 5)
+- Looks up zones (3-tier fallback: ZIP -> state mode -> default 5)
 - Calculates billable weight (actual vs dimensional)
 
 **Stage 2: `calculate()`**
@@ -261,7 +261,7 @@ result = calculate_costs(df)
 ### Update Zones (Monthly/Quarterly)
 
 ```bash
-python -m ontrac.maintenance.generate_zones --start-date 2025-01-01
+python -m carriers.ontrac.maintenance.generate_zones --start-date 2025-01-01
 ```
 
 Analyzes invoice data to find mode zones per ZIP, merges with existing zones file.
@@ -269,22 +269,22 @@ Analyzes invoice data to find mode zones per ZIP, merges with existing zones fil
 ### Update Fuel Rate (Weekly)
 
 1. Run `/review-config` to check current OnTrac website rate
-2. Edit `ontrac/data/reference/fuel.py`
-3. Update `ontrac/version.py`
-4. Run: `python -m ontrac.scripts.upload_expected --incremental`
+2. Edit `carriers/ontrac/data/reference/fuel.py`
+3. Update `carriers/ontrac/version.py`
+4. Run: `python -m carriers.ontrac.scripts.upload_expected --incremental`
 
 ### Update Base Rates (Annual)
 
-1. Update `ontrac/data/reference/base_rates.csv` with new rate card
-2. Update `ontrac/version.py`
-3. Run tests: `pytest ontrac/tests/ -v`
-4. Full recalculation: `python -m ontrac.scripts.upload_expected --full`
+1. Update `carriers/ontrac/data/reference/base_rates.csv` with new rate card
+2. Update `carriers/ontrac/version.py`
+3. Run tests: `pytest carriers/ontrac/tests/ -v`
+4. Full recalculation: `python -m carriers.ontrac.scripts.upload_expected --full`
 
 ### Update Surcharge Pricing
 
-1. Edit surcharge class in `ontrac/surcharges/`
+1. Edit surcharge class in `carriers/ontrac/surcharges/`
 2. Update `list_price`, `discount`, or thresholds
-3. Update `ontrac/version.py`
+3. Update `carriers/ontrac/version.py`
 4. Run tests and recalculate
 
 ---
@@ -303,10 +303,10 @@ Analyzes invoice data to find mode zones per ZIP, merges with existing zones fil
 
 ```bash
 # Run all tests
-pytest ontrac/tests/ -v
+pytest carriers/ontrac/tests/ -v
 
 # Run specific test class
-pytest ontrac/tests/test_calculate_costs.py::TestSurchargeFlags -v
+pytest carriers/ontrac/tests/test_calculate_costs.py::TestSurchargeFlags -v
 ```
 
 ---

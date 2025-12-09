@@ -13,9 +13,9 @@ This script:
 5. Outputs an updated zones file
 
 Usage:
-    python -m ontrac.maintenance.generate_zones
-    python -m ontrac.maintenance.generate_zones --start-date 2025-01-01
-    python -m ontrac.maintenance.generate_zones --start-date 2025-01-01 --end-date 2025-06-30
+    python -m carriers.ontrac.maintenance.generate_zones
+    python -m carriers.ontrac.maintenance.generate_zones --start-date 2025-01-01
+    python -m carriers.ontrac.maintenance.generate_zones --start-date 2025-01-01 --end-date 2025-06-30
 """
 
 import argparse
@@ -26,7 +26,7 @@ from pathlib import Path
 import polars as pl
 
 from shared.database import pull_data
-from ontrac.data import load_zones, REFERENCE_DIR
+from carriers.ontrac.data import load_zones, REFERENCE_DIR
 
 
 SQL_FILE = Path(__file__).parent / "sql" / "zone_analysis.sql"

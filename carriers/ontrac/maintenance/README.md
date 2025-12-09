@@ -6,7 +6,7 @@ Instructions for updating carrier data when rates, zones, or contract terms chan
 
 ## Base Rates
 
-**Location:** `ontrac/data/base_rates.csv`
+**Location:** `carriers/ontrac/data/reference/base_rates.csv`
 
 ### When to Update
 - When OnTrac sends a new rate card (typically annually or with contract renewals)
@@ -22,7 +22,7 @@ Instructions for updating carrier data when rates, zones, or contract terms chan
 ### How to Update
 
 1. Replace the contents of `base_rates.csv` with the new rate card
-2. Update `ontrac/version.py`: `VERSION = "YYYY.MM.DD"`
+2. Update `carriers/ontrac/version.py`: `VERSION = "YYYY.MM.DD"`
 3. Commit: `git commit -m "Rate update effective YYYY-MM-DD"`
 
 **Note:** Git handles versioning. To recalculate with old rates: `git checkout <commit>` and run.
@@ -31,7 +31,7 @@ Instructions for updating carrier data when rates, zones, or contract terms chan
 
 ## Zones
 
-**Location:** `ontrac/data/zones.csv`
+**Location:** `carriers/ontrac/data/reference/zones.csv`
 
 ### When to Update
 - Periodically (e.g., monthly or quarterly) to align zones with actual invoice data
@@ -53,11 +53,11 @@ Run from project root (`SHIPPING-COSTS/`):
 
 ```bash
 # Update from all historical invoice data
-python -m ontrac.maintenance.generate_zones
+python -m carriers.ontrac.maintenance.generate_zones
 
 # Update from specific date range
-python -m ontrac.maintenance.generate_zones --start-date 2025-01-01
-python -m ontrac.maintenance.generate_zones --start-date 2025-01-01 --end-date 2025-06-30
+python -m carriers.ontrac.maintenance.generate_zones --start-date 2025-01-01
+python -m carriers.ontrac.maintenance.generate_zones --start-date 2025-01-01 --end-date 2025-06-30
 ```
 
 ### What the Script Does
@@ -65,18 +65,18 @@ python -m ontrac.maintenance.generate_zones --start-date 2025-01-01 --end-date 2
 1. Loads invoice data joined with PCS shipment data
 2. Calculates the most common (mode) zone for each ZIP + production site
 3. Compares with existing zones and reports changes
-4. Archives the current `zones.csv` to `ontrac/data/archive/` with timestamp
+4. Archives the current `zones.csv` to `carriers/ontrac/data/reference/archive/` with timestamp
 5. Saves updated zones to `zones.csv`
 
 ### Archive
 
-Previous zone files are saved to `ontrac/data/archive/` with format `zones_YYYY-MM-DD.csv`.
+Previous zone files are saved to `carriers/ontrac/data/reference/archive/` with format `zones_YYYY-MM-DD.csv`.
 
 ---
 
 ## Surcharges
 
-**Location:** `ontrac/surcharges/*.py`
+**Location:** `carriers/ontrac/surcharges/*.py`
 
 Each surcharge is defined as a class inheriting from `Surcharge` base class.
 
@@ -107,9 +107,9 @@ class AHS(Surcharge):
 
 ### How to Update Discounts
 
-1. Edit the surcharge file (e.g., `ontrac/surcharges/additional_handling.py`)
+1. Edit the surcharge file (e.g., `carriers/ontrac/surcharges/additional_handling.py`)
 2. Update `discount` value
-3. Update `ontrac/version.py`: `VERSION = "YYYY.MM.DD"`
+3. Update `carriers/ontrac/version.py`: `VERSION = "YYYY.MM.DD"`
 4. Commit: `git commit -m "AHS discount changed to X% per Amendment Y"`
 
 ### How to Update List Prices
@@ -128,7 +128,7 @@ class AHS(Surcharge):
 
 ## Fuel Rate
 
-**Location:** `ontrac/data/fuel.py`
+**Location:** `carriers/ontrac/data/reference/fuel.py`
 
 ### When to Update
 - Weekly (fuel rate changes every Monday on ontrac.com/surcharges)
@@ -136,7 +136,7 @@ class AHS(Surcharge):
 
 ### How to Update
 
-Edit `ontrac/data/fuel.py`:
+Edit `carriers/ontrac/data/reference/fuel.py`:
 
 ```python
 LIST_RATE = 0.195   # 19.5% - check ontrac.com/surcharges
@@ -149,14 +149,14 @@ Update the "Last updated" comment at the top of the file.
 
 ## Billable Weight (DIM Factor)
 
-**Location:** `ontrac/data/billable_weight.py`
+**Location:** `carriers/ontrac/data/reference/billable_weight.py`
 
 ### When to Update
 - When contract DIM factor changes (rare)
 
 ### How to Update
 
-Edit `ontrac/data/billable_weight.py`:
+Edit `carriers/ontrac/data/reference/billable_weight.py`:
 
 ```python
 DIM_FACTOR = 250      # Cubic inches per pound
@@ -167,7 +167,7 @@ DIM_THRESHOLD = 1728  # Min cubic inches to apply DIM weight
 
 ## Demand Periods
 
-**Location:** Individual surcharge files in `ontrac/surcharges/demand_*.py`
+**Location:** Individual surcharge files in `carriers/ontrac/surcharges/demand_*.py`
 
 ### When to Update
 - Annually (OnTrac announces demand period dates each year)
@@ -187,7 +187,7 @@ class DEM_RES(Surcharge):
 
 ## Version Management
 
-**Location:** `ontrac/version.py`
+**Location:** `carriers/ontrac/version.py`
 
 Always update `VERSION` when changing any configuration:
 

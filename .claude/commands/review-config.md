@@ -10,7 +10,7 @@ Review the OnTrac contract documents and official surcharges website to determin
 
 Read all configuration files:
 
-**Surcharges** (`ontrac/surcharges/*.py`):
+**Surcharges** (`carriers/ontrac/surcharges/*.py`):
 - `additional_handling.py` - AHS: list_price, discount, thresholds
 - `large_package.py` - LPS: list_price, discount, thresholds
 - `over_maximum_limits.py` - OML: list_price, discount, thresholds
@@ -19,16 +19,16 @@ Read all configuration files:
 - `extended_delivery_area.py` - EDAS: list_price, discount
 - `demand_*.py` - DEM_*: list_price, discount, period_start, period_end
 
-**Data** (`ontrac/data/`):
+**Data** (`carriers/ontrac/data/reference/`):
 - `fuel.py` - LIST_RATE, DISCOUNT
 - `billable_weight.py` - DIM_FACTOR, DIM_THRESHOLD
 
-**Version** (`ontrac/version.py`):
+**Version** (`carriers/ontrac/version.py`):
 - VERSION - last update date
 
 ### 2. Review Contract Documents
 
-Read the PDFs in `ontrac/data/contracts/current/`:
+Read the PDFs in `carriers/ontrac/data/reference/contracts/current/`:
 - Main contract and any supplements/amendments
 - Extract: negotiated discounts, DIM factor, special terms
 
@@ -87,7 +87,7 @@ If discrepancies found, for EACH change provide:
 3. **Current vs Expected**: Show the before/after values clearly
 
 Also remind:
-- Update `ontrac/version.py` with new VERSION date
+- Update `carriers/ontrac/version.py` with new VERSION date
 - Commit with descriptive message referencing contract/website change
 
 ### 7. Human Approval Required

@@ -8,8 +8,8 @@ Interactive CLI tool to calculate expected shipping costs for a single shipment.
 import polars as pl
 from datetime import date
 
-from ontrac.calculate_costs import calculate_costs
-from ontrac.version import VERSION
+from carriers.ontrac.calculate_costs import calculate_costs
+from carriers.ontrac.version import VERSION
 
 
 def get_user_input() -> dict:

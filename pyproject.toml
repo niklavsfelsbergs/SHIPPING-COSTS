@@ -16,4 +16,4 @@ dev = [
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["shared*", "ontrac*"]
+include = ["shared*", "carriers*"]

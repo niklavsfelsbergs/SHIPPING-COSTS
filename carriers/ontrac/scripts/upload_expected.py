@@ -10,10 +10,10 @@ Modes:
     --days N        Delete and recalculate last N days (by pcs_created)
 
 Usage:
-    python -m ontrac.scripts.upload_expected --full
-    python -m ontrac.scripts.upload_expected --incremental
-    python -m ontrac.scripts.upload_expected --days 7
-    python -m ontrac.scripts.upload_expected --full --dry-run
+    python -m carriers.ontrac.scripts.upload_expected --full
+    python -m carriers.ontrac.scripts.upload_expected --incremental
+    python -m carriers.ontrac.scripts.upload_expected --days 7
+    python -m carriers.ontrac.scripts.upload_expected --full --dry-run
 """
 
 import argparse
@@ -23,8 +23,8 @@ from datetime import datetime, timedelta
 import polars as pl
 
 from shared.database import pull_data, execute_query, push_data
-from ontrac.data import load_pcs_shipments, DEFAULT_START_DATE, DEFAULT_PRODUCTION_SITES
-from ontrac.calculate_costs import calculate_costs
+from carriers.ontrac.data import load_pcs_shipments, DEFAULT_START_DATE, DEFAULT_PRODUCTION_SITES
+from carriers.ontrac.calculate_costs import calculate_costs
 
 
 # =============================================================================
@@ -349,11 +349,11 @@ Modes:
   --days N        Delete and recalculate last N days (by pcs_created)
 
 Examples:
-  python -m ontrac.scripts.upload_expected --full
-  python -m ontrac.scripts.upload_expected --incremental
-  python -m ontrac.scripts.upload_expected --days 7
-  python -m ontrac.scripts.upload_expected --full --dry-run
-  python -m ontrac.scripts.upload_expected --incremental --production-sites Phoenix
+  python -m carriers.ontrac.scripts.upload_expected --full
+  python -m carriers.ontrac.scripts.upload_expected --incremental
+  python -m carriers.ontrac.scripts.upload_expected --days 7
+  python -m carriers.ontrac.scripts.upload_expected --full --dry-run
+  python -m carriers.ontrac.scripts.upload_expected --incremental --production-sites Phoenix
         """
     )
 

@@ -8,8 +8,8 @@ import pytest
 import polars as pl
 from datetime import date
 
-from ontrac.calculate_costs import calculate_costs, supplement_shipments, calculate
-from ontrac.surcharges import OML, LPS, AHS, DAS, EDAS, RES, DEM_RES, DEM_AHS
+from carriers.ontrac.calculate_costs import calculate_costs, supplement_shipments, calculate
+from carriers.ontrac.surcharges import OML, LPS, AHS, DAS, EDAS, RES, DEM_RES, DEM_AHS
 
 
 # =============================================================================
@@ -308,7 +308,7 @@ class TestCostCalculations:
 
     def test_fuel_calculation(self, base_shipment):
         """Fuel should be subtotal * FUEL_RATE."""
-        from ontrac.data.reference.fuel import RATE as FUEL_RATE
+        from carriers.ontrac.data.reference.fuel import RATE as FUEL_RATE
         df = run_pipeline(base_shipment)
         expected_fuel = df["cost_subtotal"][0] * FUEL_RATE
         assert df["cost_fuel"][0] == pytest.approx(expected_fuel)
@@ -329,7 +329,7 @@ class TestVersionStamp:
 
     def test_version_stamp(self, base_shipment):
         """Output should have calculator_version column."""
-        from ontrac.version import VERSION
+        from carriers.ontrac.version import VERSION
         df = run_pipeline(base_shipment)
         assert df["calculator_version"][0] == VERSION
 
