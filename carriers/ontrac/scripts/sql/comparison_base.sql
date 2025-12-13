@@ -11,6 +11,7 @@ SELECT
     e.pcs_created,
     e.ship_date,
     e.production_site,
+    e.shipping_region,
 
     -- Expected zone/weight
     e.shipping_zone,

@@ -311,6 +311,83 @@ def calc_surcharge_detection(df: pl.DataFrame) -> list[dict]:
     return results
 
 
+def calc_state_zone_analysis(df: pl.DataFrame) -> list[dict]:
+    """
+    Analyze zone accuracy by US state.
+
+    For each state, calculates:
+    - Total shipments
+    - Zone match rate (expected == actual)
+    - % with smaller expected zone (expected < actual)
+    - % with bigger expected zone (expected > actual)
+    - Base cost variance
+    """
+    if len(df) == 0:
+        return []
+
+    # Add zone comparison columns
+    df_with_compare = df.with_columns([
+        (pl.col("shipping_zone") == pl.col("actual_zone")).alias("zone_match"),
+        (pl.col("shipping_zone") < pl.col("actual_zone")).alias("zone_smaller"),
+        (pl.col("shipping_zone") > pl.col("actual_zone")).alias("zone_bigger"),
+    ])
+
+    # Group by state
+    state_stats = (
+        df_with_compare
+        .group_by("shipping_region")
+        .agg([
+            pl.count().alias("shipment_count"),
+            pl.col("zone_match").sum().alias("zone_matches"),
+            pl.col("zone_smaller").sum().alias("zone_smaller_count"),
+            pl.col("zone_bigger").sum().alias("zone_bigger_count"),
+            pl.col("cost_base").sum().alias("expected_base"),
+            pl.col("actual_base").sum().alias("actual_base"),
+        ])
+        .with_columns([
+            (pl.col("zone_matches") / pl.col("shipment_count") * 100).alias("match_rate"),
+            (pl.col("zone_smaller_count") / pl.col("shipment_count") * 100).alias("smaller_pct"),
+            (pl.col("zone_bigger_count") / pl.col("shipment_count") * 100).alias("bigger_pct"),
+            (pl.col("actual_base") - pl.col("expected_base")).alias("base_variance"),
+        ])
+        .sort("shipment_count", descending=True)
+    )
+
+    return state_stats.to_dicts()
+
+
+def calc_base_cost_by_zone(df: pl.DataFrame) -> list[dict]:
+    """
+    Compare base costs grouped by zone (expected vs actual).
+
+    Shows the base cost variance per zone to identify where rate
+    differences are coming from.
+    """
+    if len(df) == 0:
+        return []
+
+    # Analysis by expected zone
+    expected_zone_stats = (
+        df
+        .group_by("shipping_zone")
+        .agg([
+            pl.count().alias("shipment_count"),
+            pl.col("cost_base").sum().alias("expected_base"),
+            pl.col("actual_base").sum().alias("actual_base"),
+            pl.col("cost_base").mean().alias("avg_expected_base"),
+            pl.col("actual_base").mean().alias("avg_actual_base"),
+        ])
+        .with_columns([
+            (pl.col("actual_base") - pl.col("expected_base")).alias("base_variance"),
+            ((pl.col("actual_base") - pl.col("expected_base")) / pl.col("expected_base") * 100).alias("variance_pct"),
+            (pl.col("avg_actual_base") - pl.col("avg_expected_base")).alias("avg_variance"),
+        ])
+        .sort("shipping_zone")
+    )
+
+    return expected_zone_stats.to_dicts()
+
+
 def calc_outliers(df: pl.DataFrame, top_n: int = 20) -> dict:
     """Find orders with largest variances."""
     if len(df) == 0:
@@ -357,18 +434,24 @@ def calc_outliers(df: pl.DataFrame, top_n: int = 20) -> dict:
 # HTML REPORT GENERATION
 # =============================================================================
 
-def format_currency(value: float) -> str:
+def format_currency(value: float | None) -> str:
     """Format number as currency."""
+    if value is None:
+        return "-"
     return f"${value:,.2f}"
 
 
-def format_percent(value: float) -> str:
+def format_percent(value: float | None) -> str:
     """Format number as percentage."""
+    if value is None:
+        return "-"
     return f"{value:+.2f}%"
 
 
-def variance_class(value: float) -> str:
+def variance_class(value: float | None) -> str:
     """CSS class for variance coloring."""
+    if value is None:
+        return ""
     if value > 0.01:
         return "negative"  # Actual > Expected = bad (overpaying)
     elif value < -0.01:
@@ -384,6 +467,8 @@ def generate_html_report(
     surcharge_detection: list[dict],
     outliers: dict,
     filters: dict,
+    state_zone_analysis: list[dict],
+    base_cost_by_zone: list[dict],
 ) -> str:
     """Generate the full HTML report."""
 
@@ -436,6 +521,42 @@ def generate_html_report(
             <td>{s['false_negative']:,}</td>
             <td>{s['precision']:.1f}%</td>
             <td>{s['recall']:.1f}%</td>
+        </tr>
+        """
+
+    # State zone analysis table
+    state_zone_rows = ""
+    for s in state_zone_analysis:
+        match_class = "positive" if s['match_rate'] >= 95 else ("negative" if s['match_rate'] < 80 else "")
+        var_class = variance_class(s['base_variance'])
+        state_zone_rows += f"""
+        <tr>
+            <td style="text-align: left;">{s['shipping_region'] or 'Unknown'}</td>
+            <td>{s['shipment_count']:,}</td>
+            <td class="{match_class}">{s['match_rate']:.1f}%</td>
+            <td>{s['smaller_pct']:.1f}%</td>
+            <td>{s['bigger_pct']:.1f}%</td>
+            <td>{format_currency(s['expected_base'])}</td>
+            <td>{format_currency(s['actual_base'])}</td>
+            <td class="{var_class}">{format_currency(s['base_variance'])}</td>
+        </tr>
+        """
+
+    # Base cost by zone table
+    base_zone_rows = ""
+    for z in base_cost_by_zone:
+        var_class = variance_class(z['base_variance'])
+        base_zone_rows += f"""
+        <tr>
+            <td>{z['shipping_zone']}</td>
+            <td>{z['shipment_count']:,}</td>
+            <td>{format_currency(z['expected_base'])}</td>
+            <td>{format_currency(z['actual_base'])}</td>
+            <td class="{var_class}">{format_currency(z['base_variance'])}</td>
+            <td class="{var_class}">{format_percent(z['variance_pct'])}</td>
+            <td>{format_currency(z['avg_expected_base'])}</td>
+            <td>{format_currency(z['avg_actual_base'])}</td>
+            <td class="{var_class}">{format_currency(z['avg_variance'])}</td>
         </tr>
         """
 
@@ -696,6 +817,53 @@ def generate_html_report(
         </table>
     </div>
 
+    <!-- Base Cost by Zone -->
+    <div class="section">
+        <h2>Base Cost Analysis by Zone</h2>
+        <p class="meta">Compares expected vs actual base rates grouped by expected zone. Helps identify if rate card differences are zone-specific.</p>
+        <table>
+            <thead>
+                <tr>
+                    <th>Zone</th>
+                    <th>Shipments</th>
+                    <th>Expected Base</th>
+                    <th>Actual Base</th>
+                    <th>Variance ($)</th>
+                    <th>Variance (%)</th>
+                    <th>Avg Expected</th>
+                    <th>Avg Actual</th>
+                    <th>Avg Variance</th>
+                </tr>
+            </thead>
+            <tbody>
+                {base_zone_rows if base_zone_rows else '<tr><td colspan="9">No data</td></tr>'}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- State Zone Analysis -->
+    <div class="section">
+        <h2>Zone Accuracy by State</h2>
+        <p class="meta">Zone match analysis per US state. "Smaller" means expected zone &lt; actual zone (we underestimated distance). "Bigger" means expected zone &gt; actual zone (we overestimated).</p>
+        <table>
+            <thead>
+                <tr>
+                    <th style="text-align: left;">State</th>
+                    <th>Shipments</th>
+                    <th>Zone Match</th>
+                    <th>Smaller Zone</th>
+                    <th>Bigger Zone</th>
+                    <th>Expected Base</th>
+                    <th>Actual Base</th>
+                    <th>Base Variance</th>
+                </tr>
+            </thead>
+            <tbody>
+                {state_zone_rows if state_zone_rows else '<tr><td colspan="8">No data</td></tr>'}
+            </tbody>
+        </table>
+    </div>
+
     <!-- Outliers -->
     <div class="section">
         <h2>Outliers - Top 20 by Absolute Variance</h2>
@@ -819,6 +987,8 @@ Examples:
     weight_accuracy = calc_weight_accuracy(df)
     surcharge_detection = calc_surcharge_detection(df)
     outliers = calc_outliers(df)
+    state_zone_analysis = calc_state_zone_analysis(df)
+    base_cost_by_zone = calc_base_cost_by_zone(df)
 
     # Generate report
     print("Generating HTML report...")
@@ -835,6 +1005,8 @@ Examples:
         surcharge_detection=surcharge_detection,
         outliers=outliers,
         filters=filters,
+        state_zone_analysis=state_zone_analysis,
+        base_cost_by_zone=base_cost_by_zone,
     )
 
     # Save report
