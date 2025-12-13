@@ -32,6 +32,6 @@ class LPS(Surcharge):
     @classmethod
     def conditions(cls) -> pl.Expr:
         return (
-            (pl.col("longest_side_in").round(0) > cls.LONGEST_IN) |
-            (pl.col("cubic_in").round(0) > cls.CUBIC_IN)
+            (pl.col("longest_side_in") > cls.LONGEST_IN) |
+            (pl.col("cubic_in") > cls.CUBIC_IN)
         )

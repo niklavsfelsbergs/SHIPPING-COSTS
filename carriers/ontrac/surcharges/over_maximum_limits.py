@@ -33,7 +33,7 @@ class OML(Surcharge):
     @classmethod
     def conditions(cls) -> pl.Expr:
         return (
-            (pl.col("weight_lbs").round(0) > cls.WEIGHT_LBS) |
-            (pl.col("longest_side_in").round(0) > cls.LONGEST_IN) |
-            (pl.col("length_plus_girth").round(0) > cls.LENGTH_PLUS_GIRTH_IN)
+            (pl.col("weight_lbs") > cls.WEIGHT_LBS) |
+            (pl.col("longest_side_in") > cls.LONGEST_IN) |
+            (pl.col("length_plus_girth") > cls.LENGTH_PLUS_GIRTH_IN)
         )
