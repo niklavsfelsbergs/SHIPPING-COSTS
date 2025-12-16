@@ -28,6 +28,8 @@ select
     po.shippingzipcode as shipping_zip_code,
     po.shippingregion as shipping_region,
     pc."name" as shipping_country,
+    po.packagetype,
+    ps.extkey as pcs_shipping_provider,
     -- Metric (source units: mm, kg)
     GREATEST(po.packagelength, po.packagewidth) / 10.0 as length_cm,
     LEAST(po.packagelength, po.packagewidth) / 10.0 as width_cm,
