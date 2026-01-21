@@ -29,7 +29,7 @@ class RES(Surcharge):
     name = "RES"
 
     # Pricing (90% discount, allocated at 95%)
-    list_price = 6.10
+    list_price = 6.60
     discount = 0.90
     is_allocated = True
     allocation_rate = 0.95

@@ -15,7 +15,7 @@ class LPS(Surcharge):
     name = "LPS"
 
     # Pricing (60% discount)
-    list_price = 260.00
+    list_price = 285.00
     discount = 0.60
 
     # Exclusivity (dimensional: OML > LPS > AHS)

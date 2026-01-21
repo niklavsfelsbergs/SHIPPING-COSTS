@@ -15,7 +15,7 @@ class DAS(Surcharge):
     name = "DAS"
 
     # Pricing (60% discount)
-    list_price = 6.15
+    list_price = 6.60
     discount = 0.60
 
     # Exclusivity (delivery: EDAS > DAS)

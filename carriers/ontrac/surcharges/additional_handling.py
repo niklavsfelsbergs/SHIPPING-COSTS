@@ -15,7 +15,7 @@ class AHS(Surcharge):
     name = "AHS"
 
     # Pricing (70% discount per Third Amendment)
-    list_price = 32.00
+    list_price = 36.00
     discount = 0.70
 
     # Exclusivity (dimensional: OML > LPS > AHS)

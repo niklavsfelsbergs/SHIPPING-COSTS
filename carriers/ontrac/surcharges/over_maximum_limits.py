@@ -15,7 +15,7 @@ class OML(Surcharge):
     name = "OML"
 
     # Pricing (no discount - penalty surcharge)
-    list_price = 1300.00
+    list_price = 1875.00
     discount = 0.00
 
     # Exclusivity (dimensional: OML > LPS > AHS)
