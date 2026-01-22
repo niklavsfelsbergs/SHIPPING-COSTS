@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS shipping_costs.expected_shipping_costs_usps (
 
     -- Location (5)
     production_site         VARCHAR(50),
-    shipping_zip_code       VARCHAR(10),
+    shipping_zip_code       VARCHAR(20),
     shipping_region         VARCHAR(50),
     shipping_country        VARCHAR(50),
     shipping_zone           VARCHAR(5),         -- Zone with asterisk (e.g., "1*", "4")
