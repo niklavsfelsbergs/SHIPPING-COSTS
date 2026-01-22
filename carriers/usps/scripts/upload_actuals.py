@@ -40,7 +40,9 @@ SHARED_SQL_DIR = Path(shared.__file__).parent / "sql"
 USPS_SQL_DIR = Path(__file__).parent / "sql"
 
 # Date window for matching tracking numbers to invoices
-DATE_WINDOW_DAYS = 120
+# USPS mailing_date is often 1-7 days BEFORE PCS ship_date (manifest vs record date)
+DATE_WINDOW_BEFORE = 7   # Allow billing up to 7 days before ship_date
+DATE_WINDOW_AFTER = 120  # Allow billing up to 120 days after ship_date
 
 # Columns to upload (matches DDL order)
 UPLOAD_COLUMNS = [
@@ -236,7 +238,7 @@ def join_tracking_with_invoices(
     """
     Join tracking numbers with invoice data using a date window.
 
-    Matches where billing_date is within DATE_WINDOW_DAYS of ship_date.
+    Matches where billing_date is within date window of ship_date.
     This prevents incorrect matches if tracking numbers are reused over time.
     """
     # Add ship_date to tracking_df via orderids_df
@@ -249,10 +251,11 @@ def join_tracking_with_invoices(
     # Join with invoice data on trackingnumber
     merged = tracking_with_date.join(invoice_df, on="trackingnumber", how="inner")
 
-    # Filter to date window: billing_date between ship_date and ship_date + N days
+    # Filter to date window: billing_date between (ship_date - BEFORE) and (ship_date + AFTER)
+    # USPS mailing_date is often before PCS ship_date due to manifest vs record timing
     merged = merged.filter(
-        (pl.col("billing_date") >= pl.col("ship_date")) &
-        (pl.col("billing_date") <= pl.col("ship_date") + pl.duration(days=DATE_WINDOW_DAYS))
+        (pl.col("billing_date") >= pl.col("ship_date") - pl.duration(days=DATE_WINDOW_BEFORE)) &
+        (pl.col("billing_date") <= pl.col("ship_date") + pl.duration(days=DATE_WINDOW_AFTER))
     )
 
     # Drop the ship_date column (not needed for upload)
@@ -301,7 +304,7 @@ def _fetch_and_join_invoice_data(
     # Join tracking with invoice data
     print(f"\nStep {join_step}: Preparing data for upload...")
     merged_df = join_tracking_with_invoices(tracking_df, invoice_df, orderids_df)
-    print(f"  {len(merged_df):,} rows matched within {DATE_WINDOW_DAYS}-day window")
+    print(f"  {len(merged_df):,} rows matched within date window (-{DATE_WINDOW_BEFORE}/+{DATE_WINDOW_AFTER} days)")
 
     if len(merged_df) == 0:
         print("No invoice data matched within date window. Nothing to insert.")
@@ -331,7 +334,7 @@ def _print_summary_and_upload(
     for line in summary_lines:
         print(line)
     print(f"Tracking numbers found: {len(tracking_df):,}")
-    print(f"Invoice records matched (within {DATE_WINDOW_DAYS}-day window): {len(merged_df):,}")
+    print(f"Invoice records matched (within date window): {len(merged_df):,}")
 
     if len(merged_df) > 0:
         total_actual = merged_df["actual_total"].sum()
