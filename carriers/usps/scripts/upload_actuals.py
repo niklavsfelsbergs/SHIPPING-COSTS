@@ -182,7 +182,9 @@ def get_invoice_data(tracking_numbers: list[str]) -> pl.DataFrame:
     tracking_numbers_str = ", ".join(f"'{tn}'" for tn in tracking_numbers)
     query = query_template.format(tracking_numbers=tracking_numbers_str)
 
-    return pull_data(query)
+    # Use pandas to avoid Polars schema inference issues with mixed types
+    pdf = pull_data(query, as_polars=False)
+    return pl.from_pandas(pdf)
 
 
 def get_invoice_data_batched(tracking_numbers: list[str], batch_size: int = 5000) -> pl.DataFrame:
@@ -193,11 +195,31 @@ def get_invoice_data_batched(tracking_numbers: list[str], batch_size: int = 5000
     all_results = []
     total = len(tracking_numbers)
 
+    # Expected schema for invoice data (ensure consistent types across batches)
+    expected_schema = {
+        "trackingnumber": pl.Utf8,
+        "billing_date": pl.Datetime,
+        "actual_zone": pl.Utf8,
+        "actual_weight_lbs": pl.Float64,
+        "actual_length_in": pl.Float64,
+        "actual_width_in": pl.Float64,
+        "actual_height_in": pl.Float64,
+        "actual_base": pl.Float64,
+        "actual_nsl1": pl.Float64,
+        "actual_nsl2": pl.Float64,
+        "actual_noncompliance": pl.Float64,
+        "actual_total": pl.Float64,
+        "has_adjustment": pl.Boolean,
+        "adjustment_reason": pl.Utf8,
+    }
+
     for i in range(0, total, batch_size):
         batch = tracking_numbers[i:i+batch_size]
         print(f"    Fetching invoice batch {i//batch_size + 1}/{(total + batch_size - 1)//batch_size}...")
         df = get_invoice_data(batch)
         if len(df) > 0:
+            # Cast to expected schema
+            df = df.cast(expected_schema)
             all_results.append(df)
 
     if not all_results:
