@@ -53,10 +53,10 @@ UPLOAD_COLUMNS = [
     "surcharge_oml", "surcharge_lps", "surcharge_ahs", "surcharge_das",
     "surcharge_edas", "surcharge_res", "surcharge_dem_oml", "surcharge_dem_lps",
     "surcharge_dem_ahs", "surcharge_dem_res",
-    # Costs (14)
+    # Costs (15)
     "cost_base", "cost_oml", "cost_lps", "cost_ahs", "cost_das", "cost_edas",
     "cost_res", "cost_dem_oml", "cost_dem_lps", "cost_dem_ahs", "cost_dem_res",
-    "cost_subtotal", "cost_fuel", "cost_total",
+    "cost_subtotal", "cost_fuel", "cost_total", "cost_total_multishipment",
     # Metadata (2)
     "calculator_version", "dw_timestamp",
 ]
@@ -170,6 +170,16 @@ def run_pipeline(
     # Calculate costs
     print("  Calculating costs...")
     df = calculate_costs(df)
+
+    # Calculate multishipment cost (cost_total * trackingnumber_count)
+    # For orders with multiple tracking numbers, this gives total expected cost
+    # Defaults to cost_total if trackingnumber_count is 0 or null
+    df = df.with_columns(
+        pl.when(pl.col("trackingnumber_count") > 0)
+        .then(pl.col("cost_total") * pl.col("trackingnumber_count"))
+        .otherwise(pl.col("cost_total"))
+        .alias("cost_total_multishipment")
+    )
 
     # Add timestamp
     df = df.with_columns(

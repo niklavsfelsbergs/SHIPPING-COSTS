@@ -44,7 +44,7 @@ CREATE TABLE IF NOT EXISTS shipping_costs.expected_shipping_costs_usps (
     surcharge_nsv           BOOLEAN,            -- Nonstandard Volume >2 cu ft
     surcharge_peak          BOOLEAN,            -- Peak Season (Oct-Jan)
 
-    -- Costs (7)
+    -- Costs (8)
     cost_base               DECIMAL(10,2),
     cost_nsl1               DECIMAL(10,2),
     cost_nsl2               DECIMAL(10,2),
@@ -52,6 +52,7 @@ CREATE TABLE IF NOT EXISTS shipping_costs.expected_shipping_costs_usps (
     cost_peak               DECIMAL(10,2),
     cost_subtotal           DECIMAL(10,2),
     cost_total              DECIMAL(10,2),      -- Same as subtotal (no fuel)
+    cost_total_multishipment DECIMAL(10,2),     -- cost_total * trackingnumber_count
 
     -- Metadata (2)
     calculator_version      VARCHAR(20),
