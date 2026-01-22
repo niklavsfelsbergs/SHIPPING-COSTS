@@ -11,7 +11,7 @@ Calculates expected shipping costs for USPS Ground Advantage shipments, uploads 
 | Task | Command |
 |------|---------|
 | Upload expected costs (incremental) | `python -m carriers.usps.scripts.upload_expected --incremental` |
-| Upload expected costs (full) | `python -m carriers.usps.scripts.upload_expected --full` |
+| Upload actual costs (incremental) | `python -m carriers.usps.scripts.upload_actuals --incremental` |
 | Compare expected vs actual | `python -m carriers.usps.scripts.compare_expected_to_actuals` |
 | Calculate single shipment | `python -m carriers.usps.scripts.calculator` |
 | Run tests | `pytest carriers/usps/tests/` |
@@ -47,7 +47,34 @@ python -m carriers.usps.scripts.upload_expected --full --dry-run
 
 ---
 
-### 2. Compare Expected to Actuals
+### 2. Upload Actual Costs
+
+Pulls actual costs from USPS invoices and uploads to the database.
+
+```bash
+# Incremental: only orders without actuals (recommended)
+python -m carriers.usps.scripts.upload_actuals --incremental
+
+# Full: delete all and repull from invoices
+python -m carriers.usps.scripts.upload_actuals --full
+
+# Last N days
+python -m carriers.usps.scripts.upload_actuals --days 7
+
+# Limit number of orders to process
+python -m carriers.usps.scripts.upload_actuals --incremental --limit 1000
+```
+
+**Options:**
+- `--batch-size 1000` - Rows per INSERT batch
+- `--limit N` - Limit orders to process (for incremental mode)
+- `--dry-run` - Preview without database changes
+
+**Output table:** `shipping_costs.actual_shipping_costs_usps`
+
+---
+
+### 3. Compare Expected to Actuals
 
 Generates an HTML accuracy report comparing calculated vs actual invoice costs.
 
@@ -63,7 +90,7 @@ python -m carriers.usps.scripts.compare_expected_to_actuals --date_from 2025-01-
 
 ---
 
-### 3. Interactive Calculator
+### 4. Interactive Calculator
 
 CLI tool to calculate cost for a single shipment interactively.
 
@@ -103,6 +130,7 @@ carriers/usps/
 │   └── peak.py                    # Peak season surcharge
 ├── scripts/                # CLI tools
 │   ├── upload_expected.py
+│   ├── upload_actuals.py
 │   ├── compare_expected_to_actuals.py
 │   ├── calculator.py
 │   └── output/             # Generated reports
@@ -239,6 +267,7 @@ Some zones have asterisk variants (1*, 2*, 3*) indicating local delivery. The as
 
 **Tables:**
 - `shipping_costs.expected_shipping_costs_usps` - Calculated expected costs
+- `shipping_costs.actual_shipping_costs_usps` - Invoice actual costs
 
 ---
 
