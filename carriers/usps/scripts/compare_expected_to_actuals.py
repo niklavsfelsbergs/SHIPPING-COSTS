@@ -33,10 +33,13 @@ OUTPUT_DIR = Path(__file__).parent / "output" / "accuracy_reports"
 DETERMINISTIC_SURCHARGES = ["nsl1", "nsl2"]
 
 # Cost positions to compare (expected column -> actual column)
+# Note: "Base" uses cost_base_with_peak which combines cost_base + cost_peak,
+# since USPS includes peak surcharge in their base rate on invoices.
 COST_POSITIONS = [
-    ("cost_base", "actual_base", "Base"),
+    ("cost_base_with_peak", "actual_base", "Base"),
     ("cost_nsl1", "actual_nsl1", "NSL1"),
     ("cost_nsl2", "actual_nsl2", "NSL2"),
+    ("cost_nsv", None, "NSV"),  # No actual column for NSV
     ("cost_total", "actual_total", "TOTAL"),
 ]
 
@@ -63,7 +66,14 @@ def load_comparison_data(
 
     # Use pandas first to avoid Polars schema inference issues with mixed types
     pdf = pull_data(query, as_polars=False)
-    return pl.from_pandas(pdf)
+    df = pl.from_pandas(pdf)
+
+    # Add combined base+peak column (USPS includes peak in base rate on invoices)
+    df = df.with_columns(
+        (pl.col("cost_base") + pl.col("cost_peak")).alias("cost_base_with_peak")
+    )
+
+    return df
 
 
 def get_match_rate_data(
@@ -163,9 +173,15 @@ def calc_cost_position_accuracy(df: pl.DataFrame) -> list[dict]:
 
     for exp_col, act_col, label in COST_POSITIONS:
         expected = df[exp_col].sum()
-        actual = df[act_col].sum()
-        variance_dollars = actual - expected
-        variance_pct = (variance_dollars / expected * 100) if expected != 0 else 0
+        # Handle None actual column (surcharges not tracked separately in actuals)
+        if act_col is None:
+            actual = None
+            variance_dollars = None
+            variance_pct = None
+        else:
+            actual = df[act_col].sum()
+            variance_dollars = actual - expected
+            variance_pct = (variance_dollars / expected * 100) if expected != 0 else 0
 
         results.append({
             "position": label,
@@ -347,7 +363,7 @@ def calc_state_zone_analysis(df: pl.DataFrame) -> list[dict]:
             pl.col("zone_match").sum().alias("zone_matches"),
             pl.col("zone_smaller").sum().alias("zone_smaller_count"),
             pl.col("zone_bigger").sum().alias("zone_bigger_count"),
-            pl.col("cost_base").sum().alias("expected_base"),
+            pl.col("cost_base_with_peak").sum().alias("expected_base"),
             pl.col("actual_base").sum().alias("actual_base"),
         ])
         .with_columns([
@@ -378,9 +394,9 @@ def calc_base_cost_by_zone(df: pl.DataFrame) -> list[dict]:
         .group_by("shipping_zone")
         .agg([
             pl.count().alias("shipment_count"),
-            pl.col("cost_base").sum().alias("expected_base"),
+            pl.col("cost_base_with_peak").sum().alias("expected_base"),
             pl.col("actual_base").sum().alias("actual_base"),
-            pl.col("cost_base").mean().alias("avg_expected_base"),
+            pl.col("cost_base_with_peak").mean().alias("avg_expected_base"),
             pl.col("actual_base").mean().alias("avg_actual_base"),
         ])
         .with_columns([
