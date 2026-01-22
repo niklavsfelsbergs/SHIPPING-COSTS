@@ -32,10 +32,11 @@ Instructions for updating carrier data when rates, zones, or contract terms chan
 ## Zones
 
 **Location:** `carriers/ontrac/data/reference/zones.csv`
+**Source:** Official OnTrac zones file (`contracts/current/OnTrac_Zones.xlsx`)
 
 ### When to Update
-- Periodically (e.g., monthly or quarterly) to align zones with actual invoice data
-- After noticing zone mismatches in cost calculations
+- When OnTrac provides an updated zones file
+- After contract renewals or zone changes
 
 ### File Format
 
@@ -49,28 +50,28 @@ Instructions for updating carrier data when rates, zones, or contract terms chan
 
 ### How to Update
 
-Run from project root (`SHIPPING-COSTS/`):
+1. Place the new `OnTrac_Zones.xlsx` file in `carriers/ontrac/data/reference/contracts/current/`
+2. Run from project root (`SHIPPING-COSTS/`):
 
 ```bash
-# Update from all historical invoice data
-python -m carriers.ontrac.maintenance.generate_zones
-
-# Update from specific date range
-python -m carriers.ontrac.maintenance.generate_zones --start-date 2025-01-01
-python -m carriers.ontrac.maintenance.generate_zones --start-date 2025-01-01 --end-date 2025-06-30
+python -m carriers.ontrac.maintenance.convert_official_zones
 ```
 
 ### What the Script Does
 
-1. Loads invoice data joined with PCS shipment data
-2. Calculates the most common (mode) zone for each ZIP + production site
-3. Compares with existing zones and reports changes
-4. Archives the current `zones.csv` to `carriers/ontrac/data/reference/archive/` with timestamp
+1. Archives current `zones.csv` to `data/reference/archive/`
+2. Reads both PHX and CMH sheets from the official Excel file
+3. Merges and converts to the zones.csv format
+4. Maps "EAS" → "EDAS" for DAS classification
 5. Saves updated zones to `zones.csv`
 
 ### Archive
 
-Previous zone files are saved to `carriers/ontrac/data/reference/archive/` with format `zones_YYYY-MM-DD.csv`.
+Previous zone files are saved to `carriers/ontrac/data/reference/archive/` with format `zones_YYYY-MM-DD_*.csv`.
+
+### Legacy
+
+The old `generate_zones.py` script (which generated zones from invoice data) has been moved to `maintenance/archive/`. We now use official OnTrac zones instead.
 
 ---
 

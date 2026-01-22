@@ -14,9 +14,9 @@ class DEM_AHS(Surcharge):
     # Identity
     name = "DEM_AHS"
 
-    # Pricing (50% discount per Second Amendment)
+    # Pricing (0% discount per Fourth Amendment)
     list_price = 11.00
-    discount = 0.50
+    discount = 0.00
 
     # Dependencies
     depends_on = "AHS"
