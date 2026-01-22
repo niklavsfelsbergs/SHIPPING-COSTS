@@ -11,8 +11,7 @@ Structure:
 import polars as pl
 from pathlib import Path
 
-# TODO: Uncomment once reference files are created
-# from .reference.billable_weight import DIM_FACTOR, DIM_THRESHOLD, THRESHOLD_FIELD, FACTOR_FIELD
+from .reference.billable_weight import DIM_FACTOR, DIM_THRESHOLD, THRESHOLD_FIELD, FACTOR_FIELD
 
 # Re-export loaders for convenience
 from .loaders import (
@@ -30,26 +29,51 @@ def load_rates() -> pl.DataFrame:
     """
     Load base rates in long format, ready for joining.
 
+    Transforms wide CSV format (zone_1, zone_2, ...) to long format.
+
     Returns:
         DataFrame with columns:
             - weight_lbs_lower: Lower bound of weight bracket (exclusive)
             - weight_lbs_upper: Upper bound of weight bracket (inclusive)
-            - zone: Shipping zone
+            - zone: Shipping zone (1-8)
             - rate: Base rate for this zone/weight combination
     """
-    # TODO: Implement once base_rates.csv is created
-    raise NotImplementedError("load_rates not yet implemented for USPS")
+    rates = pl.read_csv(REFERENCE_DIR / "base_rates.csv")
+    zone_cols = [c for c in rates.columns if c.startswith("zone_")]
+
+    return (
+        rates
+        .unpivot(
+            index=["weight_lbs_lower", "weight_lbs_upper"],
+            on=zone_cols,
+            variable_name="_zone_col",
+            value_name="rate"
+        )
+        .with_columns(
+            pl.col("_zone_col").str.replace("zone_", "").cast(pl.Int64).alias("zone")
+        )
+        .drop("_zone_col")
+    )
 
 
 def load_zones() -> pl.DataFrame:
     """
     Load zone mappings from CSV.
 
+    USPS uses 3-digit ZIP prefix for zone lookup (unlike OnTrac's 5-digit).
+    Zones may have asterisk variants (1*, 2*, 3*) for local delivery.
+
     Returns:
-        DataFrame with zone mapping columns
+        DataFrame with columns: zip_prefix, phx_zone, cmh_zone
     """
-    # TODO: Implement once zones.csv is created
-    raise NotImplementedError("load_zones not yet implemented for USPS")
+    return pl.read_csv(
+        REFERENCE_DIR / "zones.csv",
+        schema_overrides={
+            "zip_prefix": pl.Utf8,  # Keep prefixes as strings (leading zeros)
+            "phx_zone": pl.Utf8,    # Zone can have asterisks (1*, 2*, 3*)
+            "cmh_zone": pl.Utf8,    # Zone can have asterisks (1*, 2*, 3*)
+        }
+    )
 
 
 __all__ = [
@@ -62,4 +86,9 @@ __all__ = [
     "DEFAULT_CARRIER",
     "DEFAULT_PRODUCTION_SITES",
     "DEFAULT_START_DATE",
+    # Billable weight config
+    "DIM_FACTOR",
+    "DIM_THRESHOLD",
+    "THRESHOLD_FIELD",
+    "FACTOR_FIELD",
 ]
