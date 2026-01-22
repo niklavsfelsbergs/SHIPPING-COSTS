@@ -113,30 +113,39 @@ def supplement_shipments(
 
 
 def _add_calculated_dimensions(df: pl.DataFrame) -> pl.DataFrame:
-    """Add calculated dimensional columns."""
+    """Add calculated dimensional columns.
+
+    Note: Dimensions are rounded to 1 decimal place to avoid floating point
+    precision issues when comparing against surcharge thresholds. For example,
+    762mm converts to 30.0000001980" which would incorrectly trigger the
+    AHS threshold of >30" without rounding.
+    """
     return df.with_columns([
-        # Cubic inches
+        # Cubic inches (rounded to whole number)
         (pl.col("length_in") * pl.col("width_in") * pl.col("height_in"))
+        .round(0)
         .alias("cubic_in"),
 
-        # Longest dimension
+        # Longest dimension (rounded to 1 decimal)
         pl.max_horizontal("length_in", "width_in", "height_in")
+        .round(1)
         .alias("longest_side_in"),
 
-        # Second longest dimension
+        # Second longest dimension (rounded to 1 decimal)
         pl.concat_list(["length_in", "width_in", "height_in"])
         .list.sort(descending=True)
         .list.get(1)
+        .round(1)
         .alias("second_longest_in"),
 
-        # Length + Girth (longest + 2 * sum of other two)
+        # Length + Girth (longest + 2 * sum of other two, rounded to 1 decimal)
         (
             pl.max_horizontal("length_in", "width_in", "height_in") +
             2 * (
                 pl.col("length_in") + pl.col("width_in") + pl.col("height_in") -
                 pl.max_horizontal("length_in", "width_in", "height_in")
             )
-        ).alias("length_plus_girth"),
+        ).round(1).alias("length_plus_girth"),
     ])
 
 
@@ -309,10 +318,14 @@ def _apply_single_surcharge(df: pl.DataFrame, surcharge) -> pl.DataFrame:
     flag_col = f"surcharge_{surcharge.name.lower()}"
     cost_col = f"cost_{surcharge.name.lower()}"
 
+    # cost() may return float or pl.Expr (for conditional costs like AHS borderline)
+    cost_value = surcharge.cost()
+    cost_expr = cost_value if isinstance(cost_value, pl.Expr) else pl.lit(cost_value)
+
     df = df.with_columns(surcharge.conditions().alias(flag_col))
     df = df.with_columns(
         pl.when(pl.col(flag_col))
-        .then(pl.lit(surcharge.cost()))
+        .then(cost_expr)
         .otherwise(pl.lit(0.0))
         .alias(cost_col)
     )
@@ -333,13 +346,17 @@ def _apply_exclusive_group(df: pl.DataFrame, group_name: str) -> pl.DataFrame:
         flag_col = f"surcharge_{surcharge.name.lower()}"
         cost_col = f"cost_{surcharge.name.lower()}"
 
+        # cost() may return float or pl.Expr (for conditional costs like AHS borderline)
+        cost_value = surcharge.cost()
+        cost_expr = cost_value if isinstance(cost_value, pl.Expr) else pl.lit(cost_value)
+
         # Applies only if: conditions met AND no higher priority already matched
         applies = surcharge.conditions() & ~exclusion_mask
 
         df = df.with_columns(applies.alias(flag_col))
         df = df.with_columns(
             pl.when(pl.col(flag_col))
-            .then(pl.lit(surcharge.cost()))
+            .then(cost_expr)
             .otherwise(pl.lit(0.0))
             .alias(cost_col)
         )

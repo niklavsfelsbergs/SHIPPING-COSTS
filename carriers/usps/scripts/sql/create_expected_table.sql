@@ -2,12 +2,13 @@
 -- USPS Ground Advantage expected costs from calculator
 
 CREATE TABLE IF NOT EXISTS shipping_costs.expected_shipping_costs_usps (
-    -- Identification (5)
+    -- Identification (6)
     pcs_orderid             BIGINT,
     pcs_ordernumber         VARCHAR(50),
     latest_trackingnumber   VARCHAR(50),
     trackingnumber_count    INTEGER,
     shop_ordernumber        VARCHAR(100),
+    packagetype             VARCHAR(100),
 
     -- Dates (2)
     pcs_created             TIMESTAMP,

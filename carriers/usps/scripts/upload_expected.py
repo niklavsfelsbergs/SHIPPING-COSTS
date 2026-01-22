@@ -35,9 +35,9 @@ TABLE_NAME = "shipping_costs.expected_shipping_costs_usps"
 
 # Columns to upload (matches DDL order)
 UPLOAD_COLUMNS = [
-    # Identification (5)
+    # Identification (6)
     "pcs_orderid", "pcs_ordernumber", "latest_trackingnumber",
-    "trackingnumber_count", "shop_ordernumber",
+    "trackingnumber_count", "shop_ordernumber", "packagetype",
     # Dates (2)
     "pcs_created", "ship_date",
     # Location (5)

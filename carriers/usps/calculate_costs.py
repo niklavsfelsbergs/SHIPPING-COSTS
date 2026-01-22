@@ -114,30 +114,37 @@ def supplement_shipments(
 
 
 def _add_calculated_dimensions(df: pl.DataFrame) -> pl.DataFrame:
-    """Add calculated dimensional columns."""
+    """Add calculated dimensional columns.
+
+    Note: Dimensions are rounded to 1 decimal place to avoid floating point
+    precision issues when comparing against surcharge thresholds.
+    """
     return df.with_columns([
-        # Cubic inches
+        # Cubic inches (rounded to whole number)
         (pl.col("length_in") * pl.col("width_in") * pl.col("height_in"))
+        .round(0)
         .alias("cubic_in"),
 
-        # Longest dimension
+        # Longest dimension (rounded to 1 decimal)
         pl.max_horizontal("length_in", "width_in", "height_in")
+        .round(1)
         .alias("longest_side_in"),
 
-        # Second longest dimension
+        # Second longest dimension (rounded to 1 decimal)
         pl.concat_list(["length_in", "width_in", "height_in"])
         .list.sort(descending=True)
         .list.get(1)
+        .round(1)
         .alias("second_longest_in"),
 
-        # Length + Girth (longest + 2 * sum of other two)
+        # Length + Girth (longest + 2 * sum of other two, rounded to 1 decimal)
         (
             pl.max_horizontal("length_in", "width_in", "height_in") +
             2 * (
                 pl.col("length_in") + pl.col("width_in") + pl.col("height_in") -
                 pl.max_horizontal("length_in", "width_in", "height_in")
             )
-        ).alias("length_plus_girth"),
+        ).round(1).alias("length_plus_girth"),
     ])
 
 

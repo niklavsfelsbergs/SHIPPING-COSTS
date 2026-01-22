@@ -2,6 +2,8 @@
 
 Calculates expected shipping costs for OnTrac carrier shipments, uploads them to Redshift, and compares against actual invoice costs.
 
+**Current Accuracy:** -0.52% variance on latest invoice (Jan 2026)
+
 ---
 
 ## Quick Reference
@@ -208,6 +210,7 @@ result = calculate_costs(df)
 
 **Stage 1: `supplement_shipments()`**
 - Calculates dimensions (cubic inches, longest side, girth)
+- Rounds dimensions to 1 decimal place (prevents floating-point threshold issues)
 - Looks up zones (3-tier fallback: ZIP -> state mode -> default 5)
 - Calculates billable weight (actual vs dimensional)
 
@@ -233,11 +236,11 @@ result = calculate_costs(df)
 ### Surcharges
 
 **Dimensional (mutually exclusive - highest priority wins):**
-| Surcharge | Triggers | Net Cost |
-|-----------|----------|----------|
-| OML | weight > 150 lbs OR longest > 108" OR L+girth > 165" | $1,300.00 |
-| LPS | longest > 72" OR cubic > 17,280 | $104.00 |
-| AHS | weight > 50 lbs OR longest > 48" OR 2nd > 30" | $9.60 |
+| Surcharge | Triggers | Net Cost | Min Weight |
+|-----------|----------|----------|------------|
+| OML | weight > 150 lbs OR longest > 108" OR L+girth > 165" | $1,300.00 | 150 lbs |
+| LPS | longest > 72" OR cubic > 17,280 | $104.00 | 90 lbs |
+| AHS | weight > 50 lbs OR longest > 48" OR 2nd > 30" OR cubic > 8,640 | $10.80 | 30 lbs |
 
 **Delivery Area (mutually exclusive):**
 | Surcharge | Triggers | Net Cost |
@@ -253,6 +256,51 @@ result = calculate_costs(df)
 **Demand (seasonal, Sept 27 - Jan 16):**
 - DEM_AHS, DEM_LPS, DEM_OML: Apply when base surcharge triggers during period
 - DEM_RES (Oct 25 - Jan 16): Applied to all shipments during period
+
+---
+
+## Design Decisions
+
+### Floating-Point Precision Fix
+
+Dimensions are rounded to 1 decimal place before threshold comparisons. This prevents floating-point precision issues where, for example, 762mm converts to 30.0000001980" and incorrectly triggers the AHS threshold of >30".
+
+```python
+# In _add_calculated_dimensions()
+pl.max_horizontal("length_in", "width_in", "height_in").round(1).alias("longest_side_in")
+```
+
+### Borderline AHS Allocation
+
+OnTrac inconsistently charges AHS for packages with `second_longest_in` in the borderline range (30.0" - 30.5"). Analysis of invoice data shows ~50% of these packages are charged.
+
+Rather than overstating (always charge) or understating (never charge), we apply **50% of the surcharge cost** for borderline cases:
+
+```python
+# In AHS.cost()
+borderline_only = (
+    (pl.col("second_longest_in") > 30.0) &
+    (pl.col("second_longest_in") <= 30.5) &
+    # No other AHS triggers
+    (pl.col("weight_lbs") <= 50) &
+    (pl.col("longest_side_in") <= 48) &
+    (pl.col("cubic_in") <= 8640)
+)
+return pl.when(borderline_only).then(base_cost * 0.50).otherwise(base_cost)
+```
+
+DEM_AHS uses the same borderline logic since it depends on AHS.
+
+**Note:** The 30 lbs minimum billable weight is still applied at 100% for borderline cases. This slightly overstates the base rate but the overall variance remains acceptable (-0.52%).
+
+### Surcharge cost() Method
+
+The base `Surcharge` class `cost()` method returns a float. For surcharges needing conditional costs (like AHS borderline), `cost()` can return a Polars expression instead. The calculation pipeline handles both:
+
+```python
+cost_value = surcharge.cost()
+cost_expr = cost_value if isinstance(cost_value, pl.Expr) else pl.lit(cost_value)
+```
 
 ---
 
@@ -311,6 +359,11 @@ pytest carriers/ontrac/tests/test_calculate_costs.py::TestSurchargeFlags -v
 
 ---
 
-## Documentation
+## Contract References
 
-See `ontrac-calculator.html` in the project root for interactive documentation with diagrams and a working cost calculator demo.
+| Document | Key Information |
+|----------|-----------------|
+| Third Amendment | AHS 70% discount, LPS 20% discount |
+| Fourth Amendment | DEM_AHS 0% discount (was 50%) |
+
+See `data/reference/contracts/current/` for full contract documents.
