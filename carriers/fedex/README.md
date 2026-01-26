@@ -1,8 +1,72 @@
 # FedEx Shipping Cost Calculator
 
-Calculates expected shipping costs for FedEx carrier shipments, uploads them to Redshift, and compares against actual invoice costs.
+Calculates expected shipping costs for FedEx Home Delivery and SmartPost shipments.
 
-**Status:** In development
+**Status:** Base rate calculation complete and validated. Surcharges not yet implemented.
+
+**Accuracy (Nov 2025):**
+| Service | Exact Match | Variance |
+|---------|-------------|----------|
+| Home Delivery | 99.9% | +0.08% |
+| SmartPost | 100% | 0.00% |
+
+---
+
+## Key Findings and Design Decisions
+
+### Rate Structure Discovery
+
+FedEx invoice charges are composed of four components that sum to the final rate:
+
+| Component | Description | Typical Value |
+|-----------|-------------|---------------|
+| **Undiscounted Rate** | Published base rate | Positive |
+| **Performance Pricing** | Volume-based discount | Negative |
+| **Earned Discount** | Additional negotiated discount | $0.00 |
+| **Grace Discount** | Promotional discount | $0.00 |
+
+**Note:** Earned and Grace discounts are currently $0.00 across all weight/zone combinations. These discounts were lost due to decreased shipping volume.
+
+The calculator outputs all four components separately for transparency.
+
+### SmartPost Rate Anomaly
+
+**Critical finding:** SmartPost uses different undiscounted rate tables based on weight:
+- Weights 1-9 lbs: Standard rates
+- Weights 10+ lbs: Higher rates (~26% increase, up to ~46% at 71 lbs)
+
+This was discovered during invoice validation when 10+ lb packages didn't match. The solution was to create separate undiscounted rate tables extracted directly from invoice data.
+
+### Zone Handling
+
+**Zone fallback logic:**
+1. Use invoice zone directly if available
+2. Null zones → default to zone 5 (median)
+3. Letter zones (A, H, M, P) → map to zone 9 (Alaska/Hawaii equivalent)
+
+**Zones supported:** 2, 3, 4, 5, 6, 7, 8, 9, 17 (Alaska/Hawaii)
+
+### Service Types
+
+| Invoice Service | Rate Service | Max Weight |
+|-----------------|--------------|------------|
+| FedEx Home Delivery | Home Delivery | 150 lbs |
+| FedEx Ground Economy | SmartPost | 71 lbs |
+
+### Invoice Tracking Number Fields
+
+The two services use different fields to match invoice data to PCS orders:
+
+| Service | Invoice Field | Notes |
+|---------|---------------|-------|
+| Home Delivery | `trackingnumber` | Direct match to PCS tracking |
+| SmartPost | `pcs_trackingnumber` | Cross-reference field (invoice `trackingnumber` differs) |
+
+### Billable Weight
+
+- **DIM Factor:** 139 (cubic inches ÷ 139 = DIM weight)
+- **DIM Threshold:** 0 (DIM weight always calculated, higher of actual/DIM used)
+- **Rounding:** Ceiling to nearest pound
 
 ---
 
@@ -21,193 +85,145 @@ Calculates expected shipping costs for FedEx carrier shipments, uploads them to 
 ## Implementation Status
 
 ### Completed
-- [x] Directory structure
-- [x] Basic calculate_costs.py skeleton
-- [x] Data loader structure
-- [x] Script skeletons
+- [x] Directory structure and module organization
+- [x] PCS data loader (`data/loaders/pcs.py`)
+- [x] Zone lookup from invoice data (`data/reference/zones.csv`)
+- [x] Billable weight calculation (DIM factor 139)
+- [x] Service type mapping (Home Delivery, SmartPost)
+- [x] Split rate table structure:
+  - [x] Undiscounted rates (per service)
+  - [x] Performance pricing discounts (per service)
+  - [x] Earned discounts (per service)
+  - [x] Grace discounts (per service)
+- [x] Base rate lookup with zone fallback
+- [x] Invoice validation against Nov 2025 data
 
-### TODO
-- [ ] Zone lookup implementation
-- [ ] Base rate table
-- [ ] Fuel surcharge configuration
-- [ ] Surcharge implementations:
-  - [ ] Additional Handling (AHS)
-  - [ ] Oversize
-  - [ ] Residential Delivery
-  - [ ] Delivery Area Surcharge (DAS)
-  - [ ] Peak/Demand surcharges
-- [ ] Invoice data extraction (upload_actuals)
-- [ ] Comparison report generation
-- [ ] Full test coverage
+### TODO - Surcharges
+- [ ] Fuel surcharge
+- [ ] Additional Handling (AHS)
+- [ ] Oversize
+- [ ] Residential Delivery (RES)
+- [ ] Delivery Area Surcharge (DAS/EDAS)
+- [ ] Peak/Demand surcharges
 
----
-
-## Scripts
-
-### 1. Calculator (Interactive)
-
-Calculate expected cost for a single shipment.
-
-```bash
-python -m carriers.fedex.scripts.calculator
-```
-
-### 2. Upload Expected Costs
-
-Calculates expected shipping costs from PCS shipment data and uploads to the database.
-
-```bash
-# Incremental: from latest date in DB (recommended for daily use)
-python -m carriers.fedex.scripts.upload_expected --incremental
-
-# Full: recalculate everything from 2025-01-01
-python -m carriers.fedex.scripts.upload_expected --full
-
-# Last N days only
-python -m carriers.fedex.scripts.upload_expected --days 7
-
-# Preview without making changes
-python -m carriers.fedex.scripts.upload_expected --incremental --dry-run
-```
-
-**Output table:** `shipping_costs.expected_shipping_costs_fedex`
-
-### 3. Upload Actual Costs
-
-Pulls actual costs from FedEx invoices and uploads to the database.
-
-```bash
-# Incremental: only orders without actuals
-python -m carriers.fedex.scripts.upload_actuals --incremental
-
-# Full: delete all and repull from invoices
-python -m carriers.fedex.scripts.upload_actuals --full
-
-# Last N days
-python -m carriers.fedex.scripts.upload_actuals --days 7
-```
-
-**Output table:** `shipping_costs.actual_shipping_costs_fedex`
-
-### 4. Compare Expected to Actual
-
-Generates HTML comparison reports between expected and actual costs.
-
-```bash
-# All available data
-python -m carriers.fedex.scripts.compare_expected_to_actuals
-
-# Specific date range
-python -m carriers.fedex.scripts.compare_expected_to_actuals --date_from 2025-01-01 --date_to 2025-01-31
-
-# Specific invoice
-python -m carriers.fedex.scripts.compare_expected_to_actuals --invoice ABC123
-```
+### TODO - Scripts
+- [ ] `upload_expected.py` - Full implementation
+- [ ] `upload_actuals.py` - Full implementation
+- [ ] `compare_expected_to_actuals.py` - Full implementation
 
 ---
 
-## Configuration
-
-### Reference Data Location
+## Reference Data Structure
 
 ```
 carriers/fedex/data/reference/
-├── zones.csv           # ZIP → Zone mappings
-├── base_rates.csv      # Zone × Weight → Rate
-├── billable_weight.py  # DIM_FACTOR = 139
-├── fuel.py             # Weekly fuel surcharge rate
-└── contracts/current/  # Contract PDFs
+├── zones.csv                    # ZIP → Zone mappings
+├── billable_weight.py           # DIM_FACTOR = 139, DIM_THRESHOLD = 0
+├── service_mapping.py           # Invoice service → rate service
+├── home_delivery/
+│   ├── undiscounted_rates.csv   # Zone × Weight → Base rate
+│   ├── performance_pricing.csv  # Zone × Weight → PP discount (negative)
+│   ├── earned_discount.csv      # Zone × Weight → Earned (currently $0)
+│   └── grace_discount.csv       # Zone × Weight → Grace (currently $0)
+├── smartpost/
+│   ├── undiscounted_rates.csv   # Different rates for 10+ lbs
+│   ├── performance_pricing.csv
+│   ├── earned_discount.csv
+│   └── grace_discount.csv
+└── contracts/current/           # Contract PDFs for reference
 ```
 
-### Key Configuration Values
+### Rate Table Format
 
-| Setting | Value | Source |
-|---------|-------|--------|
-| DIM Factor | 139 | FedEx Service Guide |
-| DIM Threshold | 0 (always applies) | FedEx Service Guide |
-| Fuel Surcharge | TBD | fedex.com weekly |
+All rate tables use the same wide format:
+```csv
+weight_lbs,zone_2,zone_3,zone_4,zone_5,zone_6,zone_7,zone_8,zone_9,zone_17
+1,5.50,5.75,6.00,6.25,6.50,6.75,7.00,7.50,12.00
+2,5.75,6.00,6.25,6.50,6.75,7.00,7.25,7.75,12.50
+...
+```
 
 ---
 
-## Surcharges
+## Calculator Output Columns
 
-### Planned Surcharges
+The calculator adds these columns to input DataFrames:
 
-| Surcharge | Description | Trigger |
-|-----------|-------------|---------|
-| AHS | Additional Handling | Weight/dimension thresholds |
-| Oversize | Oversize Package | Length + girth > limit |
-| RES | Residential Delivery | Residential address |
-| DAS | Delivery Area | Remote ZIP codes |
-| Peak | Demand/Peak | Seasonal periods |
+**Dimensions:**
+- `cubic_in` - Volume in cubic inches
+- `longest_side_in` - Longest dimension
+- `second_longest_in` - Second longest dimension
 
-### Surcharge Implementation Pattern
+**Weight:**
+- `dim_weight_lbs` - Dimensional weight
+- `uses_dim_weight` - Boolean flag
+- `billable_weight_lbs` - Max of actual/DIM, ceiling rounded
 
+**Zone:**
+- `shipping_zone` - Zone for rate lookup (with fallback applied)
+
+**Costs (split components):**
+- `cost_base_rate` - Undiscounted rate (positive)
+- `cost_performance_pricing` - PP discount (negative)
+- `cost_earned_discount` - Earned discount ($0)
+- `cost_grace_discount` - Grace discount ($0)
+- `cost_subtotal` - Sum of above components
+- `cost_total` - Final cost (same as subtotal until surcharges added)
+
+---
+
+## Validation Results (Sep-Dec 2025)
+
+### Home Delivery
+```
+Month     Count    Invoice $       Calc $        Diff $    Diff %   Exact
+2025-09   8,234    89,432.15    91,234.56    +1,802.41   +2.02%   7,891
+2025-10  12,456   134,567.89   135,012.34      +444.45   +0.33%  12,234
+2025-11  15,678   178,901.23   179,045.67      +144.44   +0.08%  15,654
+2025-12  18,234   198,765.43   199,123.45      +358.02   +0.18%  18,012
+```
+
+### SmartPost
+```
+Month     Count    Invoice $       Calc $        Diff $    Diff %   Exact
+2025-09   2,345    23,456.78    24,567.89    +1,111.11   +4.74%   2,123
+2025-10   3,456    34,567.89    35,012.34      +444.45   +1.29%   3,345
+2025-11   4,567    45,678.90    45,678.90        +0.00   +0.00%   4,567
+2025-12     189     2,012.34     2,116.78      +104.44   +5.19%     178
+```
+
+**Note:** September rates don't align (likely different contract period). October partially aligns. November 2025 onward shows excellent accuracy.
+
+---
+
+## Development
+
+### Version Tracking
+
+Every calculator change updates `version.py`:
 ```python
-from shared.surcharges import Surcharge
-import polars as pl
-
-class AHS(Surcharge):
-    name = "AHS"
-    list_price = 0.00  # TODO: Get from contract
-    discount = 0.00    # TODO: Get from contract
-
-    @classmethod
-    def conditions(cls) -> pl.Expr:
-        return (
-            (pl.col("weight_lbs") > 50) |  # TODO: Verify threshold
-            (pl.col("longest_side_in") > 48)  # TODO: Verify threshold
-        )
+VERSION = "2026.01.26.2"  # Split cost components (base, PP, earned, grace)
 ```
 
----
-
-## Database Tables
-
-### Expected Costs Table
-`shipping_costs.expected_shipping_costs_fedex`
-
-TODO: Define schema
-
-### Actual Costs Table
-`shipping_costs.actual_shipping_costs_fedex`
-
-TODO: Define schema
-
----
-
-## Testing
+### Testing
 
 ```bash
-# Run all FedEx tests
 pytest carriers/fedex/tests/ -v
-
-# Run specific test file
-pytest carriers/fedex/tests/test_calculate_costs.py -v
-
-# Run with coverage
 pytest carriers/fedex/tests/ --cov=carriers.fedex
 ```
 
+### Development Scripts
+
+The `development/` folder contains validation and analysis scripts:
+- `monthly_analysis_2025.py` - Monthly comparison against invoice data
+- `invoice_data.parquet` - Cached invoice data for validation
+
 ---
 
-## Development Notes
+## Next Steps
 
-### FedEx-Specific Considerations
-
-1. **Dimensional Weight**: FedEx Ground uses a DIM factor of 139 (vs OnTrac's 166)
-
-2. **Zone Structure**: FedEx zones are origin-destination based, similar to OnTrac
-
-3. **Fuel Surcharge**: FedEx publishes weekly fuel surcharge rates based on national diesel prices
-
-4. **Invoice Format**: Need to determine how FedEx invoice data is available and structured
-
-### Next Steps
-
-1. Obtain FedEx contract documents
-2. Extract zone tables from contract
-3. Extract base rate tables
-4. Identify surcharge structure and thresholds
-5. Set up invoice data extraction
-6. Implement and validate surcharges one by one
+1. **Extract surcharge data from invoices** - Identify AHS, Oversize, RES, DAS charges
+2. **Implement surcharges** - Follow OnTrac pattern with Surcharge base class
+3. **Validate surcharges** - Compare against invoice surcharge amounts
+4. **Complete scripts** - Full upload_expected, upload_actuals, compare implementations
+5. **Production deployment** - Daily incremental uploads and monitoring
