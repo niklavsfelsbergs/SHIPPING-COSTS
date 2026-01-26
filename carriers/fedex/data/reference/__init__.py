@@ -14,16 +14,6 @@ def load_zones() -> pl.DataFrame:
     return pl.read_csv(REFERENCE_DIR / "zones.csv")
 
 
-def load_base_rates_home_delivery() -> pl.DataFrame:
-    """Load Home Delivery base rate table."""
-    return pl.read_csv(REFERENCE_DIR / "base_rates_home_delivery.csv")
-
-
-def load_base_rates_ground_economy() -> pl.DataFrame:
-    """Load Ground Economy base rate table."""
-    return pl.read_csv(REFERENCE_DIR / "base_rates_ground_economy.csv")
-
-
 # =============================================================================
 # RATE TABLE LOADERS (for calculator)
 # =============================================================================
@@ -69,8 +59,6 @@ def load_grace_discount(service: str) -> pl.DataFrame:
 
 __all__ = [
     "load_zones",
-    "load_base_rates_home_delivery",
-    "load_base_rates_ground_economy",
     "load_undiscounted_rates",
     "load_performance_pricing",
     "load_earned_discount",
