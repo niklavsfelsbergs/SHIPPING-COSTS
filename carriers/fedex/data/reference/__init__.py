@@ -14,6 +14,11 @@ def load_zones() -> pl.DataFrame:
     return pl.read_csv(REFERENCE_DIR / "zones.csv")
 
 
+def load_das_zones() -> pl.DataFrame:
+    """Load DAS zone mappings from das_zones.csv."""
+    return pl.read_csv(REFERENCE_DIR / "das_zones.csv")
+
+
 # =============================================================================
 # RATE TABLE LOADERS (for calculator)
 # =============================================================================
@@ -59,6 +64,7 @@ def load_grace_discount(service: str) -> pl.DataFrame:
 
 __all__ = [
     "load_zones",
+    "load_das_zones",
     "load_undiscounted_rates",
     "load_performance_pricing",
     "load_earned_discount",

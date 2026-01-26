@@ -22,16 +22,16 @@ Usage:
 """
 
 from shared.surcharges import Surcharge, in_period
+from .das import DAS
 
 # TODO: Import surcharge classes as they are implemented
 # from carriers.fedex.surcharges.additional_handling import AHS
 # from carriers.fedex.surcharges.oversize import OVERSIZE
 # from carriers.fedex.surcharges.residential import RES
-# from carriers.fedex.surcharges.delivery_area import DAS
 
 
 # All surcharges - add classes here as they are implemented
-ALL: list[type[Surcharge]] = []
+ALL: list[type[Surcharge]] = [DAS]
 
 
 # =============================================================================
@@ -117,6 +117,8 @@ __all__ = [
     # Base
     "Surcharge",
     "in_period",
+    # Surcharge classes
+    "DAS",
     # Lists
     "ALL",
     "BASE",

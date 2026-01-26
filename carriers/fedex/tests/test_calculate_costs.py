@@ -37,6 +37,7 @@ def base_shipment() -> pl.DataFrame:
         "width_in": 8.0,
         "height_in": 6.0,
         "weight_lbs": 5.0,
+        "pcs_shipping_provider": "FXEHD",  # Home Delivery
     }])
 
 
@@ -57,6 +58,7 @@ def large_shipment() -> pl.DataFrame:
         "width_in": 30.0,
         "height_in": 20.0,
         "weight_lbs": 75.0,
+        "pcs_shipping_provider": "FXEHD",  # Home Delivery
     }])
 
 
@@ -126,7 +128,7 @@ class TestCalculate:
         df = supplement_shipments(base_shipment)
         df = calculate(df)
 
-        assert "cost_base" in df.columns
+        assert "cost_base_rate" in df.columns
         assert "cost_subtotal" in df.columns
         assert "cost_fuel" in df.columns
         assert "cost_total" in df.columns
@@ -168,7 +170,91 @@ class TestCalculateCosts:
 
 
 # =============================================================================
-# PLACEHOLDER TESTS FOR SURCHARGES
+# TESTS: DAS SURCHARGE
+# =============================================================================
+
+class TestDASSurcharge:
+    """Tests for Delivery Area Surcharge."""
+
+    def test_das_triggers_for_das_zip(self):
+        """DAS should trigger for ZIPs in DAS zones."""
+        df = pl.DataFrame([{
+            "ship_date": date(2025, 11, 15),
+            "production_site": "Phoenix",
+            "shipping_zip_code": "01002",  # DAS zone
+            "shipping_region": "Massachusetts",
+            "length_in": 10.0,
+            "width_in": 8.0,
+            "height_in": 6.0,
+            "weight_lbs": 5.0,
+            "pcs_shipping_provider": "FXEHD",
+        }])
+        result = calculate_costs(df)
+
+        assert result["das_zone"][0] == "DAS"
+        assert result["surcharge_das"][0] == True
+        assert result["cost_das"][0] == 2.17  # HD_DAS price
+
+    def test_das_extended_triggers_for_extended_zip(self):
+        """DAS_EXTENDED should trigger for ZIPs in extended zones."""
+        df = pl.DataFrame([{
+            "ship_date": date(2025, 11, 15),
+            "production_site": "Phoenix",
+            "shipping_zip_code": "01005",  # DAS_EXTENDED zone
+            "shipping_region": "Massachusetts",
+            "length_in": 10.0,
+            "width_in": 8.0,
+            "height_in": 6.0,
+            "weight_lbs": 5.0,
+            "pcs_shipping_provider": "FXEHD",
+        }])
+        result = calculate_costs(df)
+
+        assert result["das_zone"][0] == "DAS_EXTENDED"
+        assert result["surcharge_das"][0] == True
+        assert result["cost_das"][0] == 2.91  # HD_DAS_EXTENDED price
+
+    def test_no_das_for_non_das_zip(self):
+        """DAS should not trigger for ZIPs not in DAS zones."""
+        df = pl.DataFrame([{
+            "ship_date": date(2025, 11, 15),
+            "production_site": "Phoenix",
+            "shipping_zip_code": "90210",  # Not in DAS zones
+            "shipping_region": "California",
+            "length_in": 10.0,
+            "width_in": 8.0,
+            "height_in": 6.0,
+            "weight_lbs": 5.0,
+            "pcs_shipping_provider": "FXEHD",
+        }])
+        result = calculate_costs(df)
+
+        assert result["das_zone"][0] is None
+        assert result["surcharge_das"][0] == False
+        assert result["cost_das"][0] == 0.0
+
+    def test_das_smartpost_different_price(self):
+        """SmartPost should have different DAS prices than Home Delivery."""
+        df = pl.DataFrame([{
+            "ship_date": date(2025, 11, 15),
+            "production_site": "Phoenix",
+            "shipping_zip_code": "01005",  # DAS_EXTENDED zone
+            "shipping_region": "Massachusetts",
+            "length_in": 10.0,
+            "width_in": 8.0,
+            "height_in": 6.0,
+            "weight_lbs": 5.0,
+            "pcs_shipping_provider": "FXESPPS",  # SmartPost
+        }])
+        result = calculate_costs(df)
+
+        assert result["das_zone"][0] == "DAS_EXTENDED"
+        assert result["surcharge_das"][0] == True
+        assert result["cost_das"][0] == 4.15  # SP_DAS_EXTENDED price
+
+
+# =============================================================================
+# PLACEHOLDER TESTS FOR OTHER SURCHARGES
 # =============================================================================
 
 # TODO: Add surcharge tests as surcharges are implemented

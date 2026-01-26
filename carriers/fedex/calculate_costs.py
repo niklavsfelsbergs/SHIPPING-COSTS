@@ -43,6 +43,7 @@ import polars as pl
 
 from .data import (
     load_zones,
+    load_das_zones,
     DIM_FACTOR,
     SERVICE_MAPPING,
 )
@@ -88,7 +89,8 @@ def calculate_costs(
 
 def supplement_shipments(
     df: pl.DataFrame,
-    zones: pl.DataFrame | None = None
+    zones: pl.DataFrame | None = None,
+    das_zones: pl.DataFrame | None = None
 ) -> pl.DataFrame:
     """
     Supplement shipment data with zone and weight calculations.
@@ -96,20 +98,25 @@ def supplement_shipments(
     Args:
         df: Raw shipment DataFrame
         zones: Zone mapping DataFrame (loaded if not provided)
+        das_zones: DAS zone mapping DataFrame (loaded if not provided)
 
     Returns:
         DataFrame with added columns:
             - rate_service (Home Delivery or Ground Economy)
             - cubic_in, longest_side_in, second_longest_in, length_plus_girth
             - shipping_zone
+            - das_zone (DAS tier or null)
             - dim_weight_lbs, uses_dim_weight, billable_weight_lbs
     """
     if zones is None:
         zones = load_zones()
+    if das_zones is None:
+        das_zones = load_das_zones()
 
     df = _add_service_type(df)
     df = _add_calculated_dimensions(df)
     df = _lookup_zones(df, zones)
+    df = _lookup_das_zones(df, das_zones)
     df = _add_billable_weight(df)
 
     return df
@@ -244,6 +251,60 @@ def _lookup_zones(df: pl.DataFrame, zones: pl.DataFrame) -> pl.DataFrame:
         "_phx_zone_final", "_cmh_zone_final",
         "state",
     ])
+
+    return df
+
+
+def _lookup_das_zones(df: pl.DataFrame, das_zones: pl.DataFrame) -> pl.DataFrame:
+    """
+    Add DAS zone to shipments based on shipping ZIP code and service type.
+
+    DAS zones are destination-only (not origin-dependent).
+    The das_zones.csv has separate columns for Home Delivery and SmartPost
+    since some ZIPs have different DAS tiers by service.
+
+    Args:
+        df: DataFrame with shipping_zip_code and rate_service columns
+        das_zones: DAS zone mapping with zip_code, das_type_hd, das_type_sp
+
+    Returns:
+        DataFrame with das_zone column added (DAS tier or null)
+    """
+    # Normalize ZIP code to 5 digits
+    df = df.with_columns(
+        pl.col("shipping_zip_code")
+        .cast(pl.Utf8)
+        .str.slice(0, 5)
+        .str.zfill(5)
+        .alias("_das_zip")
+    )
+
+    # Ensure das_zones zip_code is normalized
+    das_zones = das_zones.with_columns(
+        pl.col("zip_code")
+        .cast(pl.Utf8)
+        .str.zfill(5)
+        .alias("zip_code")
+    )
+
+    # Join to get DAS zone data
+    df = df.join(
+        das_zones,
+        left_on="_das_zip",
+        right_on="zip_code",
+        how="left"
+    )
+
+    # Select the appropriate DAS type based on service
+    df = df.with_columns(
+        pl.when(pl.col("rate_service") == "Home Delivery")
+        .then(pl.col("das_type_hd"))
+        .otherwise(pl.col("das_type_sp"))
+        .alias("das_zone")
+    )
+
+    # Drop intermediate columns
+    df = df.drop(["_das_zip", "das_type_hd", "das_type_sp"])
 
     return df
 

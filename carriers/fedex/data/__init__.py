@@ -3,6 +3,7 @@
 from carriers.fedex.data.loaders import load_pcs_shipments
 from carriers.fedex.data.reference import (
     load_zones,
+    load_das_zones,
     load_undiscounted_rates,
     load_performance_pricing,
     load_earned_discount,
@@ -18,6 +19,7 @@ from carriers.fedex.data.reference.service_mapping import (
 __all__ = [
     "load_pcs_shipments",
     "load_zones",
+    "load_das_zones",
     "load_undiscounted_rates",
     "load_performance_pricing",
     "load_earned_discount",
