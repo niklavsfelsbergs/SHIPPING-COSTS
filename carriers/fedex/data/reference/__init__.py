@@ -8,7 +8,7 @@ from pathlib import Path
 
 import polars as pl
 
-from .billable_weight import DIM_FACTOR
+from .billable_weight import DIM_FACTOR, DIM_FACTOR_HOME_DELIVERY, DIM_FACTOR_GROUND_ECONOMY
 from .fuel import RATE as FUEL_RATE
 
 REFERENCE_DIR = Path(__file__).parent
@@ -75,5 +75,7 @@ __all__ = [
     "load_earned_discount",
     "load_grace_discount",
     "DIM_FACTOR",
+    "DIM_FACTOR_HOME_DELIVERY",
+    "DIM_FACTOR_GROUND_ECONOMY",
     "FUEL_RATE",
 ]

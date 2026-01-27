@@ -17,6 +17,8 @@ from .reference import (
     load_earned_discount,
     load_grace_discount,
     DIM_FACTOR,
+    DIM_FACTOR_HOME_DELIVERY,
+    DIM_FACTOR_GROUND_ECONOMY,
     FUEL_RATE,
 )
 from .reference.service_mapping import (
@@ -36,6 +38,8 @@ __all__ = [
     "load_grace_discount",
     # Billable weight config
     "DIM_FACTOR",
+    "DIM_FACTOR_HOME_DELIVERY",
+    "DIM_FACTOR_GROUND_ECONOMY",
     # Fuel config
     "FUEL_RATE",
     # Service mapping

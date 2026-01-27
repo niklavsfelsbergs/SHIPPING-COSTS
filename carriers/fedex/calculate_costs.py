@@ -44,7 +44,8 @@ import polars as pl
 from .data import (
     load_zones,
     load_das_zones,
-    DIM_FACTOR,
+    DIM_FACTOR_HOME_DELIVERY,
+    DIM_FACTOR_GROUND_ECONOMY,
     FUEL_RATE,
     SERVICE_MAPPING,
 )
@@ -314,12 +315,20 @@ def _add_billable_weight(df: pl.DataFrame) -> pl.DataFrame:
     """
     Calculate dimensional weight and billable weight.
 
-    FedEx uses dimensional weight factor of 139 for Ground.
+    FedEx uses different dimensional weight divisors by service:
+        - Home Delivery: 250
+        - Ground Economy (SmartPost): 225
+
     Billable weight is the greater of actual weight and dimensional weight.
     """
-    # Calculate dimensional weight
+    # Calculate dimensional weight using service-specific divisors
     df = df.with_columns(
-        (pl.col("cubic_in") / DIM_FACTOR).alias("dim_weight_lbs")
+        pl.when(pl.col("rate_service") == "Home Delivery")
+        .then(pl.col("cubic_in") / DIM_FACTOR_HOME_DELIVERY)
+        .when(pl.col("rate_service") == "Ground Economy")
+        .then(pl.col("cubic_in") / DIM_FACTOR_GROUND_ECONOMY)
+        .otherwise(pl.col("cubic_in") / DIM_FACTOR_HOME_DELIVERY)  # Default
+        .alias("dim_weight_lbs")
     )
 
     # Billable weight is always max(actual, dimensional) - no threshold

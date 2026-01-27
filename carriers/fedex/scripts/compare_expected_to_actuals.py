@@ -7,7 +7,7 @@ Compares expected shipping costs to actual invoice costs and generates an HTML r
 Usage:
     python -m carriers.fedex.scripts.compare_expected_to_actuals
     python -m carriers.fedex.scripts.compare_expected_to_actuals --invoice 26D0I70116
-    python -m carriers.fedex.scripts.compare_expected_to_actuals --date_from 2025-01-01 --date_to 2025-01-31
+    python -m carriers.fedex.scripts.compare_expected_to_actuals --date_from 2025-12-01 --date_to 2025-12-31
     python -m carriers.fedex.scripts.compare_expected_to_actuals --output report.html
 """
 
