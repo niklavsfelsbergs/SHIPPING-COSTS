@@ -23,15 +23,15 @@ Usage:
 
 from shared.surcharges import Surcharge, in_period
 from .das import DAS
+from .residential import Residential
 
 # TODO: Import surcharge classes as they are implemented
 # from carriers.fedex.surcharges.additional_handling import AHS
 # from carriers.fedex.surcharges.oversize import OVERSIZE
-# from carriers.fedex.surcharges.residential import RES
 
 
 # All surcharges - add classes here as they are implemented
-ALL: list[type[Surcharge]] = [DAS]
+ALL: list[type[Surcharge]] = [DAS, Residential]
 
 
 # =============================================================================
@@ -119,6 +119,7 @@ __all__ = [
     "in_period",
     # Surcharge classes
     "DAS",
+    "Residential",
     # Lists
     "ALL",
     "BASE",
