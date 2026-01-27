@@ -24,6 +24,7 @@ import polars as pl
 
 from shared.database import pull_data, execute_query, push_data
 from carriers.fedex.data import load_pcs_shipments
+from carriers.fedex.data.loaders.pcs import DEFAULT_START_DATE, DEFAULT_PRODUCTION_SITES
 from carriers.fedex.calculate_costs import calculate_costs
 
 
@@ -33,30 +34,37 @@ from carriers.fedex.calculate_costs import calculate_costs
 
 TABLE_NAME = "shipping_costs.expected_shipping_costs_fedex"
 
-DEFAULT_START_DATE = "2025-01-01"
-DEFAULT_PRODUCTION_SITES = ["Columbus", "Phoenix"]  # TODO: Verify FedEx sites
-
-# Columns to upload (matches DDL order)
-# TODO: Update column list based on actual table schema
+# Columns to upload (matches DDL order) - 53 total
 UPLOAD_COLUMNS = [
-    # Identification
+    # Identification (7)
     "pcs_orderid", "pcs_ordernumber", "latest_trackingnumber",
     "trackingnumber_count", "shop_ordernumber", "packagetype",
-    # Dates
+    "pcs_shipping_provider",
+    # Dates (2)
     "pcs_created", "ship_date",
-    # Location
+    # Location (6)
     "production_site", "shipping_zip_code", "shipping_region",
-    "shipping_country", "shipping_zone",
-    # Dimensions imperial
+    "shipping_country", "shipping_zone", "das_zone",
+    # Dimensions imperial (4)
     "length_in", "width_in", "height_in", "weight_lbs",
-    # Calculated dimensions
+    # Calculated dimensions (4)
     "cubic_in", "longest_side_in", "second_longest_in", "length_plus_girth",
-    # Weight calculations
-    "dim_weight_lbs", "uses_dim_weight", "billable_weight_lbs",
-    # Surcharge flags - TODO: add as surcharges are implemented
-    # Costs - TODO: add as surcharges are implemented
-    "cost_base", "cost_subtotal", "cost_fuel", "cost_total",
-    # Metadata
+    # Service and weight (4)
+    "rate_service", "dim_weight_lbs", "uses_dim_weight", "billable_weight_lbs",
+    # Surcharge flags (8)
+    "surcharge_ahs", "surcharge_ahs_weight", "surcharge_oversize",
+    "surcharge_das", "surcharge_residential",
+    "surcharge_dem_base", "surcharge_dem_ahs", "surcharge_dem_oversize",
+    # Costs - Rate components (4)
+    "cost_base_rate", "cost_performance_pricing",
+    "cost_earned_discount", "cost_grace_discount",
+    # Costs - Surcharges (8)
+    "cost_ahs", "cost_ahs_weight", "cost_oversize",
+    "cost_das", "cost_residential",
+    "cost_dem_base", "cost_dem_ahs", "cost_dem_oversize",
+    # Costs - Totals (4)
+    "cost_subtotal", "cost_fuel", "cost_total", "cost_total_multishipment",
+    # Metadata (2)
     "calculator_version", "dw_timestamp",
 ]
 
@@ -170,14 +178,21 @@ def run_pipeline(
     print("  Calculating costs...")
     df = calculate_costs(df)
 
+    # Calculate multishipment cost (cost_total * trackingnumber_count)
+    df = df.with_columns(
+        pl.when(pl.col("trackingnumber_count") > 0)
+        .then(pl.col("cost_total") * pl.col("trackingnumber_count"))
+        .otherwise(pl.col("cost_total"))
+        .alias("cost_total_multishipment")
+    )
+
     # Add timestamp
     df = df.with_columns(
         pl.lit(datetime.now()).alias("dw_timestamp")
     )
 
-    # Select upload columns (only those that exist)
-    available_cols = [c for c in UPLOAD_COLUMNS if c in df.columns]
-    df = df.select(available_cols)
+    # Select upload columns
+    df = df.select(UPLOAD_COLUMNS)
 
     return df
 
