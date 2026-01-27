@@ -620,15 +620,27 @@ def _calculate_subtotal(df: pl.DataFrame) -> pl.DataFrame:
 
 
 def _apply_fuel(df: pl.DataFrame) -> pl.DataFrame:
-    """Apply fuel surcharge as percentage of subtotal.
+    """Apply fuel surcharge as percentage of (base + surcharges).
 
-    TODO: Implement FedEx fuel surcharge logic.
-    FedEx publishes weekly fuel surcharge rates.
+    Fuel is calculated on base charge + surcharges, NOT including discounts.
+    FedEx publishes weekly fuel surcharge rates that vary over time.
+    Using 10% as approximate average rate for Sep-Dec 2025.
+
+    Note: Actual rates varied from ~8% to ~11% weekly during this period.
     """
-    # TODO: Get actual fuel rate
-    FUEL_RATE = 0.0  # Placeholder
+    FUEL_RATE = 0.10  # 10% approximate average
+
+    # Fuel is calculated on base + surcharges (excluding discounts)
+    # cost_base_rate is positive, surcharges are positive
+    # Discounts (performance_pricing, earned, grace) are NOT included
+    surcharge_cols = [f"cost_{s.name.lower()}" for s in ALL]
+    existing_surcharge_cols = [c for c in surcharge_cols if c in df.columns]
+
+    fuel_base_cols = ["cost_base_rate"] + existing_surcharge_cols
+    existing_fuel_base_cols = [c for c in fuel_base_cols if c in df.columns]
+
     return df.with_columns(
-        (pl.col("cost_subtotal") * pl.lit(FUEL_RATE)).alias("cost_fuel")
+        (pl.sum_horizontal(existing_fuel_base_cols) * pl.lit(FUEL_RATE)).round(2).alias("cost_fuel")
     )
 
 
