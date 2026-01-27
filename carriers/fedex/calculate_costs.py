@@ -53,7 +53,7 @@ from .data.reference import (
     load_earned_discount,
     load_grace_discount,
 )
-from .surcharges import ALL, BASE, DEPENDENT
+from .surcharges import ALL, BASE, DEPENDENT, get_exclusivity_group, get_unique_exclusivity_groups
 from .version import VERSION
 
 
@@ -379,13 +379,23 @@ def _apply_surcharges(df: pl.DataFrame, surcharges: list) -> pl.DataFrame:
     Surcharges with the same exclusivity_group compete - only highest priority wins.
     Surcharges without exclusivity_group are applied independently.
     """
-    for s in surcharges:
+    # Separate standalone vs exclusive surcharges
+    standalone = [s for s in surcharges if s.exclusivity_group is None]
+    exclusive = [s for s in surcharges if s.exclusivity_group is not None]
+
+    # Apply standalone surcharges (no competition)
+    for s in standalone:
         df = _apply_single_surcharge(df, s)
+
+    # Apply exclusive surcharges by group
+    for group_name in get_unique_exclusivity_groups(exclusive):
+        df = _apply_exclusive_group(df, group_name)
+
     return df
 
 
 def _apply_single_surcharge(df: pl.DataFrame, surcharge) -> pl.DataFrame:
-    """Apply a single surcharge."""
+    """Apply a single surcharge without competition."""
     flag_col = f"surcharge_{surcharge.name.lower()}"
     cost_col = f"cost_{surcharge.name.lower()}"
 
@@ -400,6 +410,40 @@ def _apply_single_surcharge(df: pl.DataFrame, surcharge) -> pl.DataFrame:
         .otherwise(pl.lit(0.0))
         .alias(cost_col)
     )
+
+    return df
+
+
+def _apply_exclusive_group(df: pl.DataFrame, group_name: str) -> pl.DataFrame:
+    """
+    Apply mutually exclusive surcharges within a group.
+
+    Only the highest priority surcharge (lowest number) that matches wins.
+    """
+    group = get_exclusivity_group(group_name)
+    exclusion_mask = pl.lit(False)
+
+    for surcharge in group:
+        flag_col = f"surcharge_{surcharge.name.lower()}"
+        cost_col = f"cost_{surcharge.name.lower()}"
+
+        # cost() may return float or pl.Expr (for conditional costs)
+        cost_value = surcharge.cost()
+        cost_expr = cost_value if isinstance(cost_value, pl.Expr) else pl.lit(cost_value)
+
+        # Applies only if: conditions met AND no higher priority already matched
+        applies = surcharge.conditions() & ~exclusion_mask
+
+        df = df.with_columns(applies.alias(flag_col))
+        df = df.with_columns(
+            pl.when(pl.col(flag_col))
+            .then(cost_expr)
+            .otherwise(pl.lit(0.0))
+            .alias(cost_col)
+        )
+
+        # Update exclusion mask: if this one matched, exclude the rest
+        exclusion_mask = exclusion_mask | pl.col(flag_col)
 
     return df
 

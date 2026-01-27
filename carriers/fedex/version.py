@@ -5,4 +5,4 @@ Updated with every change to rates, surcharges, or rules.
 Stamped on calculated outputs for tracking.
 """
 
-VERSION = "2026.01.26.2"  # Split cost components (base, PP, earned, grace)
+VERSION = "2026.01.27.4"  # Add AHS - Weight surcharge

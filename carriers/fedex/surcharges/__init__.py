@@ -24,14 +24,14 @@ Usage:
 from shared.surcharges import Surcharge, in_period
 from .das import DAS
 from .residential import Residential
-
-# TODO: Import surcharge classes as they are implemented
-# from carriers.fedex.surcharges.additional_handling import AHS
-# from carriers.fedex.surcharges.oversize import OVERSIZE
+from .additional_handling import AHS
+from .additional_handling_weight import AHS_Weight
+from .oversize import Oversize
 
 
 # All surcharges - add classes here as they are implemented
-ALL: list[type[Surcharge]] = [DAS, Residential]
+# Note: Order matters for exclusivity groups - Oversize > AHS_Weight > AHS
+ALL: list[type[Surcharge]] = [DAS, Residential, Oversize, AHS_Weight, AHS]
 
 
 # =============================================================================
@@ -118,7 +118,10 @@ __all__ = [
     "Surcharge",
     "in_period",
     # Surcharge classes
+    "AHS",
+    "AHS_Weight",
     "DAS",
+    "Oversize",
     "Residential",
     # Lists
     "ALL",

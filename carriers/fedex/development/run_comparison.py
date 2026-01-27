@@ -55,6 +55,18 @@ das = invoice.filter(
 res = invoice.filter(pl.col('charge_description') == 'Residential') \
     .group_by('trackingnumber').agg(pl.col('charge_description_amount').sum().alias('actual_residential'))
 
+# AHS - Dimensions
+ahs = invoice.filter(pl.col('charge_description') == 'AHS - Dimensions') \
+    .group_by('trackingnumber').agg(pl.col('charge_description_amount').sum().alias('actual_ahs'))
+
+# AHS - Weight
+ahs_weight = invoice.filter(pl.col('charge_description') == 'AHS - Weight') \
+    .group_by('trackingnumber').agg(pl.col('charge_description_amount').sum().alias('actual_ahs_weight'))
+
+# Oversize
+oversize = invoice.filter(pl.col('charge_description') == 'Oversize Charge') \
+    .group_by('trackingnumber').agg(pl.col('charge_description_amount').sum().alias('actual_oversize'))
+
 # Get unique shipments with metadata
 shipments = invoice.group_by('trackingnumber').agg([
     pl.col('shipment_date').first(),
@@ -71,6 +83,9 @@ invoice_pivoted = shipments.join(base, on='trackingnumber', how='left') \
     .join(grace, on='trackingnumber', how='left') \
     .join(das, on='trackingnumber', how='left') \
     .join(res, on='trackingnumber', how='left') \
+    .join(ahs, on='trackingnumber', how='left') \
+    .join(ahs_weight, on='trackingnumber', how='left') \
+    .join(oversize, on='trackingnumber', how='left') \
     .fill_null(0)
 
 # Cast decimal columns to float
@@ -81,6 +96,9 @@ invoice_pivoted = invoice_pivoted.with_columns([
     pl.col('actual_grace').cast(pl.Float64),
     pl.col('actual_das').cast(pl.Float64),
     pl.col('actual_residential').cast(pl.Float64),
+    pl.col('actual_ahs').cast(pl.Float64),
+    pl.col('actual_ahs_weight').cast(pl.Float64),
+    pl.col('actual_oversize').cast(pl.Float64),
 ])
 
 print(f'Unique shipments in invoice: {len(invoice_pivoted):,}')
@@ -147,7 +165,21 @@ monthly = comparison.group_by('month').agg([
     pl.col('actual_das').sum().alias('actual_das'),
     pl.col('cost_residential').sum().alias('expected_res'),
     pl.col('actual_residential').sum().alias('actual_res'),
+    pl.col('cost_ahs').sum().alias('expected_ahs'),
+    pl.col('actual_ahs').sum().alias('actual_ahs'),
+    pl.col('cost_ahs_weight').sum().alias('expected_ahs_weight'),
+    pl.col('actual_ahs_weight').sum().alias('actual_ahs_weight'),
+    pl.col('cost_oversize').sum().alias('expected_oversize'),
+    pl.col('actual_oversize').sum().alias('actual_oversize'),
 ]).sort('month')
+
+# Add total columns (sum of all tracked positions)
+monthly = monthly.with_columns([
+    (pl.col('expected_base') + pl.col('expected_das') + pl.col('expected_res') +
+     pl.col('expected_ahs') + pl.col('expected_ahs_weight') + pl.col('expected_oversize')).alias('expected_total'),
+    (pl.col('actual_base') + pl.col('actual_das') + pl.col('actual_res') +
+     pl.col('actual_ahs') + pl.col('actual_ahs_weight') + pl.col('actual_oversize')).alias('actual_total'),
+])
 
 # =============================================================================
 # STEP 6: Print Output
@@ -183,6 +215,9 @@ def print_monthly_table(title, exp_col, act_col):
     sign = '+' if var_total >= 0 else ''
     print(f"{'TOTAL':<10} | ${total_exp:>9,.0f} | ${total_act:>9,.0f} | {sign}${var_total:>9,.0f} | {sign}{var_pct_total:>9.2f}%")
 
+# Total (all tracked positions)
+print_monthly_table('TOTAL (all tracked positions)', 'expected_total', 'actual_total')
+
 # Base (after discounts)
 print_monthly_table('Base (after discounts)', 'expected_base', 'actual_base')
 
@@ -191,6 +226,15 @@ print_monthly_table('DAS', 'expected_das', 'actual_das')
 
 # Residential
 print_monthly_table('Residential', 'expected_res', 'actual_res')
+
+# AHS - Dimensions
+print_monthly_table('AHS - Dimensions', 'expected_ahs', 'actual_ahs')
+
+# AHS - Weight
+print_monthly_table('AHS - Weight', 'expected_ahs_weight', 'actual_ahs_weight')
+
+# Oversize
+print_monthly_table('Oversize', 'expected_oversize', 'actual_oversize')
 
 print()
 print('(Base = cost_base_rate + cost_performance_pricing + cost_earned_discount + cost_grace_discount)')
