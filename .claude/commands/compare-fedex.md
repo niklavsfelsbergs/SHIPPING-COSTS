@@ -30,6 +30,9 @@ python carriers/fedex/development/run_comparison.py
 | AHS - Dimensions | `cost_ahs` | `AHS - Dimensions` |
 | AHS - Weight | `cost_ahs_weight` | `AHS - Weight` |
 | Oversize | `cost_oversize` | `Oversize Charge` |
+| Demand-Add'l Handling | `cost_dem_ahs` | `Demand-Add'l Handling` |
+| Demand-Oversize | `cost_dem_oversize` | `Demand-Oversize` |
+| Demand Surcharge | `cost_dem_base` | `Demand Surcharge` |
 
 ## Expected Output
 
@@ -87,6 +90,30 @@ Month      |   Expected |     Actual | Variance $ | Variance %
 TOTAL      | $    x,xxx | $    x,xxx | +$      xxx | +     x.xx%
 
 Oversize:
+Month      |   Expected |     Actual | Variance $ | Variance %
+----------|-----------|-----------|------------|------------
+2025-09    | $      xxx | $      xxx | +$      xxx | +     x.xx%
+...
+----------|-----------|-----------|------------|------------
+TOTAL      | $    x,xxx | $    x,xxx | +$      xxx | +     x.xx%
+
+Demand-Add'l Handling:
+Month      |   Expected |     Actual | Variance $ | Variance %
+----------|-----------|-----------|------------|------------
+2025-09    | $      xxx | $      xxx | +$      xxx | +     x.xx%
+...
+----------|-----------|-----------|------------|------------
+TOTAL      | $   xx,xxx | $   xx,xxx | +$    x,xxx | +    xx.xx%
+
+Demand-Oversize:
+Month      |   Expected |     Actual | Variance $ | Variance %
+----------|-----------|-----------|------------|------------
+2025-09    | $      xxx | $      xxx | +$      xxx | +     x.xx%
+...
+----------|-----------|-----------|------------|------------
+TOTAL      | $    x,xxx | $    x,xxx | +$    x,xxx | +    xx.xx%
+
+Demand Surcharge:
 Month      |   Expected |     Actual | Variance $ | Variance %
 ----------|-----------|-----------|------------|------------
 2025-09    | $      xxx | $      xxx | +$      xxx | +     x.xx%

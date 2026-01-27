@@ -67,6 +67,18 @@ ahs_weight = invoice.filter(pl.col('charge_description') == 'AHS - Weight') \
 oversize = invoice.filter(pl.col('charge_description') == 'Oversize Charge') \
     .group_by('trackingnumber').agg(pl.col('charge_description_amount').sum().alias('actual_oversize'))
 
+# Demand-Add'l Handling
+dem_ahs = invoice.filter(pl.col('charge_description') == "Demand-Add'l Handling") \
+    .group_by('trackingnumber').agg(pl.col('charge_description_amount').sum().alias('actual_dem_ahs'))
+
+# Demand-Oversize
+dem_oversize = invoice.filter(pl.col('charge_description') == 'Demand-Oversize') \
+    .group_by('trackingnumber').agg(pl.col('charge_description_amount').sum().alias('actual_dem_oversize'))
+
+# Demand Surcharge (base)
+dem_base = invoice.filter(pl.col('charge_description') == 'Demand Surcharge') \
+    .group_by('trackingnumber').agg(pl.col('charge_description_amount').sum().alias('actual_dem_base'))
+
 # Get unique shipments with metadata
 shipments = invoice.group_by('trackingnumber').agg([
     pl.col('shipment_date').first(),
@@ -86,6 +98,9 @@ invoice_pivoted = shipments.join(base, on='trackingnumber', how='left') \
     .join(ahs, on='trackingnumber', how='left') \
     .join(ahs_weight, on='trackingnumber', how='left') \
     .join(oversize, on='trackingnumber', how='left') \
+    .join(dem_ahs, on='trackingnumber', how='left') \
+    .join(dem_oversize, on='trackingnumber', how='left') \
+    .join(dem_base, on='trackingnumber', how='left') \
     .fill_null(0)
 
 # Cast decimal columns to float
@@ -99,6 +114,9 @@ invoice_pivoted = invoice_pivoted.with_columns([
     pl.col('actual_ahs').cast(pl.Float64),
     pl.col('actual_ahs_weight').cast(pl.Float64),
     pl.col('actual_oversize').cast(pl.Float64),
+    pl.col('actual_dem_ahs').cast(pl.Float64),
+    pl.col('actual_dem_oversize').cast(pl.Float64),
+    pl.col('actual_dem_base').cast(pl.Float64),
 ])
 
 print(f'Unique shipments in invoice: {len(invoice_pivoted):,}')
@@ -171,14 +189,24 @@ monthly = comparison.group_by('month').agg([
     pl.col('actual_ahs_weight').sum().alias('actual_ahs_weight'),
     pl.col('cost_oversize').sum().alias('expected_oversize'),
     pl.col('actual_oversize').sum().alias('actual_oversize'),
+    pl.col('cost_dem_ahs').sum().alias('expected_dem_ahs'),
+    pl.col('actual_dem_ahs').sum().alias('actual_dem_ahs'),
+    pl.col('cost_dem_oversize').sum().alias('expected_dem_oversize'),
+    pl.col('actual_dem_oversize').sum().alias('actual_dem_oversize'),
+    pl.col('cost_dem_base').sum().alias('expected_dem_base'),
+    pl.col('actual_dem_base').sum().alias('actual_dem_base'),
 ]).sort('month')
 
 # Add total columns (sum of all tracked positions)
 monthly = monthly.with_columns([
     (pl.col('expected_base') + pl.col('expected_das') + pl.col('expected_res') +
-     pl.col('expected_ahs') + pl.col('expected_ahs_weight') + pl.col('expected_oversize')).alias('expected_total'),
+     pl.col('expected_ahs') + pl.col('expected_ahs_weight') + pl.col('expected_oversize') +
+     pl.col('expected_dem_ahs') + pl.col('expected_dem_oversize') +
+     pl.col('expected_dem_base')).alias('expected_total'),
     (pl.col('actual_base') + pl.col('actual_das') + pl.col('actual_res') +
-     pl.col('actual_ahs') + pl.col('actual_ahs_weight') + pl.col('actual_oversize')).alias('actual_total'),
+     pl.col('actual_ahs') + pl.col('actual_ahs_weight') + pl.col('actual_oversize') +
+     pl.col('actual_dem_ahs') + pl.col('actual_dem_oversize') +
+     pl.col('actual_dem_base')).alias('actual_total'),
 ])
 
 # =============================================================================
@@ -235,6 +263,15 @@ print_monthly_table('AHS - Weight', 'expected_ahs_weight', 'actual_ahs_weight')
 
 # Oversize
 print_monthly_table('Oversize', 'expected_oversize', 'actual_oversize')
+
+# Demand-Add'l Handling
+print_monthly_table("Demand-Add'l Handling", 'expected_dem_ahs', 'actual_dem_ahs')
+
+# Demand-Oversize
+print_monthly_table('Demand-Oversize', 'expected_dem_oversize', 'actual_dem_oversize')
+
+# Demand Surcharge (base)
+print_monthly_table('Demand Surcharge', 'expected_dem_base', 'actual_dem_base')
 
 print()
 print('(Base = cost_base_rate + cost_performance_pricing + cost_earned_discount + cost_grace_discount)')

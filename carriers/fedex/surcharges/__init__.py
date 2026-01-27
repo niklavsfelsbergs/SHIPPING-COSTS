@@ -27,11 +27,17 @@ from .residential import Residential
 from .additional_handling import AHS
 from .additional_handling_weight import AHS_Weight
 from .oversize import Oversize
+from .demand_ahs import DEM_AHS
+from .demand_base import DEM_Base
+from .demand_oversize import DEM_Oversize
 
 
 # All surcharges - add classes here as they are implemented
 # Note: Order matters for exclusivity groups - Oversize > AHS_Weight > AHS
-ALL: list[type[Surcharge]] = [DAS, Residential, Oversize, AHS_Weight, AHS]
+ALL: list[type[Surcharge]] = [
+    DAS, Residential, Oversize, AHS_Weight, AHS,
+    DEM_Base, DEM_AHS, DEM_Oversize
+]
 
 
 # =============================================================================
@@ -121,6 +127,9 @@ __all__ = [
     "AHS",
     "AHS_Weight",
     "DAS",
+    "DEM_AHS",
+    "DEM_Base",
+    "DEM_Oversize",
     "Oversize",
     "Residential",
     # Lists
