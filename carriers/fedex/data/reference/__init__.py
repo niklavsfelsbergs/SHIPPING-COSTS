@@ -1,10 +1,15 @@
-"""FedEx reference data: zones, rates, and configuration."""
+"""
+FedEx Reference Data
+
+Static reference data for rates, zones, and configuration.
+"""
 
 from pathlib import Path
 
 import polars as pl
 
-from carriers.fedex.data.reference.billable_weight import DIM_FACTOR, DIM_THRESHOLD
+from .billable_weight import DIM_FACTOR
+from .fuel import RATE as FUEL_RATE
 
 REFERENCE_DIR = Path(__file__).parent
 
@@ -70,5 +75,5 @@ __all__ = [
     "load_earned_discount",
     "load_grace_discount",
     "DIM_FACTOR",
-    "DIM_THRESHOLD",
+    "FUEL_RATE",
 ]

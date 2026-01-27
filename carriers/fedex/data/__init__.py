@@ -1,7 +1,15 @@
-"""FedEx data loaders and reference configuration."""
+"""
+FedEx Data
 
-from carriers.fedex.data.loaders import load_pcs_shipments
-from carriers.fedex.data.reference import (
+Reference data and loaders for rates, zones, and configuration.
+
+Structure:
+    - reference/: Static reference data (zones, rates, config)
+    - loaders/: Dynamic data loaders (PCS database)
+"""
+
+from .loaders import load_pcs_shipments
+from .reference import (
     load_zones,
     load_das_zones,
     load_undiscounted_rates,
@@ -9,23 +17,28 @@ from carriers.fedex.data.reference import (
     load_earned_discount,
     load_grace_discount,
     DIM_FACTOR,
-    DIM_THRESHOLD,
+    FUEL_RATE,
 )
-from carriers.fedex.data.reference.service_mapping import (
+from .reference.service_mapping import (
     SERVICE_MAPPING,
     get_rate_service,
 )
 
 __all__ = [
+    # PCS data loaders
     "load_pcs_shipments",
+    # Reference data loaders
     "load_zones",
     "load_das_zones",
     "load_undiscounted_rates",
     "load_performance_pricing",
     "load_earned_discount",
     "load_grace_discount",
+    # Billable weight config
     "DIM_FACTOR",
-    "DIM_THRESHOLD",
+    # Fuel config
+    "FUEL_RATE",
+    # Service mapping
     "SERVICE_MAPPING",
     "get_rate_service",
 ]

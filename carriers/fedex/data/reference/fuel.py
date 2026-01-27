@@ -6,18 +6,15 @@ U.S. Energy Information Administration's weekly national
 average diesel fuel price.
 
 The fuel surcharge is applied as a percentage of the
-transportation charges (base rate + most surcharges).
+transportation charges (base rate + surcharges, excluding discounts).
 
 Update frequency: Weekly (check every Monday)
 Source: https://www.fedex.com/en-us/shipping/fuel-surcharge.html
+Last updated: 2026-01-27
 """
 
-# Current fuel surcharge rate (as percentage, e.g., 0.12 = 12%)
-# TODO: Update with actual contracted fuel surcharge rate
-LIST_RATE = 0.12  # Placeholder - check FedEx fuel surcharge page
-
-# Contractual fuel discount (if applicable)
-DISCOUNT = 0.0
-
-# Net fuel rate after discount
+LIST_RATE = 0.10              # ~10% average for Sep-Dec 2025
+DISCOUNT = 0.0                # No contractual fuel discount
 RATE = LIST_RATE * (1 - DISCOUNT)
+
+APPLICATION = "BASE_PLUS_SURCHARGES"  # Excludes performance pricing discounts

@@ -45,6 +45,7 @@ from .data import (
     load_zones,
     load_das_zones,
     DIM_FACTOR,
+    FUEL_RATE,
     SERVICE_MAPPING,
 )
 from .data.reference import (
@@ -321,8 +322,7 @@ def _add_billable_weight(df: pl.DataFrame) -> pl.DataFrame:
         (pl.col("cubic_in") / DIM_FACTOR).alias("dim_weight_lbs")
     )
 
-    # Determine if dim weight applies and calculate billable weight
-    # TODO: Verify FedEx threshold logic
+    # Billable weight is always max(actual, dimensional) - no threshold
     df = df.with_columns([
         (pl.col("dim_weight_lbs") > pl.col("weight_lbs")).alias("uses_dim_weight"),
         pl.max_horizontal("weight_lbs", "dim_weight_lbs").alias("billable_weight_lbs"),
@@ -623,13 +623,8 @@ def _apply_fuel(df: pl.DataFrame) -> pl.DataFrame:
     """Apply fuel surcharge as percentage of (base + surcharges).
 
     Fuel is calculated on base charge + surcharges, NOT including discounts.
-    FedEx publishes weekly fuel surcharge rates that vary over time.
-    Using 10% as approximate average rate for Sep-Dec 2025.
-
-    Note: Actual rates varied from ~8% to ~11% weekly during this period.
+    Rate configured in data/reference/fuel.py.
     """
-    FUEL_RATE = 0.10  # 10% approximate average
-
     # Fuel is calculated on base + surcharges (excluding discounts)
     # cost_base_rate is positive, surcharges are positive
     # Discounts (performance_pricing, earned, grace) are NOT included

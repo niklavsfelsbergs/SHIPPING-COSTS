@@ -1,15 +1,14 @@
 """
 FedEx Billable Weight Configuration
 
-TODO: Get actual DIM factor and threshold from FedEx contract.
+FedEx Ground uses simple billable weight logic:
+    billable_weight = max(actual_weight, dimensional_weight)
 
-Reference: FedEx contract documents
+No threshold - dimensional weight is always considered.
+
+Reference: FedEx Service Guide, verified against invoice data
 """
 
 # Dimensional weight divisor (cubic inches per pound)
-# TODO: Get from contract - common values are 139 (standard) or negotiated
-DIM_FACTOR = 139  # PLACEHOLDER - verify with contract
-
-# Dimensional weight threshold
-# TODO: Get from contract - some contracts have minimum cubic size
-DIM_THRESHOLD = 0  # PLACEHOLDER - verify with contract
+# FedEx Ground standard is 139
+DIM_FACTOR = 139
