@@ -12,9 +12,15 @@ Usage:
 """
 
 import argparse
+import base64
+import io
 from pathlib import Path
 from datetime import datetime
 
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+import numpy as np
 import polars as pl
 
 from shared.database import pull_data
@@ -430,6 +436,189 @@ def calc_outliers(df: pl.DataFrame, top_n: int = 20) -> dict:
     return {"by_dollars": by_dollars, "by_percent": by_percent}
 
 
+def _add_segment_columns(df: pl.DataFrame) -> pl.DataFrame:
+    """Add segment assignment columns for both segmentation schemes."""
+    # Per-shipment deviation
+    df = df.with_columns(
+        (pl.col("actual_total") - pl.col("cost_total")).alias("deviation"),
+    )
+
+    # --- Segmentation: By error source ---
+    # Surcharge prediction correctness (AHS/LPS/OML)
+    surcharge_correct = (
+        (pl.col("surcharge_ahs").fill_null(False) == (pl.col("actual_ahs").fill_null(0) > 0))
+        & (pl.col("surcharge_lps").fill_null(False) == (pl.col("actual_lps").fill_null(0) > 0))
+        & (pl.col("surcharge_oml").fill_null(False) == (pl.col("actual_oml").fill_null(0) > 0))
+    )
+    zone_matches = pl.col("shipping_zone") == pl.col("actual_zone")
+
+    df = df.with_columns(
+        pl.when(~surcharge_correct)
+        .then(pl.lit("Surcharge mismatch"))
+        .when(~zone_matches)
+        .then(pl.lit("Zone mismatch only"))
+        .otherwise(pl.lit("Clean match"))
+        .alias("segment_error_source"),
+    )
+
+    return df
+
+
+def _calc_stats_for_segment(df: pl.DataFrame, total_count: int) -> dict:
+    """Calculate summary statistics for a single segment."""
+    n = len(df)
+    if n == 0:
+        return {
+            "count": 0, "pct_of_total": 0,
+            "total_expected": 0, "total_actual": 0,
+            "variance_dollars": 0, "variance_pct": 0,
+            "mean_dev": 0, "median_dev": 0, "std_dev": 0, "mad": 0,
+            "within_1": 0, "within_2": 0,
+        }
+
+    deviations = df["deviation"]
+    total_expected = df["cost_total"].sum()
+    total_actual = df["actual_total"].sum()
+    variance_dollars = total_actual - total_expected
+    variance_pct = (variance_dollars / total_expected * 100) if total_expected != 0 else 0
+
+    abs_dev = deviations.abs()
+
+    return {
+        "count": n,
+        "pct_of_total": n / total_count * 100 if total_count > 0 else 0,
+        "total_expected": total_expected,
+        "total_actual": total_actual,
+        "variance_dollars": variance_dollars,
+        "variance_pct": variance_pct,
+        "mean_dev": deviations.mean(),
+        "median_dev": deviations.median(),
+        "std_dev": deviations.std() if n > 1 else 0,
+        "mad": abs_dev.mean(),
+        "within_1": (abs_dev <= 1.0).sum() / n * 100,
+        "within_2": (abs_dev <= 2.0).sum() / n * 100,
+    }
+
+
+def calc_segment_statistics(df: pl.DataFrame) -> dict:
+    """
+    Calculate summary statistics for shipment segments.
+
+    Returns dict with 'by_package_type' and 'by_error_source', each a list
+    of dicts with segment name + stats.
+    """
+    if len(df) == 0:
+        return {"by_package_type": [], "by_error_source": []}
+
+    df = _add_segment_columns(df)
+    total_count = len(df)
+
+    results = {}
+
+    # Segmentation 1: By packagetype (from PCS data)
+    package_types = (
+        df.group_by("packagetype")
+        .agg(pl.len().alias("n"))
+        .sort("n", descending=True)
+    )["packagetype"].to_list()
+
+    by_pkg = []
+    for pkg in package_types:
+        seg_df = df.filter(pl.col("packagetype") == pkg)
+        stats = _calc_stats_for_segment(seg_df, total_count)
+        stats["segment"] = pkg or "Unknown"
+        by_pkg.append(stats)
+    results["by_package_type"] = by_pkg
+
+    # Segmentation 2: By error source
+    error_source_order = ["Clean match", "Zone mismatch only", "Surcharge mismatch"]
+    by_err = []
+    for seg_name in error_source_order:
+        seg_df = df.filter(pl.col("segment_error_source") == seg_name)
+        stats = _calc_stats_for_segment(seg_df, total_count)
+        stats["segment"] = seg_name
+        by_err.append(stats)
+    results["by_error_source"] = by_err
+
+    return results
+
+
+def generate_deviation_histograms(df: pl.DataFrame) -> dict:
+    """
+    Generate matplotlib histograms of per-shipment cost deviations.
+
+    Returns dict with base64-encoded PNG strings:
+    - 'total': full portfolio histogram
+    - 'by_error_source': overlaid by error source
+    """
+    if len(df) == 0:
+        return {"total": "", "by_error_source": ""}
+
+    df = _add_segment_columns(df)
+    all_devs = df["deviation"].cast(pl.Float64).to_numpy()
+
+    COLORS = {
+        "Clean match": "#27ae60",
+        "Zone mismatch only": "#f39c12",
+        "Surcharge mismatch": "#e74c3c",
+    }
+
+    def _clip_range(data):
+        """Determine histogram range, clipping extreme outliers."""
+        if len(data) == 0:
+            return -10, 10
+        p1, p99 = np.percentile(data, [1, 99])
+        margin = max(abs(p1), abs(p99)) * 0.2
+        return p1 - margin, p99 + margin
+
+    def _fig_to_base64(fig) -> str:
+        buf = io.BytesIO()
+        fig.savefig(buf, format="png", dpi=150, bbox_inches="tight", facecolor="white")
+        plt.close(fig)
+        buf.seek(0)
+        return base64.b64encode(buf.read()).decode("utf-8")
+
+    # --- Total portfolio histogram ---
+    fig, ax = plt.subplots(figsize=(10, 5))
+    lo, hi = _clip_range(all_devs)
+    ax.hist(all_devs, bins=80, range=(lo, hi), color="#3498db", alpha=0.8, edgecolor="white", linewidth=0.5)
+    ax.axvline(0, color="#2c3e50", linestyle="--", linewidth=1.5, label="Zero")
+    mean_val = np.mean(all_devs)
+    ax.axvline(mean_val, color="#e74c3c", linestyle="--", linewidth=1.5, label=f"Mean: ${mean_val:.2f}")
+    ax.set_xlabel("Deviation: Actual - Expected ($)", fontsize=11)
+    ax.set_ylabel("Shipment Count", fontsize=11)
+    ax.set_title(f"Total Portfolio Deviation Distribution (n={len(all_devs):,})", fontsize=13, fontweight="bold")
+    ax.legend(fontsize=10)
+    ax.grid(axis="y", alpha=0.3)
+    total_b64 = _fig_to_base64(fig)
+
+    # --- By error source ---
+    fig, ax = plt.subplots(figsize=(10, 5))
+    lo, hi = _clip_range(all_devs)
+    segments_err = ["Clean match", "Zone mismatch only", "Surcharge mismatch"]
+    for seg_name in segments_err:
+        seg_devs = df.filter(pl.col("segment_error_source") == seg_name)["deviation"].cast(pl.Float64).to_numpy()
+        if len(seg_devs) == 0:
+            continue
+        ax.hist(
+            seg_devs, bins=80, range=(lo, hi),
+            color=COLORS[seg_name], alpha=0.5, edgecolor="white", linewidth=0.3,
+            label=f"{seg_name} (n={len(seg_devs):,})",
+        )
+    ax.axvline(0, color="#2c3e50", linestyle="--", linewidth=1.5, alpha=0.7)
+    ax.set_xlabel("Deviation: Actual - Expected ($)", fontsize=11)
+    ax.set_ylabel("Shipment Count", fontsize=11)
+    ax.set_title("Deviation Distribution by Error Source", fontsize=13, fontweight="bold")
+    ax.legend(fontsize=10)
+    ax.grid(axis="y", alpha=0.3)
+    err_b64 = _fig_to_base64(fig)
+
+    return {
+        "total": total_b64,
+        "by_error_source": err_b64,
+    }
+
+
 # =============================================================================
 # HTML REPORT GENERATION
 # =============================================================================
@@ -459,6 +648,69 @@ def variance_class(value: float | None) -> str:
     return ""
 
 
+def _segment_stats_table_html(stats_list: list[dict], title: str, description: str, histogram_b64: str) -> str:
+    """Generate HTML for a segment statistics section with embedded histogram."""
+    rows = ""
+    for s in stats_list:
+        rows += f"""
+        <tr>
+            <td style="text-align: left; font-weight: 600;">{s['segment']}</td>
+            <td>{s['count']:,}</td>
+            <td>{s['pct_of_total']:.1f}%</td>
+            <td>{format_currency(s['total_expected'])}</td>
+            <td>{format_currency(s['total_actual'])}</td>
+            <td class="{variance_class(s['variance_dollars'])}">{format_currency(s['variance_dollars'])}</td>
+            <td class="{variance_class(s['variance_dollars'])}">{format_percent(s['variance_pct'])}</td>
+            <td class="{variance_class(s['mean_dev'])}">{format_currency(s['mean_dev'])}</td>
+            <td class="{variance_class(s['median_dev'])}">{format_currency(s['median_dev'])}</td>
+            <td>{format_currency(s['std_dev'])}</td>
+            <td>{format_currency(s['mad'])}</td>
+            <td>{s['within_1']:.1f}%</td>
+            <td>{s['within_2']:.1f}%</td>
+        </tr>
+        """
+
+    histogram_html = ""
+    if histogram_b64:
+        histogram_html = f"""
+        <div style="margin-top: 20px;">
+            <img src="data:image/png;base64,{histogram_b64}" style="max-width: 100%; height: auto; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+        </div>
+        """
+
+    return f"""
+    <div class="section">
+        <h2>{title}</h2>
+        <p class="meta">{description}</p>
+        <div style="overflow-x: auto;">
+        <table>
+            <thead>
+                <tr>
+                    <th style="text-align: left;">Segment</th>
+                    <th>Count</th>
+                    <th>% of Total</th>
+                    <th>Total Expected</th>
+                    <th>Total Actual</th>
+                    <th>Variance ($)</th>
+                    <th>Variance (%)</th>
+                    <th>Mean Dev</th>
+                    <th>Median Dev</th>
+                    <th>Std Dev</th>
+                    <th>MAD</th>
+                    <th>Within $1</th>
+                    <th>Within $2</th>
+                </tr>
+            </thead>
+            <tbody>
+                {rows}
+            </tbody>
+        </table>
+        </div>
+        {histogram_html}
+    </div>
+    """
+
+
 def generate_html_report(
     portfolio: dict,
     cost_positions: list[dict],
@@ -469,6 +721,8 @@ def generate_html_report(
     filters: dict,
     state_zone_analysis: list[dict],
     base_cost_by_zone: list[dict],
+    segment_stats: dict | None = None,
+    histograms: dict | None = None,
 ) -> str:
     """Generate the full HTML report."""
 
@@ -743,6 +997,28 @@ def generate_html_report(
         </table>
     </div>
 
+    <!-- Shipment-Level Deviation Analysis -->
+    {_segment_stats_table_html(
+        segment_stats.get("by_package_type", []) if segment_stats else [],
+        "Shipment-Level Accuracy by Package Type",
+        "Segments shipments by the PCS packagetype field. "
+        "Shows how calculator precision varies across product types. "
+        "Sorted by shipment count descending.",
+        "",
+    ) if segment_stats else ""}
+
+    {_segment_stats_table_html(
+        segment_stats.get("by_error_source", []) if segment_stats else [],
+        "Shipment-Level Accuracy by Error Source",
+        "Segments shipments by what caused prediction error. "
+        "Clean match = correct surcharge prediction + correct zone. "
+        "Zone mismatch = surcharges correct but zone wrong. "
+        "Surcharge mismatch = AHS/LPS/OML prediction wrong.",
+        histograms.get("by_error_source", "") if histograms else "",
+    ) if segment_stats else ""}
+
+    {"<div class='section'><h2>Total Portfolio Deviation Distribution</h2><p class='meta'>Distribution of per-shipment cost deviations (Actual - Expected) across all shipments.</p><img src='data:image/png;base64," + histograms.get("total", "") + "' style='max-width: 100%; height: auto; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);'></div>" if histograms and histograms.get("total") else ""}
+
     <!-- Zone Accuracy -->
     <div class="section">
         <h2>Zone Accuracy</h2>
@@ -990,6 +1266,12 @@ Examples:
     state_zone_analysis = calc_state_zone_analysis(df)
     base_cost_by_zone = calc_base_cost_by_zone(df)
 
+    print("Calculating shipment-level segment statistics...")
+    segment_stats = calc_segment_statistics(df)
+
+    print("Generating deviation histograms...")
+    histograms = generate_deviation_histograms(df)
+
     # Generate report
     print("Generating HTML report...")
     filters = {
@@ -1007,6 +1289,8 @@ Examples:
         filters=filters,
         state_zone_analysis=state_zone_analysis,
         base_cost_by_zone=base_cost_by_zone,
+        segment_stats=segment_stats,
+        histograms=histograms,
     )
 
     # Save report

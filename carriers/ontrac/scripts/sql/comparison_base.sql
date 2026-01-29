@@ -12,6 +12,7 @@ SELECT
     e.ship_date,
     e.production_site,
     e.shipping_region,
+    e.packagetype,
 
     -- Expected zone/weight
     e.shipping_zone,
