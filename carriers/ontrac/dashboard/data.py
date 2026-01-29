@@ -196,10 +196,8 @@ def get_filtered_df(
     date_to: date | None = None,
     sites: tuple[str, ...] | None = None,
     invoices: tuple[str, ...] = (),
-    expected_charges: tuple[str, ...] = (),
-    actual_charges: tuple[str, ...] = (),
-    expected_positions: tuple[str, ...] = (),
-    actual_positions: tuple[str, ...] = (),
+    charges: tuple[str, ...] = (),
+    positions: tuple[str, ...] = (),
 ) -> pl.DataFrame:
     """
     Apply sidebar filters and return result.
@@ -220,33 +218,24 @@ def get_filtered_df(
     if invoices:
         df = df.filter(pl.col("invoice_number").is_in(list(invoices)))
 
-    # Exclude shipments that have an unchecked expected charge
-    all_charge_labels = set(ALL_CHARGE_LABELS)
-    excluded_exp = all_charge_labels - set(expected_charges)
-    for label in excluded_exp:
-        exp_col, _ = CHARGE_TYPES[label]
-        df = df.filter(pl.col(exp_col).fill_null(0) <= 0)
+    # Shipment charges: unchecked = exclude shipments with that charge
+    # in either expected or actual.
+    excluded_charges = set(ALL_CHARGE_LABELS) - set(charges)
+    for label in excluded_charges:
+        exp_col, act_col = CHARGE_TYPES[label]
+        df = df.filter(
+            (pl.col(exp_col).fill_null(0) <= 0) & (pl.col(act_col).fill_null(0) <= 0)
+        )
 
-    # Exclude shipments that have an unchecked actual charge
-    excluded_act = all_charge_labels - set(actual_charges)
-    for label in excluded_act:
-        _, act_col = CHARGE_TYPES[label]
-        df = df.filter(pl.col(act_col).fill_null(0) <= 0)
+    # Cost positions: unchecked = zero out on both sides.
+    excluded_pos = set(ALL_POSITION_LABELS) - set(positions)
+    if excluded_pos:
+        zero_exprs = []
+        for label in excluded_pos:
+            exp_col, act_col = COST_POSITION_MAP[label]
+            zero_exprs.append(pl.lit(0.0).alias(exp_col))
+            zero_exprs.append(pl.lit(0.0).alias(act_col))
 
-    # Zero out unchecked cost positions and recompute totals
-    all_pos_labels = set(ALL_POSITION_LABELS)
-    excluded_exp_pos = all_pos_labels - set(expected_positions)
-    excluded_act_pos = all_pos_labels - set(actual_positions)
-
-    zero_exprs = []
-    for label in excluded_exp_pos:
-        exp_col, _ = COST_POSITION_MAP[label]
-        zero_exprs.append(pl.lit(0.0).alias(exp_col))
-    for label in excluded_act_pos:
-        _, act_col = COST_POSITION_MAP[label]
-        zero_exprs.append(pl.lit(0.0).alias(act_col))
-
-    if zero_exprs:
         df = df.with_columns(zero_exprs)
         # Recompute totals from remaining positions
         exp_cols = [exp for exp, _, lbl in COST_POSITIONS if lbl != "TOTAL"]
@@ -290,10 +279,8 @@ def init_page() -> tuple[pl.DataFrame, dict, pl.DataFrame]:
         date_to=st.session_state.get("filter_date_to"),
         sites=st.session_state.get("filter_sites"),
         invoices=st.session_state.get("filter_invoices", ()),
-        expected_charges=st.session_state.get("filter_expected_charges", tuple(ALL_CHARGE_LABELS)),
-        actual_charges=st.session_state.get("filter_actual_charges", tuple(ALL_CHARGE_LABELS)),
-        expected_positions=st.session_state.get("filter_expected_positions", tuple(ALL_POSITION_LABELS)),
-        actual_positions=st.session_state.get("filter_actual_positions", tuple(ALL_POSITION_LABELS)),
+        charges=st.session_state.get("filter_charges", tuple(ALL_CHARGE_LABELS)),
+        positions=st.session_state.get("filter_positions", tuple(ALL_POSITION_LABELS)),
     )
 
     return prepared_df, match_rate_data, filtered_df
@@ -318,16 +305,34 @@ def _checkbox_dropdown(
         if opt not in saved:
             saved[opt] = default_checked
 
-    # Sync from widget keys — on browser refresh Streamlit may replay
-    # cached widget values before our persistent dict is populated.
+    # Sync from widget keys
+    keep_open = False
     for opt in options:
         wkey = f"{key_prefix}_{opt}"
         if wkey in st.session_state:
+            if st.session_state[wkey] != saved[opt]:
+                keep_open = True
             saved[opt] = st.session_state[wkey]
 
     n_selected = sum(saved[opt] for opt in options)
 
-    with st.sidebar.expander(f"{label} ({n_selected}/{len(options)})"):
+    def _set_all(target):
+        st.session_state[f"{key_prefix}__bulk"] = True
+        s = st.session_state[state_key]
+        for o in options:
+            s[o] = target
+            st.session_state[f"{key_prefix}_{o}"] = target
+
+    # Also keep open if All/None button was just clicked
+    if st.session_state.pop(f"{key_prefix}__bulk", False):
+        keep_open = True
+
+    with st.sidebar.expander(f"{label} ({n_selected}/{len(options)})", expanded=keep_open):
+        col_a, col_b = st.columns(2)
+        col_a.button("All", key=f"{key_prefix}__btn_all", use_container_width=True,
+                      on_click=_set_all, args=(True,))
+        col_b.button("None", key=f"{key_prefix}__btn_none", use_container_width=True,
+                      on_click=_set_all, args=(False,))
         for opt in options:
             val = st.checkbox(
                 opt,
@@ -375,40 +380,82 @@ def _render_sidebar(prepared_df: pl.DataFrame) -> None:
     )
     st.session_state["filter_sites"] = tuple(selected_sites)
 
-    # Invoice filter
+    # Invoice filter — with search bar and scrollable list
     all_invoices = sorted(prepared_df["invoice_number"].drop_nulls().unique().to_list())
-    selected_invoices = _checkbox_dropdown(
-        "Invoice number", all_invoices, default_checked=False, key_prefix="inv"
-    )
+    inv_state_key = "_persist_inv"
+    if inv_state_key not in st.session_state:
+        st.session_state[inv_state_key] = {inv: False for inv in all_invoices}
+    inv_saved = st.session_state[inv_state_key]
+    for inv in all_invoices:
+        if inv not in inv_saved:
+            inv_saved[inv] = False
+
+    # Sync from widget keys
+    inv_keep_open = False
+    for inv in all_invoices:
+        wkey = f"inv_{inv}"
+        if wkey in st.session_state:
+            if st.session_state[wkey] != inv_saved[inv]:
+                inv_keep_open = True
+            inv_saved[inv] = st.session_state[wkey]
+
+    n_inv_selected = sum(inv_saved[inv] for inv in all_invoices)
+
+    def _set_all_inv(target):
+        st.session_state["inv__bulk"] = True
+        s = st.session_state[inv_state_key]
+        for i in all_invoices:
+            s[i] = target
+            wkey = f"inv_{i}"
+            if wkey in st.session_state:
+                st.session_state[wkey] = target
+
+    if st.session_state.pop("inv__bulk", False):
+        inv_keep_open = True
+
+    with st.sidebar.expander(
+        f"Invoice number ({n_inv_selected}/{len(all_invoices)})",
+        expanded=inv_keep_open,
+    ):
+        search = st.text_input(
+            "Search", key="inv_search", placeholder="Type to filter...",
+            label_visibility="collapsed",
+        )
+        col_a, col_b = st.columns(2)
+        col_a.button("All", key="inv__btn_all", use_container_width=True,
+                      on_click=_set_all_inv, args=(True,))
+        col_b.button("None", key="inv__btn_none", use_container_width=True,
+                      on_click=_set_all_inv, args=(False,))
+        display_invoices = (
+            [inv for inv in all_invoices if search.upper() in inv.upper()]
+            if search else all_invoices
+        )
+        with st.container(height=200):
+            for inv in display_invoices:
+                val = st.checkbox(inv, value=inv_saved[inv], key=f"inv_{inv}")
+                inv_saved[inv] = val
+
+    st.session_state[inv_state_key] = inv_saved
+    selected_invoices = [inv for inv in all_invoices if inv_saved[inv]]
     st.session_state["filter_invoices"] = tuple(selected_invoices)
 
     # --- Shipment Charges ---
     st.sidebar.markdown("**Shipment Charges**")
-    st.sidebar.caption("Exclude shipments that have a specific charge")
+    st.sidebar.caption("Uncheck to exclude shipments with that charge")
 
-    selected_exp_charges = _checkbox_dropdown(
-        "Expected charges", ALL_CHARGE_LABELS, default_checked=True, key_prefix="exp_chg"
+    selected_charges = _checkbox_dropdown(
+        "Charges", ALL_CHARGE_LABELS, default_checked=True, key_prefix="chg"
     )
-    st.session_state["filter_expected_charges"] = tuple(selected_exp_charges)
-
-    selected_act_charges = _checkbox_dropdown(
-        "Actual charges", ALL_CHARGE_LABELS, default_checked=True, key_prefix="act_chg"
-    )
-    st.session_state["filter_actual_charges"] = tuple(selected_act_charges)
+    st.session_state["filter_charges"] = tuple(selected_charges)
 
     # --- Cost Positions ---
     st.sidebar.markdown("**Cost Positions**")
-    st.sidebar.caption("Include/exclude cost components from analysis")
+    st.sidebar.caption("Uncheck to zero out a cost component")
 
-    selected_exp_positions = _checkbox_dropdown(
-        "Expected positions", ALL_POSITION_LABELS, default_checked=True, key_prefix="exp_pos"
+    selected_positions = _checkbox_dropdown(
+        "Positions", ALL_POSITION_LABELS, default_checked=True, key_prefix="pos"
     )
-    st.session_state["filter_expected_positions"] = tuple(selected_exp_positions)
-
-    selected_act_positions = _checkbox_dropdown(
-        "Actual positions", ALL_POSITION_LABELS, default_checked=True, key_prefix="act_pos"
-    )
-    st.session_state["filter_actual_positions"] = tuple(selected_act_positions)
+    st.session_state["filter_positions"] = tuple(selected_positions)
 
     # Date axis for time-series charts
     st.sidebar.radio(

@@ -6,6 +6,8 @@ Deep-dive into shipment-level estimation precision: deviation analysis,
 surcharge detection accuracy, zone accuracy, and weight accuracy.
 """
 
+import math
+
 import polars as pl
 import streamlit as st
 import plotly.graph_objects as go
@@ -51,49 +53,72 @@ if len(devs) > 0:
     margin = max(abs(p1), abs(p99)) * 0.2
     lo, hi = p1 - margin, p99 + margin
 
-    mean_val = float(np.mean(devs))
-    median_val = float(np.median(devs))
+    mean_val = round(float(np.mean(devs)), 2)
+    median_val = round(float(np.median(devs)), 2)
 
-    bin_size = (hi - lo) / 80
+    # Snap bins to round numbers so 0 is always a bin edge
+    raw_bin = (hi - lo) / 80
+    exp = math.floor(math.log10(raw_bin))
+    frac = raw_bin / (10 ** exp)
+    nice = 1 if frac <= 1 else 2 if frac <= 2 else 5 if frac <= 5 else 10
+    bin_size = nice * (10 ** exp)
+    lo = math.floor(lo / bin_size) * bin_size
+    hi = math.ceil(hi / bin_size) * bin_size
+
+    # Split into exact zeros, negatives, positives
+    exact_zero = devs[devs == 0]
+    negatives = devs[devs < 0]
+    positives = devs[devs > 0]
 
     fig = go.Figure()
-    fig.add_trace(go.Histogram(
-        x=devs,
-        xbins=dict(start=lo, end=hi, size=bin_size),
-        marker=dict(color="#3498db", line=dict(color="white", width=0.5)),
-        opacity=0.8,
-        name="Shipments",
-        hovertemplate="Range: %{x}<br>Count: %{y:,}<extra></extra>",
-    ))
+    # Negative deviations
+    if len(negatives) > 0:
+        fig.add_trace(go.Histogram(
+            x=negatives,
+            xbins=dict(start=lo, end=0, size=bin_size),
+            marker=dict(color="#3498db", line=dict(color="white", width=0.5)),
+            opacity=0.8,
+            name="Shipments",
+            hovertemplate="Range: %{x}<br>Count: %{y:,}<extra></extra>",
+            showlegend=False,
+        ))
+    # Exact matches (0) as a single bar
+    if len(exact_zero) > 0:
+        fig.add_trace(go.Bar(
+            x=[0], y=[len(exact_zero)],
+            width=bin_size * 0.9,
+            marker=dict(color="#2ecc71", line=dict(color="white", width=0.5)),
+            opacity=0.9,
+            name=f"Exact match ({len(exact_zero):,})",
+            hovertemplate="Deviation: $0.00<br>Count: %{y:,}<extra></extra>",
+        ))
+    # Positive deviations
+    if len(positives) > 0:
+        fig.add_trace(go.Histogram(
+            x=positives,
+            xbins=dict(start=bin_size, end=hi, size=bin_size),
+            marker=dict(color="#3498db", line=dict(color="white", width=0.5)),
+            opacity=0.8,
+            name="Shipments",
+            showlegend=False,
+            hovertemplate="Range: %{x}<br>Count: %{y:,}<extra></extra>",
+        ))
 
-    # Reference lines — no annotation text on the lines themselves (avoids overlap)
-    fig.add_vline(x=0, line_dash="dash", line_color="#2c3e50", line_width=1.5)
-    fig.add_vline(x=mean_val, line_dash="dash", line_color="#e74c3c", line_width=1.5)
-    fig.add_vline(x=median_val, line_dash="dash", line_color="#27ae60", line_width=1.5)
-
-    # Stats box in top-right corner — clean, no collision
-    if dev_col == "deviation":
-        stats_text = f"<b>Mean</b>: ${mean_val:.2f}<br><b>Median</b>: ${median_val:.2f}"
-    else:
-        stats_text = f"<b>Mean</b>: {mean_val:.2f}%<br><b>Median</b>: {median_val:.2f}%"
-
-    fig.add_annotation(
-        text=stats_text,
-        xref="paper", yref="paper", x=0.98, y=0.95,
-        xanchor="right", yanchor="top",
-        showarrow=False,
-        bgcolor="rgba(255,255,255,0.85)",
-        bordercolor="#ddd", borderwidth=1,
-        font=dict(size=12),
-        align="left",
-    )
-
-    # Legend entries for reference line colors
-    for color, name in [("#2c3e50", "Zero"), ("#e74c3c", "Mean"), ("#27ae60", "Median")]:
+    # Reference lines as shapes (no legend clutter)
+    fmt = lambda v: f"${v:.2f}" if dev_col == "deviation" else f"{v:.2f}%"
+    for val, color, label in [
+        (0, "#2c3e50", "Zero"),
+        (mean_val, "#e74c3c", f"Mean: {fmt(mean_val)}"),
+        (median_val, "#27ae60", f"Median: {fmt(median_val)}"),
+    ]:
+        fig.add_shape(
+            type="line", x0=val, x1=val, y0=0, y1=1, yref="paper",
+            line=dict(dash="dash", color=color, width=1.5),
+        )
         fig.add_trace(go.Scatter(
-            x=[None], y=[None], mode="lines",
-            line=dict(color=color, dash="dash", width=1.5),
-            name=name, showlegend=True,
+            x=[val, val], y=[0, 0], mode="lines",
+            line=dict(dash="dash", color=color, width=2),
+            name=label,
         ))
 
     fig.update_layout(
@@ -101,7 +126,12 @@ if len(devs) > 0:
         xaxis_title=dev_label,
         yaxis_title="Shipment Count",
         xaxis=dict(range=[lo, hi]),
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0),
+        barmode="overlay",
+        showlegend=True,
+        legend=dict(
+            orientation="h", yanchor="bottom", y=1.02,
+            xanchor="right", x=1,
+        ),
     )
     st.plotly_chart(fig, use_container_width=True)
 
@@ -181,26 +211,65 @@ with tab_err:
         margin = max(abs(p1), abs(p99)) * 0.2
         lo, hi = p1 - margin, p99 + margin
 
+        # Snap bins for error-source histogram
+        raw_bin_e = (hi - lo) / 80
+        exp_e = math.floor(math.log10(raw_bin_e))
+        frac_e = raw_bin_e / (10 ** exp_e)
+        nice_e = 1 if frac_e <= 1 else 2 if frac_e <= 2 else 5 if frac_e <= 5 else 10
+        bin_size_e = nice_e * (10 ** exp_e)
+        lo_e = math.floor(lo / bin_size_e) * bin_size_e
+        hi_e = math.ceil(hi / bin_size_e) * bin_size_e
+
         fig_e = go.Figure()
         for seg_name, color in COLORS.items():
             seg_devs = df.filter(pl.col("error_source") == seg_name)["deviation"].drop_nulls().cast(pl.Float64).to_numpy()
             n_seg = len(seg_devs)
-            if n_seg > 0:
+            if n_seg == 0:
+                continue
+
+            negatives_e = seg_devs[seg_devs < 0]
+            exact_zero_e = seg_devs[seg_devs == 0]
+            positives_e = seg_devs[seg_devs > 0]
+
+            if len(negatives_e) > 0:
                 fig_e.add_trace(go.Histogram(
-                    x=seg_devs, nbinsx=80,
-                    xbins=dict(start=lo, end=hi),
+                    x=negatives_e,
+                    xbins=dict(start=lo_e, end=0, size=bin_size_e),
                     histnorm="percent",
                     marker_color=color, opacity=0.6,
                     name=f"{seg_name} (n={n_seg:,})",
+                    legendgroup=seg_name,
                     hovertemplate="%{x:.2f}: %{y:.1f}%<extra></extra>",
                 ))
-        fig_e.add_vline(x=0, line_dash="dash", line_color="#2c3e50", line_width=1.5, opacity=0.7)
+            if len(exact_zero_e) > 0:
+                zero_pct = len(exact_zero_e) / n_seg * 100
+                fig_e.add_trace(go.Bar(
+                    x=[0], y=[zero_pct],
+                    width=bin_size_e * 0.9,
+                    marker_color=color, opacity=0.7,
+                    name=f"{seg_name} exact ({len(exact_zero_e):,})",
+                    legendgroup=seg_name,
+                    showlegend=False,
+                    hovertemplate="Exact match<br>%{y:.1f}%<extra></extra>",
+                ))
+            if len(positives_e) > 0:
+                fig_e.add_trace(go.Histogram(
+                    x=positives_e,
+                    xbins=dict(start=bin_size_e, end=hi_e, size=bin_size_e),
+                    histnorm="percent",
+                    marker_color=color, opacity=0.6,
+                    name=f"{seg_name} (n={n_seg:,})",
+                    legendgroup=seg_name,
+                    showlegend=len(negatives_e) == 0,
+                    hovertemplate="%{x:.2f}: %{y:.1f}%<extra></extra>",
+                ))
+
         fig_e.update_layout(
             barmode="overlay",
             title="Deviation Distribution by Error Source (normalized)",
             xaxis_title="Deviation ($)",
             yaxis_title="% of Segment",
-            xaxis=dict(range=[lo, hi]),
+            xaxis=dict(range=[lo_e, hi_e]),
             legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0),
         )
         st.plotly_chart(fig_e, use_container_width=True)
@@ -450,6 +519,16 @@ if len(valid_weight) > 0:
         name="Perfect match",
         hoverinfo="skip",
     ))
+    fig_w.add_annotation(
+        text="Actual > Expected",
+        x=0.15, y=0.85, xref="paper", yref="paper",
+        showarrow=False, font=dict(size=11, color="#999"),
+    )
+    fig_w.add_annotation(
+        text="Actual < Expected",
+        x=0.85, y=0.15, xref="paper", yref="paper",
+        showarrow=False, font=dict(size=11, color="#999"),
+    )
     fig_w.update_layout(
         title="Expected vs Actual Weight",
         xaxis_title="Expected Billable Weight (lbs)",
@@ -462,21 +541,48 @@ if len(valid_weight) > 0:
     st.markdown("**Weight Difference Distribution**")
     clipped = diff_w[(diff_w > -10) & (diff_w < 10)]
 
-    wd_bin_size = 20 / 120  # ~0.17 lbs per bin across the ±10 range
+    wd_bin_size = 0.2  # clean 0.2 lbs bins, 0 is always a bin edge
+    neg_wd = clipped[clipped < 0]
+    zero_wd = clipped[clipped == 0]
+    pos_wd = clipped[clipped > 0]
+
     fig_wd = go.Figure()
-    fig_wd.add_trace(go.Histogram(
-        x=clipped,
-        xbins=dict(start=-10, end=10, size=wd_bin_size),
-        marker=dict(color="#3498db", line=dict(color="white", width=0.5)),
-        opacity=0.8,
-        hovertemplate="Diff: %{x:.1f} lbs<br>Count: %{y:,}<extra></extra>",
-    ))
-    fig_wd.add_vline(x=0, line_dash="dash", line_color="#2c3e50", line_width=1.5)
+    if len(neg_wd) > 0:
+        fig_wd.add_trace(go.Histogram(
+            x=neg_wd,
+            xbins=dict(start=-10, end=0, size=wd_bin_size),
+            marker=dict(color="#3498db", line=dict(color="white", width=0.5)),
+            opacity=0.8,
+            name="Shipments",
+            showlegend=False,
+            hovertemplate="Diff: %{x:.1f} lbs<br>Count: %{y:,}<extra></extra>",
+        ))
+    if len(zero_wd) > 0:
+        fig_wd.add_trace(go.Bar(
+            x=[0], y=[len(zero_wd)],
+            width=wd_bin_size * 0.9,
+            marker=dict(color="#2ecc71", line=dict(color="white", width=0.5)),
+            opacity=0.9,
+            name=f"Exact match ({len(zero_wd):,})",
+            hovertemplate="Diff: 0.0 lbs<br>Count: %{y:,}<extra></extra>",
+        ))
+    if len(pos_wd) > 0:
+        fig_wd.add_trace(go.Histogram(
+            x=pos_wd,
+            xbins=dict(start=wd_bin_size, end=10, size=wd_bin_size),
+            marker=dict(color="#3498db", line=dict(color="white", width=0.5)),
+            opacity=0.8,
+            name="Shipments",
+            showlegend=False,
+            hovertemplate="Diff: %{x:.1f} lbs<br>Count: %{y:,}<extra></extra>",
+        ))
     fig_wd.update_layout(
         title="Weight Difference Distribution (clipped to +/-10 lbs)",
         xaxis_title="Weight Difference (Actual - Expected) lbs",
         yaxis_title="Count",
-        showlegend=False,
+        barmode="overlay",
+        showlegend=True,
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
     )
     st.plotly_chart(fig_wd, use_container_width=True)
 else:
