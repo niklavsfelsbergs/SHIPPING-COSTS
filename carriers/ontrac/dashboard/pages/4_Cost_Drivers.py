@@ -8,11 +8,8 @@ zone/geography, and weight analysis.
 
 import polars as pl
 import streamlit as st
-import matplotlib
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
-import matplotlib.ticker as mticker
-import matplotlib.patches as mpatches
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 import numpy as np
 
 from carriers.ontrac.dashboard.data import (
@@ -64,36 +61,51 @@ left_a, right_a = st.columns(2)
 
 with left_a:
     st.markdown("**Surcharge Trigger Frequency**")
-    fig_f, ax_f = plt.subplots(figsize=(8, 5))
-    labels = [d["Surcharge"] for d in freq_data]
-    pcts = [d["pct"] for d in freq_data]
-    colors = plt.cm.Set2(np.linspace(0, 1, len(labels)))
-    bars = ax_f.barh(labels, pcts, color=colors)
-    ax_f.set_xlabel("% of Shipments")
-    ax_f.set_title("Surcharge Trigger Rate")
-    ax_f.grid(axis="x", alpha=0.3)
-    for bar, pct in zip(bars, pcts):
-        if pct > 0.5:
-            ax_f.text(bar.get_width() + 0.3, bar.get_y() + bar.get_height() / 2,
-                      f"{pct:.1f}%", va="center", fontsize=9)
-    ax_f.invert_yaxis()
-    fig_f.tight_layout()
-    st.pyplot(fig_f)
-    plt.close(fig_f)
+    # Sort by frequency — most common surcharges at the top
+    freq_sorted = sorted(freq_data, key=lambda d: d["pct"])
+    labels_f = [d["Surcharge"] for d in freq_sorted]
+    pcts_f = [d["pct"] for d in freq_sorted]
+
+    fig_f = go.Figure(go.Bar(
+        y=labels_f, x=pcts_f,
+        orientation="h",
+        marker_color="#3498db",
+        text=[f"{p:.1f}%" for p in pcts_f],
+        textposition="outside",
+        hovertemplate="%{y}: %{x:.2f}% (%{customdata:,} shipments)<extra></extra>",
+        customdata=[d["triggered"] for d in freq_sorted],
+    ))
+    fig_f.update_layout(
+        title="Surcharge Trigger Rate",
+        xaxis_title="% of Shipments",
+        height=400,
+        margin=dict(r=60),
+    )
+    st.plotly_chart(fig_f, use_container_width=True)
 
 with right_a:
     st.markdown("**Total Cost Impact by Surcharge**")
-    fig_c, ax_c = plt.subplots(figsize=(8, 5))
-    costs = [d["total_cost"] for d in freq_data]
-    ax_c.barh(labels, costs, color=colors)
-    ax_c.set_xlabel("Total Cost ($)")
-    ax_c.xaxis.set_major_formatter(mticker.FuncFormatter(lambda x, _: f"${x:,.0f}"))
-    ax_c.set_title("Total Cost by Surcharge")
-    ax_c.grid(axis="x", alpha=0.3)
-    ax_c.invert_yaxis()
-    fig_c.tight_layout()
-    st.pyplot(fig_c)
-    plt.close(fig_c)
+    # Sort by cost — highest cost impact at the top
+    cost_sorted = sorted(freq_data, key=lambda d: d["total_cost"])
+    labels_c = [d["Surcharge"] for d in cost_sorted]
+    costs_c = [d["total_cost"] for d in cost_sorted]
+
+    fig_c = go.Figure(go.Bar(
+        y=labels_c, x=costs_c,
+        orientation="h",
+        marker_color="#e74c3c",
+        text=[f"${c:,.0f}" for c in costs_c],
+        textposition="outside",
+        hovertemplate="%{y}: $%{x:,.2f}<extra></extra>",
+    ))
+    fig_c.update_layout(
+        title="Total Cost by Surcharge",
+        xaxis_title="Total Cost ($)",
+        xaxis_tickprefix="$", xaxis_tickformat=",.0f",
+        height=400,
+        margin=dict(r=80),
+    )
+    st.plotly_chart(fig_c, use_container_width=True)
 
 # Weekly surcharge trend
 st.markdown("**Weekly Surcharge Trigger Trend**")
@@ -105,11 +117,12 @@ selected_surcharges = st.multiselect(
     key="surcharge_trend_select",
 )
 
-fig_st, ax_st = plt.subplots(figsize=(12, 4.5))
-color_cycle = plt.cm.tab10(np.linspace(0, 1, 10))
+color_cycle = ["#e74c3c", "#f39c12", "#3498db", "#27ae60", "#9b59b6",
+               "#1abc9c", "#e67e22", "#2980b9", "#8e44ad", "#34495e"]
 
 date_col = st.session_state.get("sidebar_date_col", "billing_date")
 
+fig_st = go.Figure()
 for idx, item in enumerate(freq_data):
     if item["Surcharge"] not in selected_surcharges:
         continue
@@ -131,21 +144,23 @@ for idx, item in enumerate(freq_data):
     )
     if len(weekly) > 0:
         w_pd = weekly.to_pandas()
-        ax_st.plot(
-            w_pd["week"], w_pd["rate"],
-            label=item["Surcharge"],
-            color=color_cycle[idx % 10],
-            linewidth=1.5, marker="o", markersize=3,
-        )
+        fig_st.add_trace(go.Scatter(
+            x=w_pd["week"], y=w_pd["rate"],
+            mode="lines+markers",
+            line=dict(color=color_cycle[idx % len(color_cycle)], width=1.5),
+            marker=dict(size=4),
+            name=item["Surcharge"],
+            hovertemplate="%{x|%b %d}: %{y:.1f}%<extra></extra>",
+        ))
 
-ax_st.set_ylabel("% of Shipments Triggered")
-ax_st.set_title("Weekly Surcharge Frequency")
-ax_st.legend(loc="upper right")
-ax_st.grid(axis="y", alpha=0.3)
-fig_st.autofmt_xdate()
-fig_st.tight_layout()
-st.pyplot(fig_st)
-plt.close(fig_st)
+fig_st.update_layout(
+    title="Weekly Surcharge Frequency",
+    yaxis_title="% of Shipments Triggered",
+    yaxis_ticksuffix="%",
+    hovermode="x unified",
+    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0),
+)
+st.plotly_chart(fig_st, use_container_width=True)
 
 st.markdown("---")
 
@@ -170,39 +185,72 @@ if len(dim_df) > 0:
     lps_flag = dim_df["surcharge_lps"].fill_null(False).to_numpy()
     ahs_flag = dim_df["surcharge_ahs"].fill_null(False).to_numpy()
 
-    cat_colors = np.full(len(dim_df), "#bdc3c7")
-    cat_colors[ahs_flag] = "#f39c12"
-    cat_colors[lps_flag] = "#e74c3c"
-    cat_colors[oml_flag] = "#8e44ad"
+    categories = np.full(len(dim_df), "No dim surcharge", dtype=object)
+    categories[ahs_flag] = "AHS"
+    categories[lps_flag] = "LPS"
+    categories[oml_flag] = "OML"
 
+    # Sample if needed
     n = len(longest)
     if n > 5000:
         idx = np.random.choice(n, 5000, replace=False)
-        longest_s, second_s, colors_s = longest[idx], second[idx], cat_colors[idx]
+        longest_s, second_s, cats_s = longest[idx], second[idx], categories[idx]
     else:
-        longest_s, second_s, colors_s = longest, second, cat_colors
+        longest_s, second_s, cats_s = longest, second, categories
 
-    fig_d, ax_d = plt.subplots(figsize=(10, 7))
-    ax_d.scatter(longest_s, second_s, c=colors_s, alpha=0.4, s=10)
+    fig_d = go.Figure()
 
-    ax_d.axhline(30, color="#f39c12", linestyle="--", linewidth=1.5, alpha=0.7, label="AHS: 2nd longest > 30\"")
-    ax_d.axvline(48, color="#e74c3c", linestyle="--", linewidth=1.5, alpha=0.7, label="LPS: longest > 48\"")
-    ax_d.axvline(72, color="#8e44ad", linestyle="--", linewidth=1.5, alpha=0.7, label="OML: longest > 72\"")
-
-    legend_patches = [
-        mpatches.Patch(color="#bdc3c7", label="No dim surcharge"),
-        mpatches.Patch(color="#f39c12", label="AHS"),
-        mpatches.Patch(color="#e74c3c", label="LPS"),
-        mpatches.Patch(color="#8e44ad", label="OML"),
+    # Layer order matters: plain packages underneath, surcharges on top and more visible
+    trace_config = [
+        ("No dim surcharge", "#bdc3c7", 0.15, 3),
+        ("AHS",              "#f39c12", 0.6,  5),
+        ("LPS",              "#e74c3c", 0.6,  5),
+        ("OML",              "#8e44ad", 0.7,  6),
     ]
-    ax_d.legend(handles=legend_patches, loc="upper left")
-    ax_d.set_xlabel("Longest Side (in)")
-    ax_d.set_ylabel("Second Longest Side (in)")
-    ax_d.set_title("Package Dimensions with Surcharge Boundaries")
-    ax_d.grid(alpha=0.3)
-    fig_d.tight_layout()
-    st.pyplot(fig_d)
-    plt.close(fig_d)
+    for cat_name, color, opacity, size in trace_config:
+        mask = cats_s == cat_name
+        if mask.any():
+            fig_d.add_trace(go.Scattergl(
+                x=longest_s[mask], y=second_s[mask],
+                mode="markers",
+                marker=dict(color=color, size=size, opacity=opacity),
+                name=cat_name,
+                hovertemplate="Longest: %{x:.1f}\"<br>2nd Longest: %{y:.1f}\"<extra></extra>",
+            ))
+
+    # Boundary lines — each annotated at its own position to avoid overlap
+    fig_d.add_hline(y=30, line_dash="dash", line_color="#f39c12", line_width=1.5, opacity=0.7)
+    fig_d.add_annotation(
+        text="<b>AHS</b> (2nd side > 30\")",
+        xref="paper", x=0.99, y=30, xanchor="right", yanchor="bottom", yshift=4,
+        showarrow=False, font=dict(color="#f39c12", size=10),
+        bgcolor="rgba(255,255,255,0.7)",
+    )
+
+    fig_d.add_vline(x=48, line_dash="dash", line_color="#e74c3c", line_width=1.5, opacity=0.7)
+    fig_d.add_annotation(
+        text="<b>LPS</b> (> 48\")",
+        x=48, yref="paper", y=0.99, xanchor="left", yanchor="top", xshift=4,
+        showarrow=False, font=dict(color="#e74c3c", size=10),
+        bgcolor="rgba(255,255,255,0.7)",
+    )
+
+    fig_d.add_vline(x=72, line_dash="dash", line_color="#8e44ad", line_width=1.5, opacity=0.7)
+    fig_d.add_annotation(
+        text="<b>OML</b> (> 72\")",
+        x=72, yref="paper", y=0.99, xanchor="left", yanchor="top", xshift=4,
+        showarrow=False, font=dict(color="#8e44ad", size=10),
+        bgcolor="rgba(255,255,255,0.7)",
+    )
+
+    fig_d.update_layout(
+        title="Package Dimensions with Surcharge Boundaries",
+        xaxis_title="Longest Side (in)",
+        yaxis_title="Second Longest Side (in)",
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0),
+        height=600,
+    )
+    st.plotly_chart(fig_d, use_container_width=True)
 
     # Near-miss
     st.markdown("**Near-Miss Analysis** (within 1\" of surcharge threshold)")
@@ -261,15 +309,22 @@ with left_c:
     )
     if len(state_vol) > 0:
         sv_pd = state_vol.to_pandas()
-        fig_sv, ax_sv = plt.subplots(figsize=(8, 6))
-        ax_sv.barh(sv_pd["shipping_region"], sv_pd["count"], color="#3498db", alpha=0.85)
-        ax_sv.set_xlabel("Shipments")
-        ax_sv.set_title("Top 20 States by Volume")
-        ax_sv.grid(axis="x", alpha=0.3)
-        ax_sv.invert_yaxis()
-        fig_sv.tight_layout()
-        st.pyplot(fig_sv)
-        plt.close(fig_sv)
+        fig_sv = go.Figure(go.Bar(
+            y=sv_pd["shipping_region"], x=sv_pd["count"],
+            orientation="h",
+            marker_color="#3498db",
+            text=sv_pd["count"].apply(lambda v: f"{v:,}"),
+            textposition="outside",
+            hovertemplate="%{y}: %{x:,} shipments<extra></extra>",
+        ))
+        fig_sv.update_layout(
+            title="Top 20 States by Volume",
+            xaxis_title="Shipments",
+            yaxis=dict(autorange="reversed"),
+            height=500,
+            margin=dict(r=60),
+        )
+        st.plotly_chart(fig_sv, use_container_width=True)
 
 with right_c:
     st.markdown("**Average Cost per Shipment by Zone**")
@@ -284,23 +339,29 @@ with right_c:
     )
     if len(zone_avg) > 0:
         za_pd = zone_avg.fill_null(0).to_pandas()
-        fig_za, ax_za = plt.subplots(figsize=(8, 6))
         zones = za_pd["shipping_zone"].astype(str).tolist()
-        x = np.arange(len(zones))
-        w = 0.35
-        ax_za.bar(x - w / 2, za_pd["avg_expected"], w, label="Expected", color="#3498db")
-        ax_za.bar(x + w / 2, za_pd["avg_actual"], w, label="Actual", color="#e74c3c")
-        ax_za.set_xticks(x)
-        ax_za.set_xticklabels(zones)
-        ax_za.set_xlabel("Zone")
-        ax_za.set_ylabel("Avg Cost ($)")
-        ax_za.yaxis.set_major_formatter(mticker.FuncFormatter(lambda v, _: f"${v:.2f}"))
-        ax_za.set_title("Average Cost per Shipment by Zone")
-        ax_za.legend()
-        ax_za.grid(axis="y", alpha=0.3)
-        fig_za.tight_layout()
-        st.pyplot(fig_za)
-        plt.close(fig_za)
+
+        fig_za = go.Figure()
+        fig_za.add_trace(go.Bar(
+            x=zones, y=za_pd["avg_expected"],
+            name="Expected", marker_color="#3498db",
+            hovertemplate="Zone %{x}<br>Expected: $%{y:.2f}<extra></extra>",
+        ))
+        fig_za.add_trace(go.Bar(
+            x=zones, y=za_pd["avg_actual"],
+            name="Actual", marker_color="#e74c3c",
+            hovertemplate="Zone %{x}<br>Actual: $%{y:.2f}<extra></extra>",
+        ))
+        fig_za.update_layout(
+            barmode="group",
+            title="Average Cost per Shipment by Zone",
+            xaxis_title="Zone",
+            yaxis_title="Avg Cost ($)",
+            yaxis_tickprefix="$", yaxis_tickformat=",.2f",
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0),
+            height=500,
+        )
+        st.plotly_chart(fig_za, use_container_width=True)
 
 # Zone distribution by origin
 st.markdown("**Zone Distribution by Origin**")
@@ -312,23 +373,33 @@ origin_zone = (
 
 sites_list = sorted(df["production_site"].drop_nulls().unique().to_list())
 if len(sites_list) >= 1 and len(origin_zone) > 0:
-    fig_oz, axes = plt.subplots(1, max(len(sites_list), 1),
-                                 figsize=(5 * max(len(sites_list), 1), 4), sharey=True)
-    if not isinstance(axes, np.ndarray):
-        axes = [axes]
-
-    for ax, site in zip(axes, sites_list):
+    fig_oz = make_subplots(
+        rows=1, cols=max(len(sites_list), 1),
+        subplot_titles=sites_list,
+        shared_yaxes=True,
+    )
+    for col_idx, site in enumerate(sites_list, 1):
         site_data = origin_zone.filter(pl.col("production_site") == site).to_pandas()
         if len(site_data) > 0:
-            ax.bar(site_data["shipping_zone"].astype(str), site_data["count"], color="#3498db", alpha=0.85)
-            ax.set_title(site)
-            ax.set_xlabel("Zone")
-            ax.grid(axis="y", alpha=0.3)
-    axes[0].set_ylabel("Shipments")
-    fig_oz.suptitle("Zone Distribution by Production Site", fontsize=13, fontweight="bold")
-    fig_oz.tight_layout()
-    st.pyplot(fig_oz)
-    plt.close(fig_oz)
+            fig_oz.add_trace(
+                go.Bar(
+                    x=site_data["shipping_zone"].astype(str),
+                    y=site_data["count"],
+                    marker_color="#3498db",
+                    text=site_data["count"].apply(lambda v: f"{v:,}"),
+                    textposition="outside",
+                    showlegend=False,
+                    hovertemplate="Zone %{x}: %{y:,}<extra></extra>",
+                ),
+                row=1, col=col_idx,
+            )
+    fig_oz.update_layout(
+        title_text="Zone Distribution by Production Site",
+        height=400,
+    )
+    fig_oz.update_xaxes(title_text="Zone")
+    fig_oz.update_yaxes(title_text="Shipments", col=1)
+    st.plotly_chart(fig_oz, use_container_width=True)
 
 drilldown_section(df, "Geography Data", key_suffix="geo")
 
@@ -357,21 +428,29 @@ if len(valid) > 0:
 
     with left_d:
         st.markdown("**Actual Weight vs DIM Weight Distribution**")
-        fig_wh, ax_wh = plt.subplots(figsize=(8, 5))
+        max_display = min(float(np.percentile(billable_wt, 99)) * 1.2, 100)
 
-        max_display = min(np.percentile(billable_wt, 99) * 1.2, 100)
-        ax_wh.hist(actual_wt[actual_wt < max_display], bins=60, alpha=0.6,
-                    color="#3498db", label="Actual Weight", edgecolor="white")
-        ax_wh.hist(dim_wt[dim_wt < max_display], bins=60, alpha=0.5,
-                    color="#e74c3c", label="DIM Weight", edgecolor="white")
-        ax_wh.set_xlabel("Weight (lbs)")
-        ax_wh.set_ylabel("Count")
-        ax_wh.set_title("Actual vs DIM Weight Distribution")
-        ax_wh.legend()
-        ax_wh.grid(axis="y", alpha=0.3)
-        fig_wh.tight_layout()
-        st.pyplot(fig_wh)
-        plt.close(fig_wh)
+        fig_wh = go.Figure()
+        fig_wh.add_trace(go.Histogram(
+            x=actual_wt[actual_wt < max_display], nbinsx=60,
+            marker_color="#3498db", opacity=0.6,
+            name="Actual Weight",
+            hovertemplate="%{x:.1f} lbs: %{y:,}<extra></extra>",
+        ))
+        fig_wh.add_trace(go.Histogram(
+            x=dim_wt[dim_wt < max_display], nbinsx=60,
+            marker_color="#e74c3c", opacity=0.5,
+            name="DIM Weight",
+            hovertemplate="%{x:.1f} lbs: %{y:,}<extra></extra>",
+        ))
+        fig_wh.update_layout(
+            barmode="overlay",
+            title="Actual vs DIM Weight Distribution",
+            xaxis_title="Weight (lbs)",
+            yaxis_title="Count",
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0),
+        )
+        st.plotly_chart(fig_wh, use_container_width=True)
 
     with right_d:
         st.markdown("**DIM Weight Usage**")
@@ -388,19 +467,6 @@ if len(valid) > 0:
             avg_extra = float(extra_weight.mean())
             st.metric("Avg Extra Weight from DIM", f"{avg_extra:.1f} lbs")
             st.metric("DIM Shipments", f"{len(dim_shipments):,}")
-
-        fig_pie, ax_pie = plt.subplots(figsize=(6, 4))
-        ax_pie.pie(
-            [dim_pct, 100 - dim_pct],
-            labels=["DIM Weight", "Actual Weight"],
-            colors=["#e74c3c", "#3498db"],
-            autopct="%1.1f%%",
-            startangle=90,
-        )
-        ax_pie.set_title("Billable Weight Basis")
-        fig_pie.tight_layout()
-        st.pyplot(fig_pie)
-        plt.close(fig_pie)
 
     drilldown_section(
         valid.filter(pl.col("uses_dim_weight").fill_null(False)),

@@ -8,9 +8,7 @@ surcharge detection accuracy, zone accuracy, and weight accuracy.
 
 import polars as pl
 import streamlit as st
-import matplotlib
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
+import plotly.graph_objects as go
 import numpy as np
 
 from carriers.ontrac.dashboard.data import (
@@ -49,24 +47,60 @@ dev_label = "Actual - Expected ($)" if dev_col == "deviation" else "Actual - Exp
 devs = df[dev_col].drop_nulls().cast(pl.Float64).to_numpy()
 
 if len(devs) > 0:
-    fig, ax = plt.subplots(figsize=(12, 5))
     p1, p99 = np.percentile(devs, [1, 99])
     margin = max(abs(p1), abs(p99)) * 0.2
     lo, hi = p1 - margin, p99 + margin
-    ax.hist(devs, bins=80, range=(lo, hi), color="#3498db", alpha=0.8, edgecolor="white", linewidth=0.5)
-    ax.axvline(0, color="#2c3e50", linestyle="--", linewidth=1.5, label="Zero")
-    mean_val = np.mean(devs)
-    median_val = np.median(devs)
-    ax.axvline(mean_val, color="#e74c3c", linestyle="--", linewidth=1.5, label=f"Mean: {mean_val:.2f}")
-    ax.axvline(median_val, color="#27ae60", linestyle="--", linewidth=1.5, label=f"Median: {median_val:.2f}")
-    ax.set_xlabel(dev_label, fontsize=11)
-    ax.set_ylabel("Shipment Count", fontsize=11)
-    ax.set_title(f"Deviation Distribution (n={len(devs):,})", fontsize=13, fontweight="bold")
-    ax.legend()
-    ax.grid(axis="y", alpha=0.3)
-    fig.tight_layout()
-    st.pyplot(fig)
-    plt.close(fig)
+
+    mean_val = float(np.mean(devs))
+    median_val = float(np.median(devs))
+
+    fig = go.Figure()
+    fig.add_trace(go.Histogram(
+        x=devs, nbinsx=80,
+        xbins=dict(start=lo, end=hi),
+        marker_color="#3498db", opacity=0.8,
+        name="Shipments",
+        hovertemplate="Range: %{x}<br>Count: %{y:,}<extra></extra>",
+    ))
+
+    # Reference lines — no annotation text on the lines themselves (avoids overlap)
+    fig.add_vline(x=0, line_dash="dash", line_color="#2c3e50", line_width=1.5)
+    fig.add_vline(x=mean_val, line_dash="dash", line_color="#e74c3c", line_width=1.5)
+    fig.add_vline(x=median_val, line_dash="dash", line_color="#27ae60", line_width=1.5)
+
+    # Stats box in top-right corner — clean, no collision
+    if dev_col == "deviation":
+        stats_text = f"<b>Mean</b>: ${mean_val:.2f}<br><b>Median</b>: ${median_val:.2f}"
+    else:
+        stats_text = f"<b>Mean</b>: {mean_val:.2f}%<br><b>Median</b>: {median_val:.2f}%"
+
+    fig.add_annotation(
+        text=stats_text,
+        xref="paper", yref="paper", x=0.98, y=0.95,
+        xanchor="right", yanchor="top",
+        showarrow=False,
+        bgcolor="rgba(255,255,255,0.85)",
+        bordercolor="#ddd", borderwidth=1,
+        font=dict(size=12),
+        align="left",
+    )
+
+    # Legend entries for reference line colors
+    for color, name in [("#2c3e50", "Zero"), ("#e74c3c", "Mean"), ("#27ae60", "Median")]:
+        fig.add_trace(go.Scatter(
+            x=[None], y=[None], mode="lines",
+            line=dict(color=color, dash="dash", width=1.5),
+            name=name, showlegend=True,
+        ))
+
+    fig.update_layout(
+        title=f"Deviation Distribution (n={len(devs):,})",
+        xaxis_title=dev_label,
+        yaxis_title="Shipment Count",
+        xaxis=dict(range=[lo, hi]),
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0),
+    )
+    st.plotly_chart(fig, use_container_width=True)
 
     abs_devs = np.abs(df["deviation"].drop_nulls().to_numpy())
     c1, c2, c3, c4, c5, c6 = st.columns(6)
@@ -138,26 +172,35 @@ with tab_err:
     _stats_table(stats_err, "Error Source")
 
     COLORS = {"Clean match": "#27ae60", "Zone mismatch only": "#f39c12", "Surcharge mismatch": "#e74c3c"}
-    fig_e, ax_e = plt.subplots(figsize=(12, 5))
     all_devs_np = df["deviation"].drop_nulls().cast(pl.Float64).to_numpy()
     if len(all_devs_np) > 0:
         p1, p99 = np.percentile(all_devs_np, [1, 99])
         margin = max(abs(p1), abs(p99)) * 0.2
         lo, hi = p1 - margin, p99 + margin
+
+        fig_e = go.Figure()
         for seg_name, color in COLORS.items():
             seg_devs = df.filter(pl.col("error_source") == seg_name)["deviation"].drop_nulls().cast(pl.Float64).to_numpy()
-            if len(seg_devs) > 0:
-                ax_e.hist(seg_devs, bins=80, range=(lo, hi), color=color, alpha=0.5,
-                          edgecolor="white", linewidth=0.3, label=f"{seg_name} (n={len(seg_devs):,})")
-        ax_e.axvline(0, color="#2c3e50", linestyle="--", linewidth=1.5, alpha=0.7)
-        ax_e.set_xlabel("Deviation ($)")
-        ax_e.set_ylabel("Shipment Count")
-        ax_e.set_title("Deviation by Error Source")
-        ax_e.legend()
-        ax_e.grid(axis="y", alpha=0.3)
-        fig_e.tight_layout()
-        st.pyplot(fig_e)
-    plt.close(fig_e)
+            n_seg = len(seg_devs)
+            if n_seg > 0:
+                fig_e.add_trace(go.Histogram(
+                    x=seg_devs, nbinsx=80,
+                    xbins=dict(start=lo, end=hi),
+                    histnorm="percent",
+                    marker_color=color, opacity=0.6,
+                    name=f"{seg_name} (n={n_seg:,})",
+                    hovertemplate="%{x:.2f}: %{y:.1f}%<extra></extra>",
+                ))
+        fig_e.add_vline(x=0, line_dash="dash", line_color="#2c3e50", line_width=1.5, opacity=0.7)
+        fig_e.update_layout(
+            barmode="overlay",
+            title="Deviation Distribution by Error Source (normalized)",
+            xaxis_title="Deviation ($)",
+            yaxis_title="% of Segment",
+            xaxis=dict(range=[lo, hi]),
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0),
+        )
+        st.plotly_chart(fig_e, use_container_width=True)
 
 with tab_zone:
     zones = sorted(df["shipping_zone"].drop_nulls().unique().to_list())
@@ -298,27 +341,33 @@ if len(df) > 0:
         if i is not None and j is not None:
             matrix[i][j] = row["count"]
 
-    fig_cm, ax_cm = plt.subplots(figsize=(8, 6))
-    im = ax_cm.imshow(matrix, cmap="Blues", aspect="auto")
-    ax_cm.set_xticks(range(len(all_zones)))
-    ax_cm.set_yticks(range(len(all_zones)))
-    ax_cm.set_xticklabels([str(z) for z in all_zones])
-    ax_cm.set_yticklabels([str(z) for z in all_zones])
-    ax_cm.set_xlabel("Actual Zone")
-    ax_cm.set_ylabel("Expected Zone")
-    ax_cm.set_title("Expected vs Actual Zone (count)")
+    zone_labels = [str(z) for z in all_zones]
 
+    text_matrix = []
     for i in range(len(all_zones)):
+        row_text = []
         for j in range(len(all_zones)):
             val = int(matrix[i][j])
-            if val > 0:
-                color = "white" if val > matrix.max() * 0.5 else "black"
-                ax_cm.text(j, i, f"{val:,}", ha="center", va="center", fontsize=9, color=color)
+            row_text.append(f"{val:,}" if val > 0 else "")
+        text_matrix.append(row_text)
 
-    fig_cm.colorbar(im, ax=ax_cm, shrink=0.8)
-    fig_cm.tight_layout()
-    st.pyplot(fig_cm)
-    plt.close(fig_cm)
+    fig_cm = go.Figure(go.Heatmap(
+        z=matrix,
+        x=zone_labels,
+        y=zone_labels,
+        text=text_matrix,
+        texttemplate="%{text}",
+        colorscale="Blues",
+        hovertemplate="Expected Zone: %{y}<br>Actual Zone: %{x}<br>Count: %{z:,}<extra></extra>",
+    ))
+    fig_cm.update_layout(
+        title="Expected vs Actual Zone (count)",
+        xaxis_title="Actual Zone",
+        yaxis_title="Expected Zone",
+        yaxis=dict(autorange="reversed"),
+        height=500,
+    )
+    st.plotly_chart(fig_cm, use_container_width=True)
 
 # By-state
 st.markdown("**Zone Match by State**")
@@ -371,41 +420,68 @@ if len(valid_weight) > 0:
     c2.metric("Matches / Total", f"{w_matches:,} / {len(diff_w):,}")
     c3.metric("Avg Difference", f"{np.mean(diff_w):+.2f} lbs")
 
-    # Scatter plot
+    # Density contour — shows actual weight patterns instead of a point-cloud blob
     st.markdown("**Expected vs Actual Billable Weight**")
-    fig_w, ax_w = plt.subplots(figsize=(8, 6))
 
     n_pts = len(exp_w)
-    if n_pts > 5000:
-        idx = np.random.choice(n_pts, 5000, replace=False)
+    if n_pts > 15000:
+        idx = np.random.choice(n_pts, 15000, replace=False)
         px, py = exp_w[idx], act_w[idx]
     else:
         px, py = exp_w, act_w
 
-    ax_w.scatter(px, py, alpha=0.3, s=8, color="#3498db")
-    max_val = max(np.max(px), np.max(py)) * 1.05
-    ax_w.plot([0, max_val], [0, max_val], color="#e74c3c", linestyle="--", linewidth=1.5, label="Perfect match")
-    ax_w.set_xlabel("Expected Billable Weight (lbs)")
-    ax_w.set_ylabel("Actual Billed Weight (lbs)")
-    ax_w.set_title("Expected vs Actual Weight")
-    ax_w.legend()
-    ax_w.grid(alpha=0.3)
-    fig_w.tight_layout()
-    st.pyplot(fig_w)
-    plt.close(fig_w)
+    max_val = max(float(np.max(px)), float(np.max(py))) * 1.05
+
+    fig_w = go.Figure()
+    fig_w.add_trace(go.Histogram2dContour(
+        x=px, y=py,
+        colorscale="Blues",
+        ncontours=20,
+        showscale=True,
+        colorbar=dict(title="Count", len=0.6),
+        hovertemplate="Expected: %{x:.1f} lbs<br>Actual: %{y:.1f} lbs<extra></extra>",
+    ))
+    # Scatter overlay at very low opacity to show outliers
+    fig_w.add_trace(go.Scattergl(
+        x=px, y=py,
+        mode="markers",
+        marker=dict(color="rgba(0,0,0,0.03)", size=2),
+        hoverinfo="skip",
+        showlegend=False,
+    ))
+    # Perfect match reference line
+    fig_w.add_trace(go.Scatter(
+        x=[0, max_val], y=[0, max_val],
+        mode="lines",
+        line=dict(color="#e74c3c", dash="dash", width=2),
+        name="Perfect match",
+        hoverinfo="skip",
+    ))
+    fig_w.update_layout(
+        title="Expected vs Actual Weight (density)",
+        xaxis_title="Expected Billable Weight (lbs)",
+        yaxis_title="Actual Billed Weight (lbs)",
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0),
+    )
+    st.plotly_chart(fig_w, use_container_width=True)
 
     # Weight difference distribution
     st.markdown("**Weight Difference Distribution**")
-    fig_wd, ax_wd = plt.subplots(figsize=(10, 4))
     clipped = diff_w[(diff_w > -10) & (diff_w < 10)]
-    ax_wd.hist(clipped, bins=60, color="#3498db", alpha=0.8, edgecolor="white")
-    ax_wd.axvline(0, color="#2c3e50", linestyle="--", linewidth=1.5)
-    ax_wd.set_xlabel("Weight Difference (Actual - Expected) lbs")
-    ax_wd.set_ylabel("Count")
-    ax_wd.set_title("Weight Difference Distribution (clipped to +/-10 lbs)")
-    ax_wd.grid(axis="y", alpha=0.3)
-    fig_wd.tight_layout()
-    st.pyplot(fig_wd)
-    plt.close(fig_wd)
+
+    fig_wd = go.Figure()
+    fig_wd.add_trace(go.Histogram(
+        x=clipped, nbinsx=60,
+        marker_color="#3498db", opacity=0.8,
+        hovertemplate="Diff: %{x:.1f} lbs<br>Count: %{y:,}<extra></extra>",
+    ))
+    fig_wd.add_vline(x=0, line_dash="dash", line_color="#2c3e50", line_width=1.5)
+    fig_wd.update_layout(
+        title="Weight Difference Distribution (clipped to +/-10 lbs)",
+        xaxis_title="Weight Difference (Actual - Expected) lbs",
+        yaxis_title="Count",
+        showlegend=False,
+    )
+    st.plotly_chart(fig_wd, use_container_width=True)
 else:
     st.info("No valid weight data for comparison.")

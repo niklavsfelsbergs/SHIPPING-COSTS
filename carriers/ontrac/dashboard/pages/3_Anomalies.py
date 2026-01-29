@@ -8,9 +8,7 @@ and monitor trends over time.
 
 import polars as pl
 import streamlit as st
-import matplotlib
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
+import plotly.graph_objects as go
 import numpy as np
 
 from carriers.ontrac.dashboard.data import (
@@ -263,29 +261,43 @@ weekly_stats = (
 if len(weekly_stats) > 1:
     ws_pd = weekly_stats.to_pandas()
 
-    fig_t, ax_t = plt.subplots(figsize=(12, 4.5))
-    ax_t.plot(ws_pd["week"], ws_pd["anomaly_rate"], color="#e74c3c", linewidth=2, marker="o", markersize=4)
-    avg_rate = ws_pd["anomaly_rate"].mean()
-    std_rate = ws_pd["anomaly_rate"].std()
+    avg_rate = float(ws_pd["anomaly_rate"].mean())
+    std_rate = float(ws_pd["anomaly_rate"].std())
     threshold_line = avg_rate + std_rate
 
-    ax_t.axhline(avg_rate, color="#7f8c8d", linestyle="--", linewidth=1, label=f"Avg: {avg_rate:.1f}%")
-    ax_t.axhline(threshold_line, color="#f39c12", linestyle=":", linewidth=1,
-                  label=f"Alert threshold: {threshold_line:.1f}%")
+    fig_t = go.Figure()
+    fig_t.add_trace(go.Scatter(
+        x=ws_pd["week"], y=ws_pd["anomaly_rate"],
+        mode="lines+markers",
+        line=dict(color="#e74c3c", width=2),
+        marker=dict(size=5),
+        name="Anomaly Rate",
+    ))
 
+    # Highlight alert points
     alert_mask = ws_pd["anomaly_rate"] > threshold_line
     if alert_mask.any():
-        ax_t.scatter(ws_pd.loc[alert_mask, "week"], ws_pd.loc[alert_mask, "anomaly_rate"],
-                     color="#e74c3c", s=80, zorder=5)
+        alert_data = ws_pd[alert_mask]
+        fig_t.add_trace(go.Scatter(
+            x=alert_data["week"], y=alert_data["anomaly_rate"],
+            mode="markers",
+            marker=dict(color="#e74c3c", size=10, symbol="circle"),
+            name="Alert",
+            showlegend=False,
+        ))
 
-    ax_t.set_ylabel("Anomaly Rate (%)")
-    ax_t.set_title("Weekly Anomaly Rate (|deviation| > $5)")
-    ax_t.legend()
-    ax_t.grid(axis="y", alpha=0.3)
-    fig_t.autofmt_xdate()
-    fig_t.tight_layout()
-    st.pyplot(fig_t)
-    plt.close(fig_t)
+    fig_t.add_hline(y=avg_rate, line_dash="dash", line_color="#7f8c8d", line_width=1,
+                    annotation_text=f"Avg: {avg_rate:.1f}%", annotation_position="top left")
+    fig_t.add_hline(y=threshold_line, line_dash="dot", line_color="#f39c12", line_width=1,
+                    annotation_text=f"Alert: {threshold_line:.1f}%", annotation_position="top right")
+
+    fig_t.update_layout(
+        title="Weekly Anomaly Rate (|deviation| > $5)",
+        yaxis_title="Anomaly Rate (%)",
+        hovermode="x unified",
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0),
+    )
+    st.plotly_chart(fig_t, use_container_width=True)
 
     latest_rate = float(ws_pd["anomaly_rate"].iloc[-1])
     if latest_rate > threshold_line:
@@ -299,9 +311,10 @@ else:
 # Weekly false negative rate by surcharge type
 st.markdown("**Weekly False Negative Rate by Surcharge**")
 
-has_fn_data = False
-fig_fn, ax_fn = plt.subplots(figsize=(12, 4.5))
 colors_list = ["#e74c3c", "#f39c12", "#3498db", "#27ae60", "#9b59b6"]
+
+fig_fn = go.Figure()
+has_fn_data = False
 
 for idx, surcharge in enumerate(DETERMINISTIC_SURCHARGES):
     flag_col = f"surcharge_{surcharge}"
@@ -328,21 +341,21 @@ for idx, surcharge in enumerate(DETERMINISTIC_SURCHARGES):
     if len(weekly_fn) > 1:
         has_fn_data = True
         wf_pd = weekly_fn.to_pandas()
-        ax_fn.plot(
-            wf_pd["week"], wf_pd["fn_rate"],
-            label=surcharge.upper(),
-            color=colors_list[idx % len(colors_list)],
-            linewidth=1.5, marker="o", markersize=3,
-        )
+        fig_fn.add_trace(go.Scatter(
+            x=wf_pd["week"], y=wf_pd["fn_rate"],
+            mode="lines+markers",
+            line=dict(color=colors_list[idx % len(colors_list)], width=1.5),
+            marker=dict(size=4),
+            name=surcharge.upper(),
+        ))
 
 if has_fn_data:
-    ax_fn.set_ylabel("False Negative Rate (%)")
-    ax_fn.set_title("Weekly False Negative Rate by Surcharge Type")
-    ax_fn.legend()
-    ax_fn.grid(axis="y", alpha=0.3)
-    fig_fn.autofmt_xdate()
-    fig_fn.tight_layout()
-    st.pyplot(fig_fn)
+    fig_fn.update_layout(
+        title="Weekly False Negative Rate by Surcharge Type",
+        yaxis_title="False Negative Rate (%)",
+        hovermode="x unified",
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0),
+    )
+    st.plotly_chart(fig_fn, use_container_width=True)
 else:
     st.info("Not enough data for surcharge false-negative trend.")
-plt.close(fig_fn)

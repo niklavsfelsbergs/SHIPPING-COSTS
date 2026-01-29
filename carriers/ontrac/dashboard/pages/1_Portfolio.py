@@ -7,11 +7,7 @@ Executive overview with KPIs, time series, cost breakdown, and distribution snap
 
 import polars as pl
 import streamlit as st
-import matplotlib
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
-import matplotlib.ticker as mticker
-import numpy as np
+import plotly.graph_objects as go
 
 from carriers.ontrac.dashboard.data import (
     COST_POSITIONS,
@@ -84,22 +80,23 @@ weekly = (
 if len(weekly) > 0:
     weekly_pd = weekly.to_pandas()
 
-    fig, ax1 = plt.subplots(figsize=(12, 4.5))
-    ax1.plot(weekly_pd["week"], weekly_pd["Expected"], label="Expected", color="#3498db", linewidth=2)
-    ax1.plot(weekly_pd["week"], weekly_pd["Actual"], label="Actual", color="#e74c3c", linewidth=2)
-    ax1.fill_between(
-        weekly_pd["week"], weekly_pd["Expected"], weekly_pd["Actual"],
-        alpha=0.15, color="#e74c3c", label="Variance band",
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(
+        x=weekly_pd["week"], y=weekly_pd["Expected"],
+        name="Expected", line=dict(color="#3498db", width=2),
+    ))
+    fig.add_trace(go.Scatter(
+        x=weekly_pd["week"], y=weekly_pd["Actual"],
+        name="Actual", line=dict(color="#e74c3c", width=2),
+    ))
+    fig.update_layout(
+        title=f"Weekly Cost by {date_col}",
+        yaxis_title="Total Cost ($)",
+        yaxis_tickprefix="$", yaxis_tickformat=",.0f",
+        hovermode="x unified",
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0),
     )
-    ax1.set_ylabel("Total Cost ($)")
-    ax1.yaxis.set_major_formatter(mticker.FuncFormatter(lambda x, _: f"${x:,.0f}"))
-    ax1.legend(loc="upper left")
-    ax1.grid(axis="y", alpha=0.3)
-    ax1.set_title(f"Weekly Cost by {date_col}")
-    fig.autofmt_xdate()
-    fig.tight_layout()
-    st.pyplot(fig)
-    plt.close(fig)
+    st.plotly_chart(fig, use_container_width=True)
 else:
     st.info("Not enough data for weekly chart.")
 
@@ -128,21 +125,15 @@ with left:
         exp_values.append(df[exp_col].sum())
         act_values.append(df[act_col].sum())
 
-    x = np.arange(len(component_labels))
-    width = 0.35
-
-    fig2, ax2 = plt.subplots(figsize=(10, 5))
-    ax2.bar(x - width / 2, exp_values, width, label="Expected", color="#3498db", alpha=0.85)
-    ax2.bar(x + width / 2, act_values, width, label="Actual", color="#e74c3c", alpha=0.85)
-    ax2.set_xticks(x)
-    ax2.set_xticklabels(component_labels, rotation=45, ha="right")
-    ax2.yaxis.set_major_formatter(mticker.FuncFormatter(lambda v, _: f"${v:,.0f}"))
-    ax2.legend()
-    ax2.set_title("Cost Components: Expected vs Actual")
-    ax2.grid(axis="y", alpha=0.3)
-    fig2.tight_layout()
-    st.pyplot(fig2)
-    plt.close(fig2)
+    fig2 = go.Figure()
+    fig2.add_trace(go.Bar(x=component_labels, y=exp_values, name="Expected", marker_color="#3498db"))
+    fig2.add_trace(go.Bar(x=component_labels, y=act_values, name="Actual", marker_color="#e74c3c"))
+    fig2.update_layout(
+        barmode="group",
+        title="Cost Components: Expected vs Actual",
+        yaxis_tickprefix="$", yaxis_tickformat=",.0f",
+    )
+    st.plotly_chart(fig2, use_container_width=True)
 
 with right:
     st.markdown("**Cost Position Accuracy**")
@@ -187,19 +178,18 @@ with left2:
     )
     if len(zone_counts) > 0:
         zc_pd = zone_counts.to_pandas()
-        fig3, ax3 = plt.subplots(figsize=(7, 4))
-        zones = zc_pd["shipping_zone"].astype(str).tolist()
-        counts = zc_pd["count"].tolist()
-        ax3.bar(zones, counts, color="#3498db", alpha=0.85)
-        ax3.set_xlabel("Zone")
-        ax3.set_ylabel("Shipments")
-        ax3.set_title("Shipment Count by Zone")
-        ax3.grid(axis="y", alpha=0.3)
-        for i, v in enumerate(counts):
-            ax3.text(i, v + max(counts) * 0.01, f"{v:,}", ha="center", fontsize=9)
-        fig3.tight_layout()
-        st.pyplot(fig3)
-        plt.close(fig3)
+        fig3 = go.Figure(go.Bar(
+            x=zc_pd["shipping_zone"].astype(str),
+            y=zc_pd["count"],
+            marker_color="#3498db",
+            text=zc_pd["count"].apply(lambda v: f"{v:,}"),
+            textposition="outside",
+        ))
+        fig3.update_layout(
+            title="Shipment Count by Zone",
+            xaxis_title="Zone", yaxis_title="Shipments",
+        )
+        st.plotly_chart(fig3, use_container_width=True)
 
 with right2:
     st.markdown("**Shipments by Production Site**")
@@ -210,17 +200,18 @@ with right2:
     )
     if len(site_counts) > 0:
         sc_pd = site_counts.to_pandas()
-        fig4, ax4 = plt.subplots(figsize=(7, 4))
-        ax4.bar(sc_pd["production_site"], sc_pd["count"], color="#27ae60", alpha=0.85)
-        ax4.set_xlabel("Production Site")
-        ax4.set_ylabel("Shipments")
-        ax4.set_title("Shipment Count by Production Site")
-        ax4.grid(axis="y", alpha=0.3)
-        for i, v in enumerate(sc_pd["count"]):
-            ax4.text(i, v + sc_pd["count"].max() * 0.01, f"{v:,}", ha="center", fontsize=9)
-        fig4.tight_layout()
-        st.pyplot(fig4)
-        plt.close(fig4)
+        fig4 = go.Figure(go.Bar(
+            x=sc_pd["production_site"],
+            y=sc_pd["count"],
+            marker_color="#27ae60",
+            text=sc_pd["count"].apply(lambda v: f"{v:,}"),
+            textposition="outside",
+        ))
+        fig4.update_layout(
+            title="Shipment Count by Production Site",
+            xaxis_title="Production Site", yaxis_title="Shipments",
+        )
+        st.plotly_chart(fig4, use_container_width=True)
 
 # Drilldown
 drilldown_section(df, "Portfolio Data", key_suffix="portfolio")
