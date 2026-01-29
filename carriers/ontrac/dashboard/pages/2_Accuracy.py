@@ -54,11 +54,14 @@ if len(devs) > 0:
     mean_val = float(np.mean(devs))
     median_val = float(np.median(devs))
 
+    bin_size = (hi - lo) / 80
+
     fig = go.Figure()
     fig.add_trace(go.Histogram(
-        x=devs, nbinsx=80,
-        xbins=dict(start=lo, end=hi),
-        marker_color="#3498db", opacity=0.8,
+        x=devs,
+        xbins=dict(start=lo, end=hi, size=bin_size),
+        marker=dict(color="#3498db", line=dict(color="white", width=0.5)),
+        opacity=0.8,
         name="Shipments",
         hovertemplate="Range: %{x}<br>Count: %{y:,}<extra></extra>",
     ))
@@ -365,7 +368,7 @@ if len(df) > 0:
         xaxis_title="Actual Zone",
         yaxis_title="Expected Zone",
         yaxis=dict(autorange="reversed"),
-        height=500,
+        height=max(500, len(all_zones) * 60 + 100),
     )
     st.plotly_chart(fig_cm, use_container_width=True)
 
@@ -433,23 +436,13 @@ if len(valid_weight) > 0:
     max_val = max(float(np.max(px)), float(np.max(py))) * 1.05
 
     fig_w = go.Figure()
-    fig_w.add_trace(go.Histogram2dContour(
-        x=px, y=py,
-        colorscale="Blues",
-        ncontours=20,
-        showscale=True,
-        colorbar=dict(title="Count", len=0.6),
-        hovertemplate="Expected: %{x:.1f} lbs<br>Actual: %{y:.1f} lbs<extra></extra>",
-    ))
-    # Scatter overlay at very low opacity to show outliers
     fig_w.add_trace(go.Scattergl(
         x=px, y=py,
         mode="markers",
-        marker=dict(color="rgba(0,0,0,0.03)", size=2),
-        hoverinfo="skip",
-        showlegend=False,
+        marker=dict(color="#3498db", size=3, opacity=0.25),
+        name="Shipments",
+        hovertemplate="Expected: %{x:.1f} lbs<br>Actual: %{y:.1f} lbs<extra></extra>",
     ))
-    # Perfect match reference line
     fig_w.add_trace(go.Scatter(
         x=[0, max_val], y=[0, max_val],
         mode="lines",
@@ -458,7 +451,7 @@ if len(valid_weight) > 0:
         hoverinfo="skip",
     ))
     fig_w.update_layout(
-        title="Expected vs Actual Weight (density)",
+        title="Expected vs Actual Weight",
         xaxis_title="Expected Billable Weight (lbs)",
         yaxis_title="Actual Billed Weight (lbs)",
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0),
@@ -469,10 +462,13 @@ if len(valid_weight) > 0:
     st.markdown("**Weight Difference Distribution**")
     clipped = diff_w[(diff_w > -10) & (diff_w < 10)]
 
+    wd_bin_size = 20 / 120  # ~0.17 lbs per bin across the ±10 range
     fig_wd = go.Figure()
     fig_wd.add_trace(go.Histogram(
-        x=clipped, nbinsx=60,
-        marker_color="#3498db", opacity=0.8,
+        x=clipped,
+        xbins=dict(start=-10, end=10, size=wd_bin_size),
+        marker=dict(color="#3498db", line=dict(color="white", width=0.5)),
+        opacity=0.8,
         hovertemplate="Diff: %{x:.1f} lbs<br>Count: %{y:,}<extra></extra>",
     ))
     fig_wd.add_vline(x=0, line_dash="dash", line_color="#2c3e50", line_width=1.5)
