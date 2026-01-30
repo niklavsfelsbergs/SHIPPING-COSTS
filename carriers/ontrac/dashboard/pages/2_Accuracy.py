@@ -33,6 +33,36 @@ if len(df) == 0:
     st.warning("No data matches current filters.")
     st.stop()
 
+def _hist_bounds(values: np.ndarray, bins: int = 80) -> tuple[float, float, float]:
+    if len(values) == 0:
+        return -1.0, 1.0, 1.0
+
+    p1, p99 = np.percentile(values, [1, 99])
+    margin = max(abs(p1), abs(p99)) * 0.2
+    lo, hi = p1 - margin, p99 + margin
+
+    if not np.isfinite(lo) or not np.isfinite(hi) or lo == hi:
+        vmin = float(np.min(values))
+        vmax = float(np.max(values))
+        if vmin == vmax:
+            lo, hi = vmin - 1.0, vmax + 1.0
+        else:
+            pad = max(abs(vmax - vmin) * 0.1, 1.0)
+            lo, hi = vmin - pad, vmax + pad
+
+    raw_bin = (hi - lo) / bins
+    if raw_bin <= 0 or not np.isfinite(raw_bin):
+        raw_bin = 1.0
+
+    exp = math.floor(math.log10(raw_bin)) if raw_bin > 0 else 0
+    frac = raw_bin / (10 ** exp) if raw_bin > 0 else 1
+    nice = 1 if frac <= 1 else 2 if frac <= 2 else 5 if frac <= 5 else 10
+    bin_size = nice * (10 ** exp)
+
+    lo = math.floor(lo / bin_size) * bin_size
+    hi = math.ceil(hi / bin_size) * bin_size
+    return lo, hi, bin_size
+
 
 # ===========================================================================
 # SECTION A — Overall Deviation Distribution
@@ -49,21 +79,10 @@ dev_label = "Actual - Expected ($)" if dev_col == "deviation" else "Actual - Exp
 devs = df[dev_col].drop_nulls().cast(pl.Float64).to_numpy()
 
 if len(devs) > 0:
-    p1, p99 = np.percentile(devs, [1, 99])
-    margin = max(abs(p1), abs(p99)) * 0.2
-    lo, hi = p1 - margin, p99 + margin
-
     mean_val = round(float(np.mean(devs)), 2)
     median_val = round(float(np.median(devs)), 2)
 
-    # Snap bins to round numbers so 0 is always a bin edge
-    raw_bin = (hi - lo) / 80
-    exp = math.floor(math.log10(raw_bin))
-    frac = raw_bin / (10 ** exp)
-    nice = 1 if frac <= 1 else 2 if frac <= 2 else 5 if frac <= 5 else 10
-    bin_size = nice * (10 ** exp)
-    lo = math.floor(lo / bin_size) * bin_size
-    hi = math.ceil(hi / bin_size) * bin_size
+    lo, hi, bin_size = _hist_bounds(devs, bins=80)
 
     # Split into exact zeros, negatives, positives
     exact_zero = devs[devs == 0]
@@ -173,7 +192,7 @@ def _stats_table(grouped_stats: list[dict], segment_label: str) -> None:
             "Mean Dev": format_currency(s["mean_dev"]),
             "Median Dev": format_currency(s["median_dev"]),
             "Std Dev": format_currency(s["std_dev"]),
-            "MAD": format_currency(s["mad"]),
+            "Mean Abs Dev": format_currency(s["mad"]),
             "Within $1": f"{s['within_1']:.1f}%",
             "Within $2": f"{s['within_2']:.1f}%",
         })
@@ -207,18 +226,7 @@ with tab_err:
     COLORS = {"Clean match": "#27ae60", "Zone mismatch only": "#f39c12", "Surcharge mismatch": "#e74c3c"}
     all_devs_np = df["deviation"].drop_nulls().cast(pl.Float64).to_numpy()
     if len(all_devs_np) > 0:
-        p1, p99 = np.percentile(all_devs_np, [1, 99])
-        margin = max(abs(p1), abs(p99)) * 0.2
-        lo, hi = p1 - margin, p99 + margin
-
-        # Snap bins for error-source histogram
-        raw_bin_e = (hi - lo) / 80
-        exp_e = math.floor(math.log10(raw_bin_e))
-        frac_e = raw_bin_e / (10 ** exp_e)
-        nice_e = 1 if frac_e <= 1 else 2 if frac_e <= 2 else 5 if frac_e <= 5 else 10
-        bin_size_e = nice_e * (10 ** exp_e)
-        lo_e = math.floor(lo / bin_size_e) * bin_size_e
-        hi_e = math.ceil(hi / bin_size_e) * bin_size_e
+        lo_e, hi_e, bin_size_e = _hist_bounds(all_devs_np, bins=80)
 
         fig_e = go.Figure()
         for seg_name, color in COLORS.items():
@@ -352,6 +360,7 @@ for surcharge in DETERMINISTIC_SURCHARGES:
         with st.expander(f"{surcharge.upper()} — FP: {len(fp_df):,} | FN: {len(fn_df):,}"):
             detail_cols = [
                 "pcs_orderid", "pcs_ordernumber", "shipping_zone", "actual_zone",
+                "shipping_zip_code", "das_zone",
                 "billable_weight_lbs", "longest_side_in", "second_longest_in",
                 "cost_total", "actual_total",
             ]

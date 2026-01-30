@@ -208,6 +208,7 @@ for surcharge in DETERMINISTIC_SURCHARGES:
         with st.expander(f"{surcharge.upper()} detail — FN: {len(fn_df):,} | FP: {len(fp_df):,}"):
             detail_cols = [
                 "pcs_orderid", "ship_date", "shipping_zone", "actual_zone",
+                "shipping_zip_code", "das_zone",
                 "billable_weight_lbs", "longest_side_in", "second_longest_in",
                 actual_col, "cost_total", "actual_total",
             ]

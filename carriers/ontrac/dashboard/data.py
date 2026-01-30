@@ -21,6 +21,8 @@ import polars as pl
 import streamlit as st
 
 DATA_DIR = Path(__file__).parent / "data"
+UNMATCHED_EXPECTED_PATH = DATA_DIR / "unmatched_expected.parquet"
+UNMATCHED_ACTUAL_PATH = DATA_DIR / "unmatched_actual.parquet"
 
 # Cost positions: (expected_col, actual_col, label)
 COST_POSITIONS = [
@@ -109,6 +111,22 @@ def load_match_rate() -> dict:
     return json.loads(path.read_text())
 
 
+@st.cache_data
+def load_unmatched_expected() -> pl.DataFrame:
+    """Load expected shipments without actuals (if exported)."""
+    if not UNMATCHED_EXPECTED_PATH.exists():
+        return pl.DataFrame()
+    return pl.read_parquet(UNMATCHED_EXPECTED_PATH)
+
+
+@st.cache_data
+def load_unmatched_actual() -> pl.DataFrame:
+    """Load actual shipments without expecteds (if exported)."""
+    if not UNMATCHED_ACTUAL_PATH.exists():
+        return pl.DataFrame()
+    return pl.read_parquet(UNMATCHED_ACTUAL_PATH)
+
+
 # =============================================================================
 # LAYER 2 — Prepared data with derived columns (cached on df identity)
 # =============================================================================
@@ -145,6 +163,8 @@ def prepare_df(df: pl.DataFrame) -> pl.DataFrame:
         (pl.col("surcharge_ahs").fill_null(False) == (pl.col("actual_ahs").fill_null(0) > 0))
         & (pl.col("surcharge_lps").fill_null(False) == (pl.col("actual_lps").fill_null(0) > 0))
         & (pl.col("surcharge_oml").fill_null(False) == (pl.col("actual_oml").fill_null(0) > 0))
+        & (pl.col("surcharge_das").fill_null(False) == (pl.col("actual_das").fill_null(0) > 0))
+        & (pl.col("surcharge_edas").fill_null(False) == (pl.col("actual_edas").fill_null(0) > 0))
     )
     zone_matches = pl.col("shipping_zone") == pl.col("actual_zone")
 
@@ -309,9 +329,8 @@ def _checkbox_dropdown(
     keep_open = False
     for opt in options:
         wkey = f"{key_prefix}_{opt}"
-        if wkey in st.session_state:
-            if st.session_state[wkey] != saved[opt]:
-                keep_open = True
+        if wkey in st.session_state and st.session_state[wkey] != saved[opt]:
+            keep_open = True
             saved[opt] = st.session_state[wkey]
 
     n_selected = sum(saved[opt] for opt in options)
@@ -334,11 +353,11 @@ def _checkbox_dropdown(
         col_b.button("None", key=f"{key_prefix}__btn_none", use_container_width=True,
                       on_click=_set_all, args=(False,))
         for opt in options:
-            val = st.checkbox(
-                opt,
-                value=saved[opt],
-                key=f"{key_prefix}_{opt}",
-            )
+            wkey = f"{key_prefix}_{opt}"
+            if wkey in st.session_state:
+                val = st.checkbox(opt, key=wkey)
+            else:
+                val = st.checkbox(opt, value=saved[opt], key=wkey)
             saved[opt] = val
 
     st.session_state[state_key] = saved
@@ -381,7 +400,10 @@ def _render_sidebar(prepared_df: pl.DataFrame) -> None:
     st.session_state["filter_sites"] = tuple(selected_sites)
 
     # Invoice filter — with search bar and scrollable list
-    all_invoices = sorted(prepared_df["invoice_number"].drop_nulls().unique().to_list())
+    all_invoices = sorted(
+        prepared_df["invoice_number"].drop_nulls().unique().to_list(),
+        reverse=True,
+    )
     inv_state_key = "_persist_inv"
     if inv_state_key not in st.session_state:
         st.session_state[inv_state_key] = {inv: False for inv in all_invoices}
@@ -394,9 +416,8 @@ def _render_sidebar(prepared_df: pl.DataFrame) -> None:
     inv_keep_open = False
     for inv in all_invoices:
         wkey = f"inv_{inv}"
-        if wkey in st.session_state:
-            if st.session_state[wkey] != inv_saved[inv]:
-                inv_keep_open = True
+        if wkey in st.session_state and st.session_state[wkey] != inv_saved[inv]:
+            inv_keep_open = True
             inv_saved[inv] = st.session_state[wkey]
 
     n_inv_selected = sum(inv_saved[inv] for inv in all_invoices)
@@ -432,7 +453,11 @@ def _render_sidebar(prepared_df: pl.DataFrame) -> None:
         )
         with st.container(height=200):
             for inv in display_invoices:
-                val = st.checkbox(inv, value=inv_saved[inv], key=f"inv_{inv}")
+                wkey = f"inv_{inv}"
+                if wkey in st.session_state:
+                    val = st.checkbox(inv, key=wkey)
+                else:
+                    val = st.checkbox(inv, value=inv_saved[inv], key=wkey)
                 inv_saved[inv] = val
 
     st.session_state[inv_state_key] = inv_saved
@@ -529,7 +554,7 @@ def drilldown_section(
     default_cols = [
         "pcs_orderid", "pcs_ordernumber", "shop_ordernumber", "invoice_number",
         "ship_date", "production_site", "shipping_zone", "actual_zone",
-        "billable_weight_lbs", "cost_total", "actual_total", "deviation",
+        "shipping_zip_code", "billable_weight_lbs", "cost_total", "actual_total", "deviation",
     ]
     display_cols = columns or default_cols
     available = [c for c in display_cols if c in df.columns]
