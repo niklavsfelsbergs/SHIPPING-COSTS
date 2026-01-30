@@ -27,4 +27,6 @@ class DEM_RES(Surcharge):
 
     @classmethod
     def conditions(cls) -> pl.Expr:
-        return pl.col("surcharge_res") & in_period(cls.period_start, cls.period_end)
+        return pl.col("surcharge_res") & in_period(
+            cls.period_start, cls.period_end, billing_lag_days=5
+        )

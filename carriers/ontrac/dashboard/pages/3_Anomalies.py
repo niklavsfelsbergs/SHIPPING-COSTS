@@ -19,6 +19,7 @@ from carriers.ontrac.dashboard.data import (
     drilldown_section,
     format_currency,
     format_pct,
+    apply_chart_layout,
 )
 
 st.set_page_config(page_title="Anomalies | OnTrac", layout="wide")
@@ -330,6 +331,7 @@ if len(weekly_stats) > 1:
         hovermode="x unified",
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0),
     )
+    apply_chart_layout(fig_t)
     st.plotly_chart(fig_t, use_container_width=True)
 
     latest_rate = float(ws_pd["anomaly_rate"].iloc[-1])
@@ -391,6 +393,7 @@ with tab_fn:
             hovermode="x unified",
             legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0),
         )
+        apply_chart_layout(fig_fn)
         st.plotly_chart(fig_fn, use_container_width=True)
     else:
         st.info("Not enough data for surcharge false-negative trend.")
@@ -441,6 +444,7 @@ with tab_fp:
             hovermode="x unified",
             legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0),
         )
+        apply_chart_layout(fig_fp)
         st.plotly_chart(fig_fp, use_container_width=True)
     else:
         st.info("Not enough data for surcharge false-positive trend.")

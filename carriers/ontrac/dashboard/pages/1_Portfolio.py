@@ -19,6 +19,7 @@ from carriers.ontrac.dashboard.data import (
     UNMATCHED_ACTUAL_PATH,
     format_currency,
     format_pct,
+    apply_chart_layout,
 )
 
 st.set_page_config(page_title="Portfolio | OnTrac", layout="wide")
@@ -260,6 +261,7 @@ if len(weekly) > 0:
         hovermode="x unified",
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0),
     )
+    apply_chart_layout(fig)
     st.plotly_chart(fig, use_container_width=True)
 else:
     st.info("Not enough data for weekly chart.")
@@ -298,6 +300,7 @@ with left:
         yaxis_title="Avg Cost ($)" if use_avg else "Total Cost ($)",
         yaxis_tickprefix="$", yaxis_tickformat=",.2f" if use_avg else ",.0f",
     )
+    apply_chart_layout(fig2)
     st.plotly_chart(fig2, use_container_width=True)
 
 with right:
@@ -372,6 +375,7 @@ with left2:
             margin=dict(t=60, b=50, l=40, r=20),
         )
         fig3.update_yaxes(range=[0, max_val * 1.15] if max_val else None, automargin=True)
+        apply_chart_layout(fig3)
         st.plotly_chart(fig3, use_container_width=True)
 
 with right2:
@@ -404,6 +408,7 @@ with right2:
             margin=dict(t=60, b=50, l=40, r=20),
         )
         fig4.update_yaxes(range=[0, max_val * 1.15] if max_val else None, automargin=True)
+        apply_chart_layout(fig4)
         st.plotly_chart(fig4, use_container_width=True)
 
 # Drilldown

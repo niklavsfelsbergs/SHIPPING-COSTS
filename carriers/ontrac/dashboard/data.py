@@ -18,6 +18,7 @@ from datetime import date, timedelta
 from pathlib import Path
 
 import polars as pl
+import plotly.graph_objects as go
 import streamlit as st
 
 DATA_DIR = Path(__file__).parent / "data"
@@ -822,3 +823,14 @@ def format_pct(value) -> str:
     if value is None:
         return "-"
     return f"{value:+.2f}%"
+
+
+def apply_chart_layout(fig: go.Figure) -> go.Figure:
+    """Apply consistent layout settings to prevent label cutoff."""
+    fig.update_xaxes(automargin=True)
+    fig.update_yaxes(automargin=True)
+    fig.update_layout(
+        margin=dict(l=10, r=10, t=50, b=10),
+        autosize=True,
+    )
+    return fig

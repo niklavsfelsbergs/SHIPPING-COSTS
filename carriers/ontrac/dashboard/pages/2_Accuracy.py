@@ -18,6 +18,7 @@ from carriers.ontrac.dashboard.data import (
     WEIGHT_BRACKETS,
     init_page,
     get_filtered_shipments,
+    apply_chart_layout,
     calc_segment_stats,
     drilldown_section,
     format_currency,
@@ -159,6 +160,7 @@ if len(devs) > 0:
             xanchor="right", x=1,
         ),
     )
+    apply_chart_layout(fig)
     st.plotly_chart(fig, use_container_width=True)
 
     abs_devs = np.abs(df["deviation"].drop_nulls().to_numpy())
@@ -303,7 +305,8 @@ with tab_err:
             xaxis=dict(range=[lo_e, hi_e]),
             legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0),
         )
-        st.plotly_chart(fig_e, use_container_width=True)
+        apply_chart_layout(fig_e)
+    st.plotly_chart(fig_e, use_container_width=True)
 
 with tab_zone:
     zones = sorted(df["shipping_zone"].drop_nulls().unique().to_list())
@@ -501,6 +504,7 @@ if len(df) > 0:
     )
     fig_cm.update_xaxes(title_font=dict(size=16), tickfont=dict(size=14))
     fig_cm.update_yaxes(title_font=dict(size=16), tickfont=dict(size=14))
+    apply_chart_layout(fig_cm)
     st.plotly_chart(fig_cm, use_container_width=True)
 
 # By-state
@@ -624,6 +628,7 @@ if len(valid_weight) > 0:
             yaxis_title="Actual Billed Weight (lbs)",
             legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0),
         )
+        apply_chart_layout(fig_w)
         st.plotly_chart(fig_w, use_container_width=True)
 
     # Weight difference distribution
@@ -677,6 +682,7 @@ if len(valid_weight) > 0:
         showlegend=True,
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
     )
+    apply_chart_layout(fig_wd)
     st.plotly_chart(fig_wd, use_container_width=True)
 else:
     st.info("No valid weight data for comparison.")

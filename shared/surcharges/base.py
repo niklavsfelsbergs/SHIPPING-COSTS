@@ -15,7 +15,8 @@ import polars as pl
 def in_period(
     start: tuple[int, int],
     end: tuple[int, int],
-    date_col: str = "ship_date"
+    date_col: str = "ship_date",
+    billing_lag_days: int = 0
 ) -> pl.Expr:
     """
     Check if date falls within a (month, day) period.
@@ -26,15 +27,25 @@ def in_period(
         start: (month, day) tuple for period start
         end: (month, day) tuple for period end
         date_col: Column name containing the date
+        billing_lag_days: Days to shift date forward to account for billing lag.
+            OnTrac applies demand surcharges based on billing_date (when invoice
+            is generated), but we calculate based on ship_date. Typical lag is
+            5 days, so a shipment on Oct 25 is billed around Oct 30. To align
+            our calculations with OnTrac's application window, we shift the
+            ship_date forward by the lag before checking period boundaries.
 
     Returns:
         Polars expression evaluating to True if date is in period
     """
     start_md = start[0] * 100 + start[1]
     end_md = end[0] * 100 + end[1]
+
+    # Apply billing lag offset to align with OnTrac's billing-date-based logic
+    effective_date = pl.col(date_col) + pl.duration(days=billing_lag_days)
+
     ship_md = (
-        pl.col(date_col).dt.month().cast(pl.Int32) * 100 +
-        pl.col(date_col).dt.day().cast(pl.Int32)
+        effective_date.dt.month().cast(pl.Int32) * 100 +
+        effective_date.dt.day().cast(pl.Int32)
     )
 
     if start_md <= end_md:

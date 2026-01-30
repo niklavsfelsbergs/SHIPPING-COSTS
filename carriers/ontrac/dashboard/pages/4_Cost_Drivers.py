@@ -18,6 +18,7 @@ from carriers.ontrac.dashboard.data import (
     get_filtered_shipments,
     drilldown_section,
     format_currency,
+    apply_chart_layout,
 )
 
 st.set_page_config(page_title="Cost Drivers | OnTrac", layout="wide")
@@ -83,6 +84,7 @@ with left_a:
         height=400,
         margin=dict(r=60),
     )
+    apply_chart_layout(fig_f)
     st.plotly_chart(fig_f, use_container_width=True)
 
 with right_a:
@@ -107,6 +109,7 @@ with right_a:
         height=400,
         margin=dict(r=80),
     )
+    apply_chart_layout(fig_c)
     st.plotly_chart(fig_c, use_container_width=True)
 
 # Weekly surcharge trend
@@ -166,6 +169,7 @@ fig_st.update_layout(
     hovermode="x unified",
     legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0),
 )
+apply_chart_layout(fig_st)
 st.plotly_chart(fig_st, use_container_width=True)
 
 st.markdown("---")
@@ -262,6 +266,7 @@ if len(dim_df) > 0:
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0),
         height=600,
     )
+    apply_chart_layout(fig_d)
     st.plotly_chart(fig_d, use_container_width=True)
 
     # Threshold proximity
@@ -338,6 +343,7 @@ if len(dim_df) > 0:
             margin=dict(t=60, b=60, l=40, r=20),
         )
         fig_p.update_yaxes(range=[0, max_val * 1.2], automargin=True)
+        apply_chart_layout(fig_p)
         st.plotly_chart(fig_p, use_container_width=True)
     else:
         st.info("No dimensional proximity data available.")
@@ -380,6 +386,7 @@ with left_c:
             height=500,
             margin=dict(r=60),
         )
+        apply_chart_layout(fig_sv)
         st.plotly_chart(fig_sv, use_container_width=True)
 
 with right_c:
@@ -417,6 +424,7 @@ with right_c:
             legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0),
             height=500,
         )
+        apply_chart_layout(fig_za)
         st.plotly_chart(fig_za, use_container_width=True)
 
 # Zone distribution by origin
@@ -455,6 +463,7 @@ if len(sites_list) >= 1 and len(origin_zone) > 0:
     )
     fig_oz.update_xaxes(title_text="Zone")
     fig_oz.update_yaxes(title_text="Shipments", col=1)
+    apply_chart_layout(fig_oz)
     st.plotly_chart(fig_oz, use_container_width=True)
 
 drilldown_section(df, "Geography Data", key_suffix="geo")
@@ -506,6 +515,7 @@ if len(valid) > 0:
             yaxis_title="Count",
             legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0),
         )
+        apply_chart_layout(fig_wh)
         st.plotly_chart(fig_wh, use_container_width=True)
 
     with right_d:
