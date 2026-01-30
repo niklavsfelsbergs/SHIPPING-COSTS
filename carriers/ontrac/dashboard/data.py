@@ -283,6 +283,7 @@ def get_filtered_df(
     sites: tuple[str, ...] | None = None,
     packagetypes: tuple[str, ...] | None = None,
     invoices: tuple[str, ...] = (),
+    actual_charges: tuple[str, ...] = (),
     charges: tuple[str, ...] = (),
     positions: tuple[str, ...] = (),
     grain: str = "line",
@@ -315,6 +316,18 @@ def get_filtered_df(
             )
         else:
             df = df.filter(pl.col("invoice_number").is_in(list(invoices)))
+
+    # Actual charge filter: show only shipments with specific actual charges
+    if actual_charges:
+        act_cols = [
+            CHARGE_TYPES[label][1]
+            for label in actual_charges
+            if label in CHARGE_TYPES
+        ]
+        if act_cols:
+            df = df.filter(
+                pl.any_horizontal([pl.col(c).fill_null(0) > 0 for c in act_cols])
+            )
 
     # Shipment charges: unchecked = exclude shipments with that charge
     # in either expected or actual.
@@ -382,6 +395,7 @@ def init_page() -> tuple[pl.DataFrame, dict, pl.DataFrame]:
         sites=st.session_state.get("filter_sites"),
         packagetypes=st.session_state.get("filter_packagetypes"),
         invoices=st.session_state.get("filter_invoices", ()),
+        actual_charges=st.session_state.get("filter_actual_charges", ()),
         charges=st.session_state.get("filter_charges", tuple(ALL_CHARGE_LABELS)),
         positions=st.session_state.get("filter_positions", tuple(ALL_POSITION_LABELS)),
         grain="line",
@@ -538,7 +552,7 @@ def _render_sidebar(prepared_df: pl.DataFrame) -> None:
         ["Daily", "Weekly", "Monthly"],
         key="sidebar_time_grain",
         horizontal=True,
-        index=2,
+        index=0,
     )
 
     # Date range (depends on selected date column)
@@ -663,6 +677,14 @@ def _render_sidebar(prepared_df: pl.DataFrame) -> None:
     st.session_state["filter_invoices"] = tuple(selected_invoices)
 
     # --- Shipment Charges ---
+    st.sidebar.caption("Optional: filter to shipments with specific actual charges")
+    st.sidebar.multiselect(
+        "Actual charge filter",
+        ALL_CHARGE_LABELS,
+        default=[],
+        key="filter_actual_charges",
+    )
+
     st.sidebar.caption("Uncheck to exclude shipments with that charge")
 
     selected_charges = _checkbox_dropdown(

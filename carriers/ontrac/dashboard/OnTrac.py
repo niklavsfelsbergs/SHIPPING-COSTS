@@ -8,7 +8,7 @@ Prerequisites:
     python -m carriers.ontrac.dashboard.export_data   # export data from Redshift
 
 Run with:
-    streamlit run carriers/ontrac/dashboard/app.py
+    streamlit run carriers/ontrac/dashboard/OnTrac.py
 """
 
 import streamlit as st
@@ -20,7 +20,7 @@ from carriers.ontrac.dashboard.data import init_page, join_grain_note
 # =============================================================================
 
 st.set_page_config(
-    page_title="OnTrac Analytics",
+    page_title="OnTrac Expected Cost Calculation",
     page_icon="📦",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -47,7 +47,7 @@ prepared_df, match_rate_data, df = init_page()
 # LANDING PAGE
 # =============================================================================
 
-st.title("OnTrac Executive Summary")
+st.title("OnTrac Expected Cost Calculation")
 st.markdown(
     "Interactive dashboard for analyzing expected vs actual OnTrac shipping costs. "
     "Use the **sidebar** to filter data, then navigate to a page below."
