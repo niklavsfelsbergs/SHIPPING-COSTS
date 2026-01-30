@@ -86,10 +86,10 @@ if len(devs) > 0:
 
     lo, hi, bin_size = _hist_bounds(devs, bins=80)
 
-    # Split into exact zeros, negatives, positives
+    # Split into exact zeros, negatives, non-negatives
     exact_zero = devs[devs == 0]
     negatives = devs[devs < 0]
-    positives = devs[devs > 0]
+    nonnegatives = devs[devs >= 0]
 
     fig = go.Figure()
     # Negative deviations
@@ -103,21 +103,12 @@ if len(devs) > 0:
             hovertemplate="Range: %{x}<br>Count: %{y:,}<extra></extra>",
             showlegend=False,
         ))
-    # Exact matches (0) as a single bar
-    if len(exact_zero) > 0:
-        fig.add_trace(go.Bar(
-            x=[0], y=[len(exact_zero)],
-            width=bin_size * 0.9,
-            marker=dict(color="#2ecc71", line=dict(color="white", width=0.5)),
-            opacity=0.9,
-            name=f"Exact match ({len(exact_zero):,})",
-            hovertemplate="Deviation: $0.00<br>Count: %{y:,}<extra></extra>",
-        ))
-    # Positive deviations
-    if len(positives) > 0:
+    # Exact matches shown as annotation (no separate bar)
+    # Non-negative deviations (includes zeros)
+    if len(nonnegatives) > 0:
         fig.add_trace(go.Histogram(
-            x=positives,
-            xbins=dict(start=bin_size, end=hi, size=bin_size),
+            x=nonnegatives,
+            xbins=dict(start=0, end=hi, size=bin_size),
             marker=dict(color="#3498db", line=dict(color="white", width=0.5)),
             opacity=0.8,
             name="Shipments",
@@ -142,6 +133,18 @@ if len(devs) > 0:
             name=label,
         ))
 
+    if len(exact_zero) > 0:
+        zero_pct = len(exact_zero) / len(devs) * 100
+        fig.add_annotation(
+            x=0, y=1, xref="x", yref="paper",
+            text=(
+                "<span style='background:#2c3e50;color:#fff;"
+                "padding:4px 6px;border-radius:6px;'>"
+                f"Exact match: {len(exact_zero):,} ({zero_pct:.1f}%)</span>"
+            ),
+            showarrow=False,
+            yanchor="bottom",
+        )
     fig.update_layout(
         title=f"Deviation Distribution (n={len(devs):,})",
         xaxis_title=dev_label,
@@ -254,7 +257,7 @@ with tab_err:
 
             negatives_e = seg_devs[seg_devs < 0]
             exact_zero_e = seg_devs[seg_devs == 0]
-            positives_e = seg_devs[seg_devs > 0]
+            nonnegatives_e = seg_devs[seg_devs >= 0]
 
             if len(negatives_e) > 0:
                 fig_e.add_trace(go.Histogram(
@@ -268,19 +271,20 @@ with tab_err:
                 ))
             if len(exact_zero_e) > 0:
                 zero_pct = len(exact_zero_e) / n_seg * 100
-                fig_e.add_trace(go.Bar(
-                    x=[0], y=[zero_pct],
-                    width=bin_size_e * 0.9,
-                    marker_color=color, opacity=0.7,
-                    name=f"{seg_name} exact ({len(exact_zero_e):,})",
-                    legendgroup=seg_name,
-                    showlegend=False,
-                    hovertemplate="Exact match<br>%{y:.1f}%<extra></extra>",
-                ))
-            if len(positives_e) > 0:
+                fig_e.add_annotation(
+                    x=0, y=1, xref="x", yref="paper",
+                    text=(
+                        "<span style='background:#2c3e50;color:#fff;"
+                        "padding:3px 5px;border-radius:6px;'>"
+                        f"{seg_name} exact: {zero_pct:.1f}%</span>"
+                    ),
+                    showarrow=False,
+                    yanchor="bottom",
+                )
+            if len(nonnegatives_e) > 0:
                 fig_e.add_trace(go.Histogram(
-                    x=positives_e,
-                    xbins=dict(start=bin_size_e, end=hi_e, size=bin_size_e),
+                    x=nonnegatives_e,
+                    xbins=dict(start=0, end=hi_e, size=bin_size_e),
                     histnorm="percent",
                     marker_color=color, opacity=0.6,
                     name=f"{seg_name} (n={n_seg:,})",
@@ -405,7 +409,7 @@ st.markdown("---")
 
 st.header("D. Zone Accuracy")
 
-    zone_match_count = int(df["zone_match"].sum())
+zone_match_count = int(df["zone_match"].sum())
 zone_total = len(df)
 zone_match_rate = zone_match_count / zone_total * 100 if zone_total > 0 else 0
 
@@ -474,7 +478,9 @@ if len(df) > 0:
         y=zone_labels,
         text=text_matrix,
         texttemplate="%{text}",
-        colorscale="Blues",
+        textfont=dict(size=19, color="#1f2d3d"),
+        colorscale=[[0, "#6f88b4"], [0.5, "#86a0c8"], [1, "#c0d3ea"]],
+        zmin=0.001 if heatmap_mode == "Count" else 0.1,
         hovertemplate=(
             "Expected Zone: %{y}<br>Actual Zone: %{x}<br>"
             + ("Row %: %{z:.1f}%<extra></extra>" if heatmap_mode == "Row %" else "Count: %{z:,}<extra></extra>")
@@ -487,10 +493,12 @@ if len(df) > 0:
         yaxis_title="Expected Zone",
         yaxis=dict(autorange="reversed"),
         height=max(600, len(all_zones) * 45 + 200),
-        plot_bgcolor="#f8f9fa",
-        paper_bgcolor="#f8f9fa",
+        plot_bgcolor="rgba(0,0,0,0)",
+        paper_bgcolor="rgba(0,0,0,0)",
         margin=dict(t=70, b=60, l=60, r=20),
     )
+    fig_cm.update_xaxes(title_font=dict(size=16), tickfont=dict(size=14))
+    fig_cm.update_yaxes(title_font=dict(size=16), tickfont=dict(size=14))
     st.plotly_chart(fig_cm, use_container_width=True)
 
 # By-state
@@ -552,47 +560,69 @@ if len(valid_weight) > 0:
     # Density contour — shows actual weight patterns instead of a point-cloud blob
     st.markdown("**Expected vs Actual Billable Weight**")
 
-    n_pts = len(exp_w)
-    if n_pts > 15000:
-        idx = np.random.choice(n_pts, 15000, replace=False)
-        px, py = exp_w[idx], act_w[idx]
+    max_w = float(np.max(np.concatenate([exp_w, act_w])))
+    default_hi = min(50.0, max_w)
+    weight_range = st.slider(
+        "Weight range (lbs)",
+        min_value=0.0,
+        max_value=max(0.0, round(max_w, 1)),
+        value=(0.0, default_hi),
+        step=0.5,
+        key="weight_range",
+    )
+
+    lo_w, hi_w = weight_range
+    mask = (
+        (exp_w >= lo_w) & (exp_w <= hi_w) &
+        (act_w >= lo_w) & (act_w <= hi_w)
+    )
+    exp_w_plot = exp_w[mask]
+    act_w_plot = act_w[mask]
+
+    if len(exp_w_plot) == 0:
+        st.info("No shipments within the selected weight range.")
     else:
-        px, py = exp_w, act_w
+        n_pts = len(exp_w_plot)
+        if n_pts > 15000:
+            idx = np.random.choice(n_pts, 15000, replace=False)
+            px, py = exp_w_plot[idx], act_w_plot[idx]
+        else:
+            px, py = exp_w_plot, act_w_plot
 
-    max_val = max(float(np.max(px)), float(np.max(py))) * 1.05
+        max_val = hi_w * 1.05
 
-    fig_w = go.Figure()
-    fig_w.add_trace(go.Scattergl(
-        x=px, y=py,
-        mode="markers",
-        marker=dict(color="#3498db", size=3, opacity=0.25),
-        name="Shipments",
-        hovertemplate="Expected: %{x:.1f} lbs<br>Actual: %{y:.1f} lbs<extra></extra>",
-    ))
-    fig_w.add_trace(go.Scatter(
-        x=[0, max_val], y=[0, max_val],
-        mode="lines",
-        line=dict(color="#e74c3c", dash="dash", width=2),
-        name="Perfect match",
-        hoverinfo="skip",
-    ))
-    fig_w.add_annotation(
-        text="Actual > Expected",
-        x=0.15, y=0.85, xref="paper", yref="paper",
-        showarrow=False, font=dict(size=11, color="#999"),
-    )
-    fig_w.add_annotation(
-        text="Actual < Expected",
-        x=0.85, y=0.15, xref="paper", yref="paper",
-        showarrow=False, font=dict(size=11, color="#999"),
-    )
-    fig_w.update_layout(
-        title="Expected vs Actual Weight",
-        xaxis_title="Expected Billable Weight (lbs)",
-        yaxis_title="Actual Billed Weight (lbs)",
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0),
-    )
-    st.plotly_chart(fig_w, use_container_width=True)
+        fig_w = go.Figure()
+        fig_w.add_trace(go.Scattergl(
+            x=px, y=py,
+            mode="markers",
+            marker=dict(color="#3498db", size=10, opacity=0.35),
+            name="Shipments",
+            hovertemplate="Expected: %{x:.1f} lbs<br>Actual: %{y:.1f} lbs<extra></extra>",
+        ))
+        fig_w.add_trace(go.Scatter(
+            x=[0, max_val], y=[0, max_val],
+            mode="lines",
+            line=dict(color="#e74c3c", dash="dash", width=2),
+            name="Perfect match",
+            hoverinfo="skip",
+        ))
+        fig_w.add_annotation(
+            text="Actual > Expected",
+            x=0.15, y=0.85, xref="paper", yref="paper",
+            showarrow=False, font=dict(size=11, color="#999"),
+        )
+        fig_w.add_annotation(
+            text="Actual < Expected",
+            x=0.85, y=0.15, xref="paper", yref="paper",
+            showarrow=False, font=dict(size=11, color="#999"),
+        )
+        fig_w.update_layout(
+            title="Expected vs Actual Weight",
+            xaxis_title="Expected Billable Weight (lbs)",
+            yaxis_title="Actual Billed Weight (lbs)",
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0),
+        )
+        st.plotly_chart(fig_w, use_container_width=True)
 
     # Weight difference distribution
     st.markdown("**Weight Difference Distribution**")
@@ -601,7 +631,7 @@ if len(valid_weight) > 0:
     wd_bin_size = 0.2  # clean 0.2 lbs bins, 0 is always a bin edge
     neg_wd = clipped[clipped < 0]
     zero_wd = clipped[clipped == 0]
-    pos_wd = clipped[clipped > 0]
+    pos_wd = clipped[clipped >= 0]
 
     fig_wd = go.Figure()
     if len(neg_wd) > 0:
@@ -614,25 +644,29 @@ if len(valid_weight) > 0:
             showlegend=False,
             hovertemplate="Diff: %{x:.1f} lbs<br>Count: %{y:,}<extra></extra>",
         ))
-    if len(zero_wd) > 0:
-        fig_wd.add_trace(go.Bar(
-            x=[0], y=[len(zero_wd)],
-            width=wd_bin_size * 0.9,
-            marker=dict(color="#2ecc71", line=dict(color="white", width=0.5)),
-            opacity=0.9,
-            name=f"Exact match ({len(zero_wd):,})",
-            hovertemplate="Diff: 0.0 lbs<br>Count: %{y:,}<extra></extra>",
-        ))
+    # Exact matches shown as annotation (no separate bar)
     if len(pos_wd) > 0:
         fig_wd.add_trace(go.Histogram(
             x=pos_wd,
-            xbins=dict(start=wd_bin_size, end=10, size=wd_bin_size),
+            xbins=dict(start=0, end=10, size=wd_bin_size),
             marker=dict(color="#3498db", line=dict(color="white", width=0.5)),
             opacity=0.8,
             name="Shipments",
             showlegend=False,
             hovertemplate="Diff: %{x:.1f} lbs<br>Count: %{y:,}<extra></extra>",
         ))
+    if len(zero_wd) > 0:
+        zero_pct = len(zero_wd) / len(clipped) * 100 if len(clipped) > 0 else 0
+        fig_wd.add_annotation(
+            x=0, y=1, xref="x", yref="paper",
+            text=(
+                "<span style='background:#2c3e50;color:#fff;"
+                "padding:4px 6px;border-radius:6px;'>"
+                f"Exact match: {len(zero_wd):,} ({zero_pct:.1f}%)</span>"
+            ),
+            showarrow=False,
+            yanchor="bottom",
+        )
     fig_wd.update_layout(
         title="Weight Difference Distribution (clipped to +/-10 lbs)",
         xaxis_title="Weight Difference (Actual - Expected) lbs",

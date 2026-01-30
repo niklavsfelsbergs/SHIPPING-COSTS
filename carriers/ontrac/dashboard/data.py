@@ -438,6 +438,15 @@ def _render_sidebar(prepared_df: pl.DataFrame) -> None:
         horizontal=True,
     )
 
+    # Time grain for time-series charts
+    st.sidebar.radio(
+        "Time grain",
+        ["Daily", "Weekly", "Monthly"],
+        key="sidebar_time_grain",
+        horizontal=True,
+        index=2,
+    )
+
     # Date range (depends on selected date column)
     date_label = st.session_state.get("sidebar_date_col", "Ship Date")
     date_col = "billing_date" if date_label == "Billing Date" else "ship_date"

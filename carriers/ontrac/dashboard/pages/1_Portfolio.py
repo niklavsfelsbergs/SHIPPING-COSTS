@@ -218,19 +218,7 @@ st.subheader("Expected vs Actual Over Time")
 
 date_label = st.session_state.get("sidebar_date_col", "Billing Date")
 date_col = "billing_date" if date_label == "Billing Date" else "ship_date"
-left_ctrl, mid_ctrl = st.columns([1, 0.06])
-with left_ctrl:
-    time_grain = st.radio(
-        "Time grain",
-        ["Daily", "Weekly", "Monthly"],
-        key="portfolio_time_grain",
-        horizontal=True,
-    )
-with mid_ctrl:
-    st.markdown(
-        "<div style='border-left:1px solid #e0e0e0;height:48px;margin:18px auto 0;'></div>",
-        unsafe_allow_html=True,
-    )
+time_grain = st.session_state.get("sidebar_time_grain", "Weekly")
 value_mode = metric_mode
 use_avg_ts = value_mode.startswith("Average")
 
@@ -266,7 +254,7 @@ if len(weekly) > 0:
         name="Actual", line=dict(color="#e74c3c", width=2),
     ))
     fig.update_layout(
-        title=f"{time_grain} Cost by {date_col}",
+        title=f"{time_grain} Cost by {date_label}",
         yaxis_title="Avg Cost ($)" if use_avg_ts else "Total Cost ($)",
         yaxis_tickprefix="$", yaxis_tickformat=",.2f" if use_avg_ts else ",.0f",
         hovermode="x unified",

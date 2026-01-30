@@ -59,6 +59,26 @@ with right_a:
 if n_anomalies > 0:
     st.markdown("**Overcharge Breakdown by Component**")
 
+    diff_exprs = [
+        (pl.col(act_col).fill_null(0) - pl.col(exp_col).fill_null(0)).abs()
+        for exp_col, act_col, label in COST_POSITIONS
+        if label != "TOTAL"
+    ]
+    diff_labels = [
+        label for _, _, label in COST_POSITIONS if label != "TOTAL"
+    ]
+    anomalies = anomalies.with_columns(
+        pl.max_horizontal(*diff_exprs).alias("_max_abs_diff")
+    )
+    driver_expr = pl.lit("Unknown")
+    for label, diff_expr in zip(diff_labels, diff_exprs):
+        driver_expr = (
+            pl.when(diff_expr == pl.col("_max_abs_diff"))
+            .then(pl.lit(label))
+            .otherwise(driver_expr)
+        )
+    anomalies = anomalies.with_columns(driver_expr.alias("anomaly_driver"))
+
     component_impact = []
     for exp_col, act_col, label in COST_POSITIONS:
         if label == "TOTAL":
@@ -84,6 +104,8 @@ if n_anomalies > 0:
         columns=[
             "pcs_orderid", "pcs_ordernumber", "shop_ordernumber", "invoice_number",
             "ship_date", "production_site", "shipping_zone", "actual_zone",
+            "billable_weight_lbs", "actual_billed_weight_lbs",
+            "anomaly_driver",
             "cost_total", "actual_total", "deviation", "deviation_pct",
         ],
         key_suffix="anomalies",
@@ -243,13 +265,16 @@ st.header("D. Trend Monitoring")
 
 date_label = st.session_state.get("sidebar_date_col", "Billing Date")
 date_col = "billing_date" if date_label == "Billing Date" else "ship_date"
+time_grain = st.session_state.get("sidebar_time_grain", "Weekly")
+truncate_map = {"Daily": "1d", "Weekly": "1w", "Monthly": "1mo"}
+truncate_unit = truncate_map[time_grain]
 
 weekly_stats = (
     df.with_columns(
-        pl.col(date_col).cast(pl.Date).dt.truncate("1w").alias("week"),
+        pl.col(date_col).cast(pl.Date).dt.truncate(truncate_unit).alias("period"),
         (pl.col("deviation").abs() > 5).alias("is_anomaly"),
     )
-    .group_by("week")
+    .group_by("period")
     .agg([
         pl.len().alias("total"),
         pl.col("is_anomaly").sum().alias("anomalies"),
@@ -257,7 +282,7 @@ weekly_stats = (
     .with_columns(
         (pl.col("anomalies") / pl.col("total") * 100).alias("anomaly_rate"),
     )
-    .sort("week")
+    .sort("period")
 )
 
 if len(weekly_stats) > 1:
@@ -269,11 +294,13 @@ if len(weekly_stats) > 1:
 
     fig_t = go.Figure()
     fig_t.add_trace(go.Scatter(
-        x=ws_pd["week"], y=ws_pd["anomaly_rate"],
+        x=ws_pd["period"], y=ws_pd["anomaly_rate"],
         mode="lines+markers",
         line=dict(color="#e74c3c", width=2),
         marker=dict(size=5),
         name="Anomaly Rate",
+        customdata=ws_pd[["anomalies", "total"]].to_numpy(),
+        hovertemplate="%{fullData.name}: %{y:.2f}% (%{customdata[0]:,})<extra></extra>",
     ))
 
     # Highlight alert points
@@ -281,11 +308,13 @@ if len(weekly_stats) > 1:
     if alert_mask.any():
         alert_data = ws_pd[alert_mask]
         fig_t.add_trace(go.Scatter(
-            x=alert_data["week"], y=alert_data["anomaly_rate"],
+            x=alert_data["period"], y=alert_data["anomaly_rate"],
             mode="markers",
             marker=dict(color="#e74c3c", size=10, symbol="circle"),
             name="Alert",
             showlegend=False,
+            customdata=alert_data[["anomalies", "total"]].to_numpy(),
+            hovertemplate="%{fullData.name}: %{y:.2f}% (%{customdata[0]:,})<extra></extra>",
         ))
 
     fig_t.add_hline(y=avg_rate, line_dash="dash", line_color="#7f8c8d", line_width=1,
@@ -294,7 +323,7 @@ if len(weekly_stats) > 1:
                     annotation_text=f"Alert: {threshold_line:.1f}%", annotation_position="top right")
 
     fig_t.update_layout(
-        title="Weekly Anomaly Rate (|deviation| > $5)",
+        title=f"{time_grain} Anomaly Rate (|deviation| > $5)",
         yaxis_title="Anomaly Rate (%)",
         hovermode="x unified",
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0),
@@ -304,60 +333,112 @@ if len(weekly_stats) > 1:
     latest_rate = float(ws_pd["anomaly_rate"].iloc[-1])
     if latest_rate > threshold_line:
         st.error(
-            f"Latest week anomaly rate ({latest_rate:.1f}%) exceeds "
+            f"Latest {time_grain.lower()} anomaly rate ({latest_rate:.1f}%) exceeds "
             f"baseline ({avg_rate:.1f}%) + 1 std ({threshold_line:.1f}%)."
         )
 else:
-    st.info("Not enough weekly data for trend analysis.")
-
-# Weekly false negative rate by surcharge type
-st.markdown("**Weekly False Negative Rate by Surcharge**")
+    st.info(f"Not enough {time_grain.lower()} data for trend analysis.")
 
 colors_list = ["#e74c3c", "#f39c12", "#3498db", "#27ae60", "#9b59b6"]
 
-fig_fn = go.Figure()
-has_fn_data = False
+tab_fn, tab_fp = st.tabs(["False Negative Rate", "False Positive Rate"])
 
-for idx, surcharge in enumerate(DETERMINISTIC_SURCHARGES):
-    flag_col = f"surcharge_{surcharge}"
-    actual_col = f"actual_{surcharge}"
+with tab_fn:
+    fig_fn = go.Figure()
+    has_fn_data = False
 
-    weekly_fn = (
-        df.with_columns(
-            pl.col(date_col).cast(pl.Date).dt.truncate("1w").alias("week"),
+    for idx, surcharge in enumerate(DETERMINISTIC_SURCHARGES):
+        flag_col = f"surcharge_{surcharge}"
+        actual_col = f"actual_{surcharge}"
+
+        weekly_fn = (
+            df.with_columns(
+            pl.col(date_col).cast(pl.Date).dt.truncate(truncate_unit).alias("period"),
             (~df[flag_col].fill_null(False) & (df[actual_col].fill_null(0) > 0)).alias("is_fn"),
             (df[actual_col].fill_null(0) > 0).alias("actual_triggered"),
         )
-        .group_by("week")
+        .group_by("period")
         .agg([
             pl.col("is_fn").sum().alias("fn_count"),
             pl.col("actual_triggered").sum().alias("actual_count"),
         ])
-        .filter(pl.col("actual_count") > 0)
-        .with_columns(
-            (pl.col("fn_count") / pl.col("actual_count") * 100).alias("fn_rate"),
+            .filter(pl.col("actual_count") > 0)
+            .with_columns(
+                (pl.col("fn_count") / pl.col("actual_count") * 100).alias("fn_rate"),
+            )
+        .sort("period")
+    )
+
+        if len(weekly_fn) > 1:
+            has_fn_data = True
+            wf_pd = weekly_fn.to_pandas()
+            fig_fn.add_trace(go.Scatter(
+                x=wf_pd["period"], y=wf_pd["fn_rate"],
+                mode="lines+markers",
+                line=dict(color=colors_list[idx % len(colors_list)], width=1.5),
+                marker=dict(size=4),
+                name=surcharge.upper(),
+                customdata=wf_pd[["fn_count", "actual_count"]].to_numpy(),
+                hovertemplate="%{fullData.name}: %{y:.2f}% (%{customdata[0]:,})<extra></extra>",
+            ))
+
+    if has_fn_data:
+        fig_fn.update_layout(
+            title=f"{time_grain} False Negative Rate by Surcharge Type",
+            yaxis_title="False Negative Rate (%)",
+            hovermode="x unified",
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0),
         )
-        .sort("week")
+        st.plotly_chart(fig_fn, use_container_width=True)
+    else:
+        st.info("Not enough data for surcharge false-negative trend.")
+
+with tab_fp:
+    fig_fp = go.Figure()
+    has_fp_data = False
+
+    for idx, surcharge in enumerate(DETERMINISTIC_SURCHARGES):
+        flag_col = f"surcharge_{surcharge}"
+        actual_col = f"actual_{surcharge}"
+
+        weekly_fp = (
+            df.with_columns(
+            pl.col(date_col).cast(pl.Date).dt.truncate(truncate_unit).alias("period"),
+            (df[flag_col].fill_null(False) & (df[actual_col].fill_null(0) <= 0)).alias("is_fp"),
+            (df[flag_col].fill_null(False)).alias("expected_triggered"),
+        )
+        .group_by("period")
+        .agg([
+            pl.col("is_fp").sum().alias("fp_count"),
+            pl.col("expected_triggered").sum().alias("expected_count"),
+        ])
+            .filter(pl.col("expected_count") > 0)
+            .with_columns(
+                (pl.col("fp_count") / pl.col("expected_count") * 100).alias("fp_rate"),
+            )
+        .sort("period")
     )
 
-    if len(weekly_fn) > 1:
-        has_fn_data = True
-        wf_pd = weekly_fn.to_pandas()
-        fig_fn.add_trace(go.Scatter(
-            x=wf_pd["week"], y=wf_pd["fn_rate"],
-            mode="lines+markers",
-            line=dict(color=colors_list[idx % len(colors_list)], width=1.5),
-            marker=dict(size=4),
-            name=surcharge.upper(),
-        ))
+        if len(weekly_fp) > 1:
+            has_fp_data = True
+            wf_pd = weekly_fp.to_pandas()
+            fig_fp.add_trace(go.Scatter(
+                x=wf_pd["period"], y=wf_pd["fp_rate"],
+                mode="lines+markers",
+                line=dict(color=colors_list[idx % len(colors_list)], width=1.5),
+                marker=dict(size=4),
+                name=surcharge.upper(),
+                customdata=wf_pd[["fp_count", "expected_count"]].to_numpy(),
+                hovertemplate="%{fullData.name}: %{y:.2f}% (%{customdata[0]:,})<extra></extra>",
+            ))
 
-if has_fn_data:
-    fig_fn.update_layout(
-        title="Weekly False Negative Rate by Surcharge Type",
-        yaxis_title="False Negative Rate (%)",
-        hovermode="x unified",
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0),
-    )
-    st.plotly_chart(fig_fn, use_container_width=True)
-else:
-    st.info("Not enough data for surcharge false-negative trend.")
+    if has_fp_data:
+        fig_fp.update_layout(
+            title=f"{time_grain} False Positive Rate by Surcharge Type",
+            yaxis_title="False Positive Rate (%)",
+            hovermode="x unified",
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0),
+        )
+        st.plotly_chart(fig_fp, use_container_width=True)
+    else:
+        st.info("Not enough data for surcharge false-positive trend.")

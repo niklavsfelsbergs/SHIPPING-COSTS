@@ -122,6 +122,9 @@ color_cycle = ["#e74c3c", "#f39c12", "#3498db", "#27ae60", "#9b59b6",
 
 date_label = st.session_state.get("sidebar_date_col", "Billing Date")
 date_col = "billing_date" if date_label == "Billing Date" else "ship_date"
+time_grain = st.session_state.get("sidebar_time_grain", "Weekly")
+truncate_map = {"Daily": "1d", "Weekly": "1w", "Monthly": "1mo"}
+truncate_unit = truncate_map[time_grain]
 
 fig_st = go.Figure()
 for idx, item in enumerate(freq_data):
@@ -130,10 +133,10 @@ for idx, item in enumerate(freq_data):
     cost_col = f"cost_{item['key']}"
     weekly = (
         df.with_columns(
-            pl.col(date_col).cast(pl.Date).dt.truncate("1w").alias("week"),
+            pl.col(date_col).cast(pl.Date).dt.truncate(truncate_unit).alias("period"),
             (pl.col(cost_col).fill_null(0) > 0).alias("triggered"),
         )
-        .group_by("week")
+        .group_by("period")
         .agg([
             pl.len().alias("total"),
             pl.col("triggered").sum().alias("trig_count"),
@@ -141,12 +144,12 @@ for idx, item in enumerate(freq_data):
         .with_columns(
             (pl.col("trig_count") / pl.col("total") * 100).alias("rate"),
         )
-        .sort("week")
+        .sort("period")
     )
     if len(weekly) > 0:
         w_pd = weekly.to_pandas()
         fig_st.add_trace(go.Scatter(
-            x=w_pd["week"], y=w_pd["rate"],
+            x=w_pd["period"], y=w_pd["rate"],
             mode="lines+markers",
             line=dict(color=color_cycle[idx % len(color_cycle)], width=1.5),
             marker=dict(size=4),
@@ -155,7 +158,7 @@ for idx, item in enumerate(freq_data):
         ))
 
 fig_st.update_layout(
-    title="Weekly Surcharge Frequency",
+    title=f"{time_grain} Surcharge Frequency",
     yaxis_title="% of Shipments Triggered",
     yaxis_ticksuffix="%",
     hovermode="x unified",
