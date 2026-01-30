@@ -85,6 +85,20 @@ ALL_POSITION_LABELS = list(COST_POSITION_MAP.keys())
 PRIMARY_KEY = "pcs_orderid"
 
 
+def join_grain_note(df: pl.DataFrame) -> str | None:
+    """Explain join grain when expected rows are duplicated across actual line items."""
+    n_unique = df[PRIMARY_KEY].n_unique()
+    n_total = len(df)
+    if n_unique == n_total:
+        return None
+    return (
+        f"Join grain note: {n_total:,} rows but {n_unique:,} unique "
+        f"{PRIMARY_KEY} values. Expected rows are duplicated for each matching "
+        "actual invoice row (e.g., 1 expected row + 5 actual rows = 5 joined rows). "
+        "Interpret totals at the shipment/line-item grain."
+    )
+
+
 # =============================================================================
 # LAYER 1 — Raw data from disk (cached, never re-reads during session)
 # =============================================================================
@@ -134,15 +148,6 @@ def load_unmatched_actual() -> pl.DataFrame:
 @st.cache_data
 def prepare_df(df: pl.DataFrame) -> pl.DataFrame:
     """Add all derived columns. Cached — only recomputes if raw df changes."""
-    # PK uniqueness check
-    n_unique = df[PRIMARY_KEY].n_unique()
-    n_total = len(df)
-    if n_unique != n_total:
-        st.warning(
-            f"Data grain issue: {n_total:,} rows but {n_unique:,} unique "
-            f"{PRIMARY_KEY} values. Totals may double-count."
-        )
-
     # Cast Decimal columns to Float64 (Redshift exports Decimal; Polars
     # aggregations like .mean() break on Decimal dtype)
     decimal_cols = [c for c in df.columns if str(df[c].dtype).startswith("Decimal")]
@@ -215,6 +220,7 @@ def get_filtered_df(
     date_from: date | None = None,
     date_to: date | None = None,
     sites: tuple[str, ...] | None = None,
+    packagetypes: tuple[str, ...] | None = None,
     invoices: tuple[str, ...] = (),
     charges: tuple[str, ...] = (),
     positions: tuple[str, ...] = (),
@@ -235,6 +241,8 @@ def get_filtered_df(
         df = df.filter(pl.col("ship_date") <= pl.lit(date_to).cast(pl.Date))
     if sites:
         df = df.filter(pl.col("production_site").is_in(list(sites)))
+    if packagetypes:
+        df = df.filter(pl.col("packagetype").is_in(list(packagetypes)))
     if invoices:
         df = df.filter(pl.col("invoice_number").is_in(list(invoices)))
 
@@ -298,6 +306,7 @@ def init_page() -> tuple[pl.DataFrame, dict, pl.DataFrame]:
         date_from=st.session_state.get("filter_date_from"),
         date_to=st.session_state.get("filter_date_to"),
         sites=st.session_state.get("filter_sites"),
+        packagetypes=st.session_state.get("filter_packagetypes"),
         invoices=st.session_state.get("filter_invoices", ()),
         charges=st.session_state.get("filter_charges", tuple(ALL_CHARGE_LABELS)),
         positions=st.session_state.get("filter_positions", tuple(ALL_POSITION_LABELS)),
@@ -366,19 +375,90 @@ def _checkbox_dropdown(
 
 def _render_sidebar(prepared_df: pl.DataFrame) -> None:
     """Render sidebar filters shared across all pages."""
-    st.sidebar.title("OnTrac Analytics")
-    st.sidebar.markdown("---")
+    st.markdown(
+        """
+        <style>
+        section[data-testid="stSidebar"] {
+            min-width: 360px !important;
+            max-width: 360px !important;
+        }
+        section[data-testid="stSidebar"] > div {
+            min-width: 360px !important;
+            max-width: 360px !important;
+        }
+        [data-testid="stSidebar"] .sidebar-divider {
+            height: 2px;
+            background: #b9acbb;
+            opacity: 0.6;
+            margin: 10px 0;
+            width: 100%;
+        }
+        [data-testid="stSidebar"] [data-testid="stExpander"] > details {
+            background: transparent;
+            border: none;
+            padding: 0;
+        }
+        [data-testid="stSidebar"] [data-testid="stExpander"] > details > summary {
+            background: #a092a1;
+            border: 1px solid #8e8190;
+            border-radius: 6px;
+            padding: 6px 8px;
+        }
+        [data-testid="stSidebar"] [data-testid="stExpander"] > details[open] > summary {
+            border-bottom-left-radius: 0;
+            border-bottom-right-radius: 0;
+        }
+        [data-testid="stSidebar"] [data-testid="stDateInput"] [data-baseweb="input"] {
+            background: #a092a1;
+            border: 1px solid #8e8190;
+            border-radius: 6px;
+        }
+        [data-testid="stSidebar"] [data-testid="stDateInput"] [data-baseweb="input"] input {
+            background: transparent;
+            color: #ffffff;
+        }
+        [data-testid="stSidebar"] [data-testid="stDateInput"] [data-baseweb="input"] > div {
+            background: transparent;
+        }
+        [data-testid="stSidebar"] [data-testid="stDateInput"] svg {
+            color: #ffffff;
+            fill: #ffffff;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
     st.sidebar.subheader("Filters")
 
-    # Date range
-    min_date = prepared_df["ship_date"].min()
-    max_date = prepared_df["ship_date"].max()
+    # Time axis for time-series charts
+    st.sidebar.radio(
+        "Time axis",
+        ["Billing Date", "Ship Date"],
+        key="sidebar_date_col",
+        horizontal=True,
+    )
+
+    # Date range (depends on selected date column)
+    date_label = st.session_state.get("sidebar_date_col", "Ship Date")
+    date_col = "billing_date" if date_label == "Billing Date" else "ship_date"
+    if date_col in prepared_df.columns:
+        date_series = prepared_df[date_col].cast(pl.Date)
+        min_date = date_series.min()
+        max_date = date_series.max()
+    else:
+        min_date, max_date = None, None
 
     if min_date is not None and max_date is not None:
-        default_from = max(min_date, max_date - timedelta(days=90))
+        fixed_from = date(2025, 7, 1)
+        fixed_to = date(2026, 12, 31)
+        default_from = max(min_date, fixed_from)
+        default_to = min(max_date, fixed_to)
+        if default_from > default_to:
+            default_from = min_date
+            default_to = max_date
         date_range = st.sidebar.date_input(
-            "Ship date range",
-            value=(default_from, max_date),
+            f"{date_label} Range",
+            value=(default_from, default_to),
             min_value=min_date,
             max_value=max_date,
             key="sidebar_date_range",
@@ -392,12 +472,27 @@ def _render_sidebar(prepared_df: pl.DataFrame) -> None:
     else:
         st.sidebar.warning("No data loaded.")
 
+    # Metric mode
+    st.sidebar.radio(
+        "Metric mode",
+        ["Total", "Average per shipment"],
+        key="metric_mode",
+        horizontal=True,
+    )
+
     # Production site
     all_sites = sorted(prepared_df["production_site"].drop_nulls().unique().to_list())
     selected_sites = _checkbox_dropdown(
         "Production site", all_sites, default_checked=True, key_prefix="site"
     )
     st.session_state["filter_sites"] = tuple(selected_sites)
+
+    # Package type
+    all_packages = sorted(prepared_df["packagetype"].drop_nulls().unique().to_list())
+    selected_packages = _checkbox_dropdown(
+        "Package type", all_packages, default_checked=True, key_prefix="pkg"
+    )
+    st.session_state["filter_packagetypes"] = tuple(selected_packages)
 
     # Invoice filter — with search bar and scrollable list
     all_invoices = sorted(
@@ -406,11 +501,11 @@ def _render_sidebar(prepared_df: pl.DataFrame) -> None:
     )
     inv_state_key = "_persist_inv"
     if inv_state_key not in st.session_state:
-        st.session_state[inv_state_key] = {inv: False for inv in all_invoices}
+        st.session_state[inv_state_key] = {inv: True for inv in all_invoices}
     inv_saved = st.session_state[inv_state_key]
     for inv in all_invoices:
         if inv not in inv_saved:
-            inv_saved[inv] = False
+            inv_saved[inv] = True
 
     # Sync from widget keys
     inv_keep_open = False
@@ -465,7 +560,6 @@ def _render_sidebar(prepared_df: pl.DataFrame) -> None:
     st.session_state["filter_invoices"] = tuple(selected_invoices)
 
     # --- Shipment Charges ---
-    st.sidebar.markdown("**Shipment Charges**")
     st.sidebar.caption("Uncheck to exclude shipments with that charge")
 
     selected_charges = _checkbox_dropdown(
@@ -474,7 +568,6 @@ def _render_sidebar(prepared_df: pl.DataFrame) -> None:
     st.session_state["filter_charges"] = tuple(selected_charges)
 
     # --- Cost Positions ---
-    st.sidebar.markdown("**Cost Positions**")
     st.sidebar.caption("Uncheck to zero out a cost component")
 
     selected_positions = _checkbox_dropdown(
@@ -482,16 +575,8 @@ def _render_sidebar(prepared_df: pl.DataFrame) -> None:
     )
     st.session_state["filter_positions"] = tuple(selected_positions)
 
-    # Date axis for time-series charts
-    st.sidebar.radio(
-        "Time axis",
-        ["billing_date", "ship_date"],
-        key="sidebar_date_col",
-        horizontal=True,
-    )
-
     # Filter summary
-    st.sidebar.markdown("---")
+    st.sidebar.markdown("<div class='sidebar-divider'></div>", unsafe_allow_html=True)
     st.sidebar.metric("Total in dataset", f"{len(prepared_df):,}")
 
 

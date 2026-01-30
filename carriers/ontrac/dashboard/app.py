@@ -13,7 +13,7 @@ Run with:
 
 import streamlit as st
 
-from carriers.ontrac.dashboard.data import init_page
+from carriers.ontrac.dashboard.data import init_page, join_grain_note
 
 # =============================================================================
 # PAGE CONFIG
@@ -26,6 +26,17 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
+st.markdown(
+    """
+    <style>
+    div[data-testid="stAlert"] p {
+        color: #ffffff;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
 # =============================================================================
 # DATA + SIDEBAR FILTERS (shared via init_page)
 # =============================================================================
@@ -36,7 +47,7 @@ prepared_df, match_rate_data, df = init_page()
 # LANDING PAGE
 # =============================================================================
 
-st.title("OnTrac Shipping Cost Analytics")
+st.title("OnTrac Executive Summary")
 st.markdown(
     "Interactive dashboard for analyzing expected vs actual OnTrac shipping costs. "
     "Use the **sidebar** to filter data, then navigate to a page below."
@@ -82,3 +93,7 @@ st.info(
     "Data loaded from local parquet snapshot. "
     "To refresh, run: `python -m carriers.ontrac.dashboard.export_data`"
 )
+
+note = join_grain_note(prepared_df)
+if note:
+    st.info(note)

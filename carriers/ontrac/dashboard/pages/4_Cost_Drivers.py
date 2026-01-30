@@ -120,7 +120,8 @@ selected_surcharges = st.multiselect(
 color_cycle = ["#e74c3c", "#f39c12", "#3498db", "#27ae60", "#9b59b6",
                "#1abc9c", "#e67e22", "#2980b9", "#8e44ad", "#34495e"]
 
-date_col = st.session_state.get("sidebar_date_col", "billing_date")
+date_label = st.session_state.get("sidebar_date_col", "Billing Date")
+date_col = "billing_date" if date_label == "Billing Date" else "ship_date"
 
 fig_st = go.Figure()
 for idx, item in enumerate(freq_data):
@@ -223,24 +224,30 @@ if len(dim_df) > 0:
     fig_d.add_annotation(
         text="<b>AHS</b> (2nd side > 30\")",
         xref="paper", x=0.99, y=30, xanchor="right", yanchor="bottom", yshift=4,
-        showarrow=False, font=dict(color="#f39c12", size=10),
-        bgcolor="rgba(255,255,255,0.7)",
+        showarrow=False, font=dict(color="#ffffff", size=10),
+        bgcolor="rgba(0,0,0,0.65)",
+        bordercolor="#f39c12",
+        borderwidth=1,
     )
 
     fig_d.add_vline(x=48, line_dash="dash", line_color="#e74c3c", line_width=1.5, opacity=0.7)
     fig_d.add_annotation(
         text="<b>LPS</b> (> 48\")",
         x=48, yref="paper", y=0.99, xanchor="left", yanchor="top", xshift=4,
-        showarrow=False, font=dict(color="#e74c3c", size=10),
-        bgcolor="rgba(255,255,255,0.7)",
+        showarrow=False, font=dict(color="#ffffff", size=10),
+        bgcolor="rgba(0,0,0,0.65)",
+        bordercolor="#e74c3c",
+        borderwidth=1,
     )
 
     fig_d.add_vline(x=72, line_dash="dash", line_color="#8e44ad", line_width=1.5, opacity=0.7)
     fig_d.add_annotation(
         text="<b>OML</b> (> 72\")",
         x=72, yref="paper", y=0.99, xanchor="left", yanchor="top", xshift=4,
-        showarrow=False, font=dict(color="#8e44ad", size=10),
-        bgcolor="rgba(255,255,255,0.7)",
+        showarrow=False, font=dict(color="#ffffff", size=10),
+        bgcolor="rgba(0,0,0,0.65)",
+        bordercolor="#8e44ad",
+        borderwidth=1,
     )
 
     fig_d.update_layout(
@@ -252,39 +259,83 @@ if len(dim_df) > 0:
     )
     st.plotly_chart(fig_d, use_container_width=True)
 
-    # Near-miss
-    st.markdown("**Near-Miss Analysis** (within 1\" of surcharge threshold)")
+    # Threshold proximity
+    st.markdown("**Threshold Proximity (Below Surcharge Cutoffs)**")
 
-    near_ahs = dim_df.filter((pl.col("second_longest_in") >= 29) & (pl.col("second_longest_in") < 30))
-    near_lps = dim_df.filter((pl.col("longest_side_in") >= 47) & (pl.col("longest_side_in") < 48))
-    near_oml = dim_df.filter((pl.col("longest_side_in") >= 71) & (pl.col("longest_side_in") < 72))
+    thresholds = [
+        ("AHS (2nd side)", "second_longest_in", 30),
+        ("LPS (longest side)", "longest_side_in", 48),
+        ("OML (longest side)", "longest_side_in", 72),
+    ]
 
-    nc1, nc2, nc3 = st.columns(3)
-    nc1.metric("Near AHS (2nd longest 29-30\")", f"{len(near_ahs):,}")
-    nc2.metric("Near LPS (longest 47-48\")", f"{len(near_lps):,}")
-    nc3.metric("Near OML (longest 71-72\")", f"{len(near_oml):,}")
+    proximity_rows = []
+    for label, col, threshold in thresholds:
+        if col not in dim_df.columns:
+            continue
+        within_1 = dim_df.filter(
+            (pl.col(col) >= threshold - 1) & (pl.col(col) < threshold)
+        )
+        within_2 = dim_df.filter(
+            (pl.col(col) >= threshold - 2) & (pl.col(col) < threshold)
+        )
+        within_5 = dim_df.filter(
+            (pl.col(col) >= threshold - 5) & (pl.col(col) < threshold)
+        )
+        total = len(dim_df)
+        proximity_rows.append({
+            "Threshold": label,
+            "Within 1\"": len(within_1),
+            "Within 2\"": len(within_2),
+            "Within 5\"": len(within_5),
+            "Share of Dim Shipments": (len(within_5) / total * 100) if total else 0,
+        })
 
-    # Potential savings
-    st.markdown("**Potential Savings** — if packages were 1\" smaller")
-    ahs_cost_per = float(df.filter(pl.col("cost_ahs") > 0)["cost_ahs"].mean()) if int((df["cost_ahs"].fill_null(0) > 0).sum()) > 0 else 0
-    lps_cost_per = float(df.filter(pl.col("cost_lps") > 0)["cost_lps"].mean()) if int((df["cost_lps"].fill_null(0) > 0).sum()) > 0 else 0
+    if proximity_rows:
+        prox_df = pl.DataFrame(proximity_rows)
+        prox_display = prox_df.with_columns(
+            pl.col("Share of Dim Shipments").map_elements(
+                lambda v: f"{v:.1f}%", return_dtype=pl.Utf8
+            ).alias("Share of Dim Shipments")
+        )
+        st.dataframe(prox_display, use_container_width=True, hide_index=True)
 
-    ahs_at_threshold = dim_df.filter(
-        (pl.col("second_longest_in") >= 30) & (pl.col("second_longest_in") < 31)
-        & (pl.col("surcharge_ahs").fill_null(False))
-    )
-    lps_at_threshold = dim_df.filter(
-        (pl.col("longest_side_in") >= 48) & (pl.col("longest_side_in") < 49)
-        & (pl.col("surcharge_lps").fill_null(False))
-    )
-
-    sc1, sc2 = st.columns(2)
-    sc1.metric("AHS triggers at 30-31\"", f"{len(ahs_at_threshold):,}",
-               help=f"Avg AHS cost: {format_currency(ahs_cost_per)}")
-    sc2.metric("LPS triggers at 48-49\"", f"{len(lps_at_threshold):,}",
-               help=f"Avg LPS cost: {format_currency(lps_cost_per)}")
-
-    drilldown_section(ahs_at_threshold, "AHS Threshold Shipments (30-31\")", key_suffix="ahs_thresh")
+        fig_p = go.Figure()
+        fig_p.add_trace(go.Bar(
+            x=prox_df["Threshold"],
+            y=prox_df["Within 1\""],
+            name="Within 1\"",
+            marker_color="#f39c12",
+            text=prox_df["Within 1\""],
+            textposition="outside",
+        ))
+        fig_p.add_trace(go.Bar(
+            x=prox_df["Threshold"],
+            y=prox_df["Within 2\""],
+            name="Within 2\"",
+            marker_color="#e67e22",
+            text=prox_df["Within 2\""],
+            textposition="outside",
+        ))
+        fig_p.add_trace(go.Bar(
+            x=prox_df["Threshold"],
+            y=prox_df["Within 5\""],
+            name="Within 5\"",
+            marker_color="#e74c3c",
+            text=prox_df["Within 5\""],
+            textposition="outside",
+        ))
+        max_val = max(prox_df["Within 5\""].max(), 1)
+        fig_p.update_layout(
+            barmode="group",
+            title="Shipments Just Below Surcharge Thresholds",
+            yaxis_title="Shipments",
+            height=420,
+            margin=dict(t=60, b=60, l=40, r=20),
+        )
+        fig_p.update_yaxes(range=[0, max_val * 1.2], automargin=True)
+        st.plotly_chart(fig_p, use_container_width=True)
+    else:
+        st.info("No dimensional proximity data available.")
 else:
     st.info("No dimensional data available.")
 

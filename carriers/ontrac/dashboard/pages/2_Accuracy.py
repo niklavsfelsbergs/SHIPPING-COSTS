@@ -33,6 +33,8 @@ if len(df) == 0:
     st.warning("No data matches current filters.")
     st.stop()
 
+metric_mode = st.session_state.get("metric_mode", "Total")
+
 def _hist_bounds(values: np.ndarray, bins: int = 80) -> tuple[float, float, float]:
     if len(values) == 0:
         return -1.0, 1.0, 1.0
@@ -178,16 +180,31 @@ tab_pkg, tab_err, tab_zone, tab_weight, tab_site = st.tabs([
     "By Package Type", "By Error Source", "By Zone", "By Weight Bracket", "By Production Site"
 ])
 
+segment_mode = st.radio(
+    "Segment metric",
+    ["Total", "Average per shipment"],
+    key="accuracy_segment_mode",
+    horizontal=True,
+    index=0 if metric_mode == "Total" else 1,
+)
+use_avg_seg = segment_mode.startswith("Average")
 
 def _stats_table(grouped_stats: list[dict], segment_label: str) -> None:
+    exp_label = "Expected (Avg)" if use_avg_seg else "Expected"
+    act_label = "Actual (Avg)" if use_avg_seg else "Actual"
+    var_label = "Var ($/Shipment)" if use_avg_seg else "Var ($)"
     rows = []
     for s in grouped_stats:
+        count = s["count"]
+        expected = s["total_expected"] / count if use_avg_seg and count else s["total_expected"]
+        actual = s["total_actual"] / count if use_avg_seg and count else s["total_actual"]
+        variance = s["variance_dollars"] / count if use_avg_seg and count else s["variance_dollars"]
         rows.append({
             segment_label: s["segment"],
             "Count": f"{s['count']:,}",
-            "Expected": format_currency(s["total_expected"]),
-            "Actual": format_currency(s["total_actual"]),
-            "Var ($)": format_currency(s["variance_dollars"]),
+            exp_label: format_currency(expected),
+            act_label: format_currency(actual),
+            var_label: format_currency(variance),
             "Var (%)": format_pct(s["variance_pct"]),
             "Mean Dev": format_currency(s["mean_dev"]),
             "Median Dev": format_currency(s["median_dev"]),
@@ -388,7 +405,7 @@ st.markdown("---")
 
 st.header("D. Zone Accuracy")
 
-zone_match_count = int(df["zone_match"].sum())
+    zone_match_count = int(df["zone_match"].sum())
 zone_total = len(df)
 zone_match_rate = zone_match_count / zone_total * 100 if zone_total > 0 else 0
 
@@ -402,6 +419,12 @@ c3.metric("Mismatch Cost Impact", format_currency(mismatch_cost))
 
 # Confusion matrix
 st.markdown("**Zone Confusion Matrix**")
+heatmap_mode = st.radio(
+    "Heatmap mode",
+    ["Count", "Row %"],
+    key="zone_heatmap_mode",
+    horizontal=True,
+)
 
 if len(df) > 0:
     zone_cross = (
@@ -425,28 +448,48 @@ if len(df) > 0:
     zone_labels = [str(z) for z in all_zones]
 
     text_matrix = []
+    z_vals = matrix.copy()
+    if heatmap_mode == "Row %":
+        row_sums = z_vals.sum(axis=1)
+        for i in range(len(row_sums)):
+            if row_sums[i] > 0:
+                z_vals[i] = z_vals[i] / row_sums[i] * 100
     for i in range(len(all_zones)):
         row_text = []
         for j in range(len(all_zones)):
-            val = int(matrix[i][j])
-            row_text.append(f"{val:,}" if val > 0 else "")
+            val = z_vals[i][j]
+            if heatmap_mode == "Row %":
+                row_text.append(f"{val:.1f}%" if val > 0 else "")
+            else:
+                row_text.append(f"{int(matrix[i][j]):,}" if matrix[i][j] > 0 else "")
         text_matrix.append(row_text)
 
+    heatmap_kwargs = {}
+    if heatmap_mode == "Row %":
+        heatmap_kwargs = {"zmin": 0, "zmax": 100}
+
     fig_cm = go.Figure(go.Heatmap(
-        z=matrix,
+        z=z_vals,
         x=zone_labels,
         y=zone_labels,
         text=text_matrix,
         texttemplate="%{text}",
         colorscale="Blues",
-        hovertemplate="Expected Zone: %{y}<br>Actual Zone: %{x}<br>Count: %{z:,}<extra></extra>",
+        hovertemplate=(
+            "Expected Zone: %{y}<br>Actual Zone: %{x}<br>"
+            + ("Row %: %{z:.1f}%<extra></extra>" if heatmap_mode == "Row %" else "Count: %{z:,}<extra></extra>")
+        ),
+        **heatmap_kwargs,
     ))
     fig_cm.update_layout(
-        title="Expected vs Actual Zone (count)",
+        title="Expected vs Actual Zone",
         xaxis_title="Actual Zone",
         yaxis_title="Expected Zone",
         yaxis=dict(autorange="reversed"),
-        height=max(500, len(all_zones) * 60 + 100),
+        height=max(600, len(all_zones) * 45 + 200),
+        plot_bgcolor="#f8f9fa",
+        paper_bgcolor="#f8f9fa",
+        margin=dict(t=70, b=60, l=60, r=20),
     )
     st.plotly_chart(fig_cm, use_container_width=True)
 
@@ -496,10 +539,15 @@ if len(valid_weight) > 0:
     w_matches = int(np.sum(np.abs(diff_w) <= tolerance))
     w_rate = w_matches / len(diff_w) * 100
 
-    c1, c2, c3 = st.columns(3)
+    c1, c2, c3, c4 = st.columns(4)
     c1.metric("Weight Match Rate", f"{w_rate:.1f}%", help=f"Within +/-{tolerance} lbs")
     c2.metric("Matches / Total", f"{w_matches:,} / {len(diff_w):,}")
     c3.metric("Avg Difference", f"{np.mean(diff_w):+.2f} lbs")
+    c4.metric("Actual > Expected", f"{(diff_w > 0).sum() / len(diff_w) * 100:.1f}%")
+
+    w1, w2 = st.columns(2)
+    w1.metric("Avg Expected Weight", f"{np.mean(exp_w):.2f} lbs")
+    w2.metric("Avg Actual Weight", f"{np.mean(act_w):.2f} lbs")
 
     # Density contour — shows actual weight patterns instead of a point-cloud blob
     st.markdown("**Expected vs Actual Billable Weight**")

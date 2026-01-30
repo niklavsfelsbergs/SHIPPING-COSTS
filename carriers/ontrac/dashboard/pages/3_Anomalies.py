@@ -241,7 +241,8 @@ st.markdown("---")
 
 st.header("D. Trend Monitoring")
 
-date_col = st.session_state.get("sidebar_date_col", "billing_date")
+date_label = st.session_state.get("sidebar_date_col", "Billing Date")
+date_col = "billing_date" if date_label == "Billing Date" else "ship_date"
 
 weekly_stats = (
     df.with_columns(
