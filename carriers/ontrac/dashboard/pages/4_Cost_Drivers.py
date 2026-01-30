@@ -15,6 +15,7 @@ import numpy as np
 from carriers.ontrac.dashboard.data import (
     SURCHARGE_COST_COLS,
     init_page,
+    get_filtered_shipments,
     drilldown_section,
     format_currency,
 )
@@ -23,7 +24,8 @@ st.set_page_config(page_title="Cost Drivers | OnTrac", layout="wide")
 st.title("Cost Drivers")
 
 # ---------------------------------------------------------------------------
-prepared_df, match_data, df = init_page()
+prepared_df, match_data, _ = init_page()
+df = get_filtered_shipments()
 
 if len(df) == 0:
     st.warning("No data matches current filters.")

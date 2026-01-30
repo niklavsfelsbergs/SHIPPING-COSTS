@@ -17,6 +17,7 @@ from carriers.ontrac.dashboard.data import (
     DETERMINISTIC_SURCHARGES,
     WEIGHT_BRACKETS,
     init_page,
+    get_filtered_shipments,
     calc_segment_stats,
     drilldown_section,
     format_currency,
@@ -27,7 +28,8 @@ st.set_page_config(page_title="Accuracy | OnTrac", layout="wide")
 st.title("Estimation Accuracy")
 
 # ---------------------------------------------------------------------------
-prepared_df, match_data, df = init_page()
+prepared_df, match_data, _ = init_page()
+df = get_filtered_shipments()
 
 if len(df) == 0:
     st.warning("No data matches current filters.")

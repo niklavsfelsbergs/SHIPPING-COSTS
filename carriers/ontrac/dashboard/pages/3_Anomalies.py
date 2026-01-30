@@ -15,6 +15,7 @@ from carriers.ontrac.dashboard.data import (
     DETERMINISTIC_SURCHARGES,
     COST_POSITIONS,
     init_page,
+    get_filtered_shipments,
     drilldown_section,
     format_currency,
     format_pct,
@@ -24,7 +25,8 @@ st.set_page_config(page_title="Anomalies | OnTrac", layout="wide")
 st.title("Anomaly Detection")
 
 # ---------------------------------------------------------------------------
-prepared_df, match_data, df = init_page()
+prepared_df, match_data, _ = init_page()
+df = get_filtered_shipments()
 
 if len(df) == 0:
     st.warning("No data matches current filters.")

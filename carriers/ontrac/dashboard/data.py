@@ -146,7 +146,7 @@ def load_unmatched_actual() -> pl.DataFrame:
 # =============================================================================
 
 @st.cache_data
-def prepare_df(df: pl.DataFrame) -> pl.DataFrame:
+def prepare_df(df: pl.DataFrame, grain: str = "line") -> pl.DataFrame:
     """Add all derived columns. Cached — only recomputes if raw df changes."""
     # Cast Decimal columns to Float64 (Redshift exports Decimal; Polars
     # aggregations like .mean() break on Decimal dtype)
@@ -210,6 +210,66 @@ def prepare_df(df: pl.DataFrame) -> pl.DataFrame:
     return df
 
 
+@st.cache_data
+def aggregate_shipments(df: pl.DataFrame) -> pl.DataFrame:
+    """Aggregate actuals to shipment-level (pcs_orderid)."""
+    base_cols = [
+        "pcs_ordernumber", "shop_ordernumber", "latest_trackingnumber",
+        "pcs_created", "ship_date", "production_site",
+        "shipping_zip_code", "shipping_region", "shipping_country", "packagetype",
+        "shipping_zone", "das_zone", "billable_weight_lbs",
+        "length_in", "width_in", "height_in", "weight_lbs",
+        "cubic_in", "longest_side_in", "second_longest_in", "length_plus_girth",
+        "dim_weight_lbs", "uses_dim_weight",
+    ]
+
+    expected_flag_cols = [c for c in df.columns if c.startswith("surcharge_")]
+    expected_cost_cols = [c for c in df.columns if c.startswith("cost_")]
+    actual_sum_cols = [
+        c for c in df.columns
+        if c.startswith("actual_") and c not in {
+            "actual_zone", "actual_billed_weight_lbs", "actual_trackingnumber"
+        }
+    ]
+
+    agg_exprs = []
+    for col in base_cols:
+        if col in df.columns:
+            agg_exprs.append(pl.col(col).first())
+    for col in expected_flag_cols:
+        agg_exprs.append(pl.col(col).first())
+    for col in expected_cost_cols:
+        agg_exprs.append(pl.col(col).first())
+
+    if "actual_trackingnumber" in df.columns:
+        agg_exprs.append(pl.col("actual_trackingnumber").sort_by("billing_date").first())
+    if "invoice_number" in df.columns:
+        agg_exprs.append(pl.col("invoice_number").sort_by("billing_date").first())
+        agg_exprs.append(pl.col("invoice_number").unique().alias("invoice_numbers"))
+    if "billing_date" in df.columns:
+        agg_exprs.append(pl.col("billing_date").min().alias("billing_date"))
+    if "actual_zone" in df.columns:
+        agg_exprs.append(pl.col("actual_zone").drop_nulls().mode().first().alias("actual_zone"))
+    if "actual_billed_weight_lbs" in df.columns:
+        agg_exprs.append(pl.col("actual_billed_weight_lbs").max())
+
+    for col in actual_sum_cols:
+        agg_exprs.append(pl.col(col).sum())
+
+    if "return_to_sender" in df.columns:
+        agg_exprs.append(pl.col("return_to_sender").max())
+
+    return df.group_by(PRIMARY_KEY).agg(agg_exprs)
+
+
+@st.cache_data
+def load_shipment_df() -> pl.DataFrame:
+    """Load shipment-level dataset aggregated by pcs_orderid."""
+    raw_df = load_raw()
+    ship_df = aggregate_shipments(raw_df)
+    return prepare_df(ship_df, grain="shipment")
+
+
 # =============================================================================
 # LAYER 3 — Filtered data (cached on filter parameters)
 # =============================================================================
@@ -219,11 +279,13 @@ def get_filtered_df(
     _prepared_df: pl.DataFrame,
     date_from: date | None = None,
     date_to: date | None = None,
+    date_col: str = "ship_date",
     sites: tuple[str, ...] | None = None,
     packagetypes: tuple[str, ...] | None = None,
     invoices: tuple[str, ...] = (),
     charges: tuple[str, ...] = (),
     positions: tuple[str, ...] = (),
+    grain: str = "line",
 ) -> pl.DataFrame:
     """
     Apply sidebar filters and return result.
@@ -236,15 +298,23 @@ def get_filtered_df(
     df = _prepared_df
 
     if date_from is not None:
-        df = df.filter(pl.col("ship_date") >= pl.lit(date_from).cast(pl.Date))
+        df = df.filter(pl.col(date_col) >= pl.lit(date_from).cast(pl.Date))
     if date_to is not None:
-        df = df.filter(pl.col("ship_date") <= pl.lit(date_to).cast(pl.Date))
+        df = df.filter(pl.col(date_col) <= pl.lit(date_to).cast(pl.Date))
     if sites:
         df = df.filter(pl.col("production_site").is_in(list(sites)))
     if packagetypes:
         df = df.filter(pl.col("packagetype").is_in(list(packagetypes)))
     if invoices:
-        df = df.filter(pl.col("invoice_number").is_in(list(invoices)))
+        if "invoice_numbers" in df.columns:
+            invoice_list = list(invoices)
+            df = df.filter(
+                pl.col("invoice_numbers")
+                .list.eval(pl.element().is_in(invoice_list))
+                .list.any()
+            )
+        else:
+            df = df.filter(pl.col("invoice_number").is_in(list(invoices)))
 
     # Shipment charges: unchecked = exclude shipments with that charge
     # in either expected or actual.
@@ -296,23 +366,47 @@ def init_page() -> tuple[pl.DataFrame, dict, pl.DataFrame]:
     appear regardless of which page the user navigates to.
     """
     raw_df = load_raw()
-    prepared_df = prepare_df(raw_df)
+    prepared_df = prepare_df(raw_df, grain="line")
     match_rate_data = load_match_rate()
 
     _render_sidebar(prepared_df)
+
+    date_label = st.session_state.get("sidebar_date_col", "Ship Date")
+    date_col = "billing_date" if date_label == "Billing Date" else "ship_date"
 
     filtered_df = get_filtered_df(
         prepared_df,
         date_from=st.session_state.get("filter_date_from"),
         date_to=st.session_state.get("filter_date_to"),
+        date_col=date_col,
         sites=st.session_state.get("filter_sites"),
         packagetypes=st.session_state.get("filter_packagetypes"),
         invoices=st.session_state.get("filter_invoices", ()),
         charges=st.session_state.get("filter_charges", tuple(ALL_CHARGE_LABELS)),
         positions=st.session_state.get("filter_positions", tuple(ALL_POSITION_LABELS)),
+        grain="line",
     )
 
     return prepared_df, match_rate_data, filtered_df
+
+
+def get_filtered_shipments() -> pl.DataFrame:
+    """Return shipment-level data filtered by current sidebar settings."""
+    ship_df = load_shipment_df()
+    date_label = st.session_state.get("sidebar_date_col", "Ship Date")
+    date_col = "billing_date" if date_label == "Billing Date" else "ship_date"
+    return get_filtered_df(
+        ship_df,
+        date_from=st.session_state.get("filter_date_from"),
+        date_to=st.session_state.get("filter_date_to"),
+        date_col=date_col,
+        sites=st.session_state.get("filter_sites"),
+        packagetypes=st.session_state.get("filter_packagetypes"),
+        invoices=st.session_state.get("filter_invoices", ()),
+        charges=st.session_state.get("filter_charges", tuple(ALL_CHARGE_LABELS)),
+        positions=st.session_state.get("filter_positions", tuple(ALL_POSITION_LABELS)),
+        grain="shipment",
+    )
 
 
 def _checkbox_dropdown(
