@@ -299,6 +299,7 @@ def get_filtered_df(
     charges: tuple[str, ...] = (),
     positions: tuple[str, ...] = (),
     grain: str = "line",
+    weight_match_only: bool = False,
 ) -> pl.DataFrame:
     """
     Apply sidebar filters and return result.
@@ -318,6 +319,12 @@ def get_filtered_df(
         df = df.filter(pl.col("production_site").is_in(list(sites)))
     if packagetypes:
         df = df.filter(pl.col("packagetype").is_in(list(packagetypes)))
+
+    # Weight match filter: only keep shipments where expected = actual weight
+    if weight_match_only:
+        df = df.filter(
+            pl.col("billable_weight_lbs").round(0) == pl.col("actual_billed_weight_lbs").round(0)
+        )
 
     # Shipment charges: unchecked = exclude shipments with that charge
     # in either expected or actual.
@@ -399,6 +406,7 @@ def init_page() -> tuple[pl.DataFrame, dict, pl.DataFrame]:
         charges=st.session_state.get("filter_charges", tuple(ALL_CHARGE_LABELS)),
         positions=st.session_state.get("filter_positions", tuple(ALL_POSITION_LABELS)),
         grain="line",
+        weight_match_only=st.session_state.get("filter_weight_match", False),
     )
 
     return prepared_df, match_rate_data, filtered_df
@@ -419,6 +427,7 @@ def get_filtered_shipments() -> pl.DataFrame:
         charges=st.session_state.get("filter_charges", tuple(ALL_CHARGE_LABELS)),
         positions=st.session_state.get("filter_positions", tuple(ALL_POSITION_LABELS)),
         grain="shipment",
+        weight_match_only=st.session_state.get("filter_weight_match", False),
     )
 
 
@@ -654,6 +663,16 @@ def _render_sidebar(prepared_df: pl.DataFrame) -> None:
         "Positions", ALL_POSITION_LABELS, default_checked=True, key_prefix="pos"
     )
     st.session_state["filter_positions"] = tuple(selected_positions)
+
+    # --- Weight Match Filter ---
+    st.sidebar.markdown("<div class='sidebar-divider'></div>", unsafe_allow_html=True)
+    weight_match = st.sidebar.checkbox(
+        "Weight match only",
+        value=st.session_state.get("filter_weight_match", False),
+        key="weight_match_checkbox",
+        help="Only show shipments where expected and actual weights match (rounded to whole lbs)"
+    )
+    st.session_state["filter_weight_match"] = weight_match
 
     # Filter summary
     st.sidebar.markdown("<div class='sidebar-divider'></div>", unsafe_allow_html=True)
