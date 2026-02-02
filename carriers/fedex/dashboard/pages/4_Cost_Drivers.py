@@ -180,18 +180,21 @@ with left_a:
     labels_f = [d["Surcharge"] for d in freq_sorted]
     pcts_f = [d["pct"] for d in freq_sorted]
 
+    max_pct = max(pcts_f) if pcts_f else 0
     fig_f = go.Figure(go.Bar(
         y=labels_f, x=pcts_f,
         orientation="h",
         marker_color="#3498db",
         text=[f"{p:.1f}%" for p in pcts_f],
         textposition="outside",
+        cliponaxis=False,
         hovertemplate="%{y}: %{x:.2f}% (%{customdata:,} shipments)<extra></extra>",
         customdata=[d["triggered"] for d in freq_sorted],
     ))
     fig_f.update_layout(
         title="Surcharge Trigger Rate",
         xaxis_title="% of Shipments",
+        xaxis=dict(range=[0, max_pct * 1.25]),
         height=400,
         margin=dict(r=60),
     )
@@ -205,18 +208,20 @@ with right_a:
     labels_c = [d["Surcharge"] for d in cost_sorted]
     costs_c = [d["total_cost"] for d in cost_sorted]
 
+    max_cost = max(costs_c) if costs_c else 0
     fig_c = go.Figure(go.Bar(
         y=labels_c, x=costs_c,
         orientation="h",
         marker_color="#e74c3c",
         text=[f"${c:,.0f}" for c in costs_c],
         textposition="outside",
+        cliponaxis=False,
         hovertemplate="%{y}: $%{x:,.2f}<extra></extra>",
     ))
     fig_c.update_layout(
         title="Total Cost by Surcharge",
         xaxis_title="Total Cost ($)",
-        xaxis_tickprefix="$", xaxis_tickformat=",.0f",
+        xaxis=dict(range=[0, max_cost * 1.25], tickprefix="$", tickformat=",.0f"),
         height=400,
         margin=dict(r=80),
     )
@@ -236,7 +241,7 @@ selected_surcharges = st.multiselect(
 color_cycle = ["#e74c3c", "#f39c12", "#3498db", "#27ae60", "#9b59b6",
                "#1abc9c", "#e67e22", "#2980b9", "#8e44ad", "#34495e"]
 
-date_label = st.session_state.get("sidebar_date_col", "Ship Date")
+date_label = st.session_state.get("filter_time_axis", "Invoice Date")
 date_col = "invoice_date" if date_label == "Invoice Date" else "ship_date"
 time_grain = st.session_state.get("sidebar_time_grain", "Daily")
 truncate_map = {"Daily": "1d", "Weekly": "1w", "Monthly": "1mo"}
@@ -418,6 +423,7 @@ if len(dim_df) > 0:
             marker_color="#f39c12",
             text=prox_df["Within 1\""],
             textposition="outside",
+            cliponaxis=False,
         ))
         fig_p.add_trace(go.Bar(
             x=prox_df["Threshold"],
@@ -426,6 +432,7 @@ if len(dim_df) > 0:
             marker_color="#e67e22",
             text=prox_df["Within 2\""],
             textposition="outside",
+            cliponaxis=False,
         ))
         fig_p.add_trace(go.Bar(
             x=prox_df["Threshold"],
@@ -434,6 +441,7 @@ if len(dim_df) > 0:
             marker_color="#e74c3c",
             text=prox_df["Within 5\""],
             textposition="outside",
+            cliponaxis=False,
         ))
         max_val = max(prox_df["Within 5\""].max(), 1)
         fig_p.update_layout(
@@ -472,17 +480,20 @@ with left_c:
     )
     if len(state_vol) > 0:
         sv_pd = state_vol.to_pandas()
+        max_count = sv_pd["count"].max()
         fig_sv = go.Figure(go.Bar(
             y=sv_pd["shipping_region"], x=sv_pd["count"],
             orientation="h",
             marker_color="#3498db",
             text=sv_pd["count"].apply(lambda v: f"{v:,}"),
             textposition="outside",
+            cliponaxis=False,
             hovertemplate="%{y}: %{x:,} shipments<extra></extra>",
         ))
         fig_sv.update_layout(
             title="Top 20 States by Volume",
             xaxis_title="Shipments",
+            xaxis=dict(range=[0, max_count * 1.25]),
             yaxis=dict(autorange="reversed"),
             height=500,
             margin=dict(r=60),
@@ -543,6 +554,7 @@ if len(sites_list) >= 1 and len(origin_zone) > 0:
         subplot_titles=sites_list,
         shared_yaxes=True,
     )
+    max_zone_count = origin_zone["count"].max()
     for col_idx, site in enumerate(sites_list, 1):
         site_data = origin_zone.filter(pl.col("production_site") == site).to_pandas()
         if len(site_data) > 0:
@@ -553,6 +565,7 @@ if len(sites_list) >= 1 and len(origin_zone) > 0:
                     marker_color="#3498db",
                     text=site_data["count"].apply(lambda v: f"{v:,}"),
                     textposition="outside",
+                    cliponaxis=False,
                     showlegend=False,
                     hovertemplate="Zone %{x}: %{y:,}<extra></extra>",
                 ),
@@ -563,7 +576,7 @@ if len(sites_list) >= 1 and len(origin_zone) > 0:
         height=400,
     )
     fig_oz.update_xaxes(title_text="Zone")
-    fig_oz.update_yaxes(title_text="Shipments", col=1)
+    fig_oz.update_yaxes(title_text="Shipments", range=[0, max_zone_count * 1.15], col=1)
     apply_chart_layout(fig_oz)
     st.plotly_chart(fig_oz, use_container_width=True)
 

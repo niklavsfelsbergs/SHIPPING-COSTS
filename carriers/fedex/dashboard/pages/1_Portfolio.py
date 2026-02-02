@@ -34,7 +34,7 @@ if len(df) == 0:
     st.warning("No data matches current filters.")
     st.stop()
 
-metric_mode = st.session_state.get("metric_mode", "Total")
+metric_mode = st.session_state.get("filter_metric_mode", "Total")
 use_avg = metric_mode.startswith("Average")
 
 def _metric_value(total: float, count: int) -> float:
@@ -267,7 +267,7 @@ if len(smartpost_heavy) > 0:
 
 st.subheader("Expected vs Actual Over Time")
 
-date_label = st.session_state.get("sidebar_date_col", "Invoice Date")
+date_label = st.session_state.get("filter_time_axis", "Invoice Date")
 date_col = "invoice_date" if date_label == "Invoice Date" else "ship_date"
 time_grain = st.session_state.get("sidebar_time_grain", "Daily")
 value_mode = metric_mode

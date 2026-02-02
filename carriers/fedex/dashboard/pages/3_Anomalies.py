@@ -276,7 +276,7 @@ st.markdown("---")
 
 st.header("D. Trend Monitoring")
 
-date_label = st.session_state.get("sidebar_date_col", "Billing Date")
+date_label = st.session_state.get("filter_time_axis", "Invoice Date")
 date_col = "billing_date" if date_label == "Billing Date" else "ship_date"
 time_grain = st.session_state.get("sidebar_time_grain", "Weekly")
 truncate_map = {"Daily": "1d", "Weekly": "1w", "Monthly": "1mo"}

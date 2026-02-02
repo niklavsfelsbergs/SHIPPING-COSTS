@@ -417,23 +417,27 @@ def _checkbox_dropdown(
 ) -> list[str]:
     """Expander with checkboxes, persisted via user-managed session_state dict."""
     state_key = f"_persist_{key_prefix}"
+    expanded_key = f"_expanded_{key_prefix}"
 
     # Initialise persistent dict on first ever run
     if state_key not in st.session_state:
         st.session_state[state_key] = {opt: default_checked for opt in options}
     saved = st.session_state[state_key]
 
+    # Initialize expanded state (default collapsed)
+    if expanded_key not in st.session_state:
+        st.session_state[expanded_key] = False
+
     # Ensure new options get a default
     for opt in options:
         if opt not in saved:
             saved[opt] = default_checked
 
-    # Sync from widget keys
-    keep_open = False
+    # Sync from widget keys - if user changed a checkbox, mark as should stay open
     for opt in options:
         wkey = f"{key_prefix}_{opt}"
         if wkey in st.session_state and st.session_state[wkey] != saved[opt]:
-            keep_open = True
+            st.session_state[expanded_key] = True
             saved[opt] = st.session_state[wkey]
 
     n_selected = sum(saved[opt] for opt in options)
@@ -447,9 +451,9 @@ def _checkbox_dropdown(
 
     # Also keep open if All/None button was just clicked
     if st.session_state.pop(f"{key_prefix}__bulk", False):
-        keep_open = True
+        st.session_state[expanded_key] = True
 
-    with st.sidebar.expander(f"{label} ({n_selected}/{len(options)})", expanded=keep_open):
+    with st.sidebar.expander(f"{label} ({n_selected}/{len(options)})", expanded=st.session_state[expanded_key]):
         col_a, col_b = st.columns(2)
         col_a.button("All", key=f"{key_prefix}__btn_all", use_container_width=True,
                       on_click=_set_all, args=(True,))
@@ -525,21 +529,32 @@ def _render_sidebar(prepared_df: pl.DataFrame) -> None:
     st.sidebar.subheader("Filters")
 
     # Time axis for time-series charts
-    st.sidebar.radio(
+    time_axis_options = ["Ship Date", "Billing Date"]
+    if "filter_time_axis" not in st.session_state:
+        st.session_state["filter_time_axis"] = "Ship Date"
+    time_axis_idx = time_axis_options.index(st.session_state["filter_time_axis"])
+    time_axis = st.sidebar.radio(
         "Time axis",
-        ["Ship Date", "Billing Date"],
-        key="sidebar_date_col",
+        time_axis_options,
+        index=time_axis_idx,
         horizontal=True,
+        key="sidebar_date_col",
     )
+    st.session_state["filter_time_axis"] = time_axis
 
     # Time grain for time-series charts
-    st.sidebar.radio(
+    time_grain_options = ["Daily", "Weekly", "Monthly"]
+    if "filter_time_grain" not in st.session_state:
+        st.session_state["filter_time_grain"] = "Daily"
+    time_grain_idx = time_grain_options.index(st.session_state["filter_time_grain"])
+    time_grain = st.sidebar.radio(
         "Time grain",
-        ["Daily", "Weekly", "Monthly"],
-        key="sidebar_time_grain",
+        time_grain_options,
+        index=time_grain_idx,
         horizontal=True,
-        index=0,
+        key="sidebar_time_grain",
     )
+    st.session_state["filter_time_grain"] = time_grain
 
     # Date range (depends on selected date column)
     date_label = st.session_state.get("sidebar_date_col", "Ship Date")
@@ -584,12 +599,18 @@ def _render_sidebar(prepared_df: pl.DataFrame) -> None:
         st.sidebar.warning("No data loaded.")
 
     # Metric mode
-    st.sidebar.radio(
+    metric_options = ["Total", "Average per shipment"]
+    if "filter_metric_mode" not in st.session_state:
+        st.session_state["filter_metric_mode"] = "Total"
+    metric_idx = metric_options.index(st.session_state["filter_metric_mode"])
+    metric_mode = st.sidebar.radio(
         "Metric mode",
-        ["Total", "Average per shipment"],
-        key="metric_mode",
+        metric_options,
+        index=metric_idx,
         horizontal=True,
+        key="metric_mode",
     )
+    st.session_state["filter_metric_mode"] = metric_mode
 
     # Production site
     all_sites = sorted(prepared_df["production_site"].drop_nulls().unique().to_list())
@@ -745,12 +766,20 @@ def format_pct(value) -> str:
     return f"{value:+.2f}%"
 
 
-def apply_chart_layout(fig: go.Figure) -> go.Figure:
-    """Apply consistent layout settings to prevent label cutoff."""
+def apply_chart_layout(fig: go.Figure, extra_right: int = 0, has_legend: bool = True) -> go.Figure:
+    """Apply consistent layout settings to prevent label cutoff.
+
+    Args:
+        fig: Plotly figure to update
+        extra_right: Extra right margin for charts with outside text labels
+        has_legend: If True, adds extra top margin for horizontal legend above plot
+    """
     fig.update_xaxes(automargin=True)
     fig.update_yaxes(automargin=True)
+    # Extra top margin when legend is above plot (y=1.02 pattern)
+    top_margin = 80 if has_legend else 50
     fig.update_layout(
-        margin=dict(l=10, r=10, t=50, b=10),
+        margin=dict(l=10, r=10 + extra_right, t=top_margin, b=10),
         autosize=True,
     )
     return fig

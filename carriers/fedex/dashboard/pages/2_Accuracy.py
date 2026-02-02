@@ -36,7 +36,7 @@ if len(df) == 0:
     st.warning("No data matches current filters.")
     st.stop()
 
-metric_mode = st.session_state.get("metric_mode", "Total")
+metric_mode = st.session_state.get("filter_metric_mode", "Total")
 
 def _hist_bounds(values: np.ndarray, bins: int = 80) -> tuple[float, float, float]:
     if len(values) == 0:

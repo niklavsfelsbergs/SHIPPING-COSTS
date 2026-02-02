@@ -242,13 +242,18 @@ if len(weekly) > 0:
         weekly_pd["Actual"] = weekly_pd["Actual"] / weekly_pd["shipments"]
 
     fig = go.Figure()
+    hover_fmt = "$%{y:,.2f}" if use_avg_ts else "$%{y:,.0f}"
     fig.add_trace(go.Scatter(
         x=weekly_pd["period"], y=weekly_pd["Expected"],
         name="Expected", line=dict(color="#3498db", width=2),
+        customdata=weekly_pd["shipments"],
+        hovertemplate=f"Expected: {hover_fmt}<br>Shipments: %{{customdata:,}}<extra></extra>",
     ))
     fig.add_trace(go.Scatter(
         x=weekly_pd["period"], y=weekly_pd["Actual"],
         name="Actual", line=dict(color="#e74c3c", width=2),
+        customdata=weekly_pd["shipments"],
+        hovertemplate=f"Actual: {hover_fmt}<br>Shipments: %{{customdata:,}}<extra></extra>",
     ))
     fig.update_layout(
         title=f"{time_grain} Cost by {date_label}",
@@ -297,11 +302,13 @@ with left:
     fig2 = go.Figure()
     fig2.add_trace(go.Bar(x=component_labels, y=exp_values, name="Expected", marker_color="#3498db"))
     fig2.add_trace(go.Bar(x=component_labels, y=act_values, name="Actual", marker_color="#e74c3c"))
+    max_val = max(exp_values + act_values) if (exp_values or act_values) else 0
     fig2.update_layout(
         barmode="group",
         title="Cost Components: Expected vs Actual",
         yaxis_title="Avg Cost ($)" if use_avg else "Total Cost ($)",
         yaxis_tickprefix="$", yaxis_tickformat=",.2f" if use_avg else ",.0f",
+        yaxis=dict(range=[0, max_val * 1.1] if max_val else None),
     )
     apply_chart_layout(fig2)
     st.plotly_chart(fig2, use_container_width=True)

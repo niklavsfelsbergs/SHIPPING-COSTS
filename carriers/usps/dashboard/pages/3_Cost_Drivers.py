@@ -65,19 +65,26 @@ if surcharge_stats:
     with left:
         st.markdown("**Surcharge Trigger Rate**")
         stats_df = pl.DataFrame(surcharge_stats).sort("% of Shipments", descending=False)
+        x_vals = stats_df["% of Shipments"].to_list()
+        triggered_vals = stats_df["Triggered"].to_list()
+        max_val = max(x_vals) if x_vals else 0
         fig1 = go.Figure(go.Bar(
-            x=stats_df["% of Shipments"].to_list(),
+            x=x_vals,
             y=stats_df["Surcharge"].to_list(),
             orientation="h",
             marker_color="#3498db",
-            text=[f"{v:.1f}%" for v in stats_df["% of Shipments"].to_list()],
+            text=[f"{v:.1f}%" for v in x_vals],
             textposition="outside",
+            cliponaxis=False,
+            customdata=triggered_vals,
+            hovertemplate="%{y}: %{x:.1f}%<br>Triggered: %{customdata:,} / " + f"{total_shipments:,}<extra></extra>",
         ))
         fig1.update_layout(
             title="% of Shipments Triggering Each Surcharge",
             xaxis_title="% of Shipments",
             yaxis_title="Surcharge",
             height=300,
+            xaxis=dict(range=[0, max_val * 1.25] if max_val else None),
         )
         apply_chart_layout(fig1)
         st.plotly_chart(fig1, use_container_width=True)
@@ -85,13 +92,19 @@ if surcharge_stats:
     with right:
         st.markdown("**Surcharge Cost Impact**")
         stats_df = pl.DataFrame(surcharge_stats).sort("Total Cost", descending=False)
+        x_vals = stats_df["Total Cost"].to_list()
+        triggered_vals = stats_df["Triggered"].to_list()
+        max_val = max(x_vals) if x_vals else 0
         fig2 = go.Figure(go.Bar(
-            x=stats_df["Total Cost"].to_list(),
+            x=x_vals,
             y=stats_df["Surcharge"].to_list(),
             orientation="h",
             marker_color="#e74c3c",
-            text=[format_currency(v) for v in stats_df["Total Cost"].to_list()],
+            text=[format_currency(v) for v in x_vals],
             textposition="outside",
+            cliponaxis=False,
+            customdata=triggered_vals,
+            hovertemplate="%{y}: %{x:$,.2f}<br>Shipments: %{customdata:,}<extra></extra>",
         ))
         fig2.update_layout(
             title="Total Cost by Surcharge Type",
@@ -99,6 +112,7 @@ if surcharge_stats:
             yaxis_title="Surcharge",
             xaxis_tickprefix="$",
             height=300,
+            xaxis=dict(range=[0, max_val * 1.3] if max_val else None),
         )
         apply_chart_layout(fig2)
         st.plotly_chart(fig2, use_container_width=True)
@@ -152,6 +166,8 @@ if surcharge_stats:
                     y=rate,
                     name=surcharge,
                     line=dict(color=colors.get(surcharge, "#333"), width=2),
+                    customdata=np.column_stack([trend_pd[surcharge], trend_pd["total"]]),
+                    hovertemplate=f"{surcharge}: %{{y:.1f}}%<br>Triggered: %{{customdata[0]:,}} / %{{customdata[1]:,}}<extra></extra>",
                 ))
             fig_trend.update_layout(
                 title=f"Surcharge Trigger Rate Over Time ({time_grain})",
@@ -281,13 +297,16 @@ with left:
     )
     if len(state_counts) > 0:
         sc_pd = state_counts.to_pandas()
+        x_vals = sc_pd["count"].tolist()
+        max_val = max(x_vals) if x_vals else 0
         fig_state = go.Figure(go.Bar(
             y=sc_pd["shipping_region"],
-            x=sc_pd["count"],
+            x=x_vals,
             orientation="h",
             marker_color="#3498db",
-            text=[f"{v:,}" for v in sc_pd["count"]],
+            text=[f"{v:,}" for v in x_vals],
             textposition="outside",
+            cliponaxis=False,
         ))
         fig_state.update_layout(
             title="Shipments by State",
@@ -295,6 +314,7 @@ with left:
             yaxis_title="State",
             yaxis=dict(autorange="reversed"),
             height=600,
+            xaxis=dict(range=[0, max_val * 1.2] if max_val else None),
         )
         apply_chart_layout(fig_state)
         st.plotly_chart(fig_state, use_container_width=True)
@@ -318,12 +338,16 @@ with right:
             y=zc_pd["avg_expected"],
             name="Expected",
             marker_color="#3498db",
+            customdata=zc_pd["count"],
+            hovertemplate="Zone %{x}<br>Expected: $%{y:.2f}<br>Shipments: %{customdata:,}<extra></extra>",
         ))
         fig_zone.add_trace(go.Bar(
             x=zc_pd["shipping_zone"].astype(str),
             y=zc_pd["avg_actual"],
             name="Actual",
             marker_color="#e74c3c",
+            customdata=zc_pd["count"],
+            hovertemplate="Zone %{x}<br>Actual: $%{y:.2f}<br>Shipments: %{customdata:,}<extra></extra>",
         ))
         fig_zone.update_layout(
             barmode="group",
@@ -352,12 +376,15 @@ if len(sites) > 0:
             if len(zone_dist) > 0:
                 zd_pd = zone_dist.to_pandas()
                 total = zd_pd["count"].sum()
+                y_vals = (zd_pd["count"] / total * 100).tolist()
+                max_val = max(y_vals) if y_vals else 0
                 fig_site = go.Figure(go.Bar(
                     x=zd_pd["shipping_zone"].astype(str),
-                    y=zd_pd["count"] / total * 100,
+                    y=y_vals,
                     marker_color="#27ae60",
-                    text=[f"{v:.1f}%" for v in zd_pd["count"] / total * 100],
+                    text=[f"{v:.1f}%" for v in y_vals],
                     textposition="outside",
+                    cliponaxis=False,
                 ))
                 fig_site.update_layout(
                     title=f"{site}",
@@ -365,6 +392,7 @@ if len(sites) > 0:
                     yaxis_title="% of Shipments",
                     yaxis_ticksuffix="%",
                     height=350,
+                    yaxis=dict(range=[0, max_val * 1.15] if max_val else None),
                 )
                 apply_chart_layout(fig_site)
                 st.plotly_chart(fig_site, use_container_width=True)
@@ -430,17 +458,23 @@ weight_by_zone = (
 )
 if len(weight_by_zone) > 0:
     wz_pd = weight_by_zone.to_pandas()
+    y_vals = wz_pd["avg_weight"].tolist()
+    max_val = max(y_vals) if y_vals else 0
     fig_wz = go.Figure(go.Bar(
         x=wz_pd["shipping_zone"].astype(str),
-        y=wz_pd["avg_weight"],
+        y=y_vals,
         marker_color="#f39c12",
-        text=[f"{v:.2f}" for v in wz_pd["avg_weight"]],
+        text=[f"{v:.2f}" for v in y_vals],
         textposition="outside",
+        cliponaxis=False,
+        customdata=wz_pd["count"],
+        hovertemplate="Zone %{x}<br>Avg Weight: %{y:.2f} lbs<br>Shipments: %{customdata:,}<extra></extra>",
     ))
     fig_wz.update_layout(
         title="Average Billable Weight by Zone",
         xaxis_title="Zone",
         yaxis_title="Avg Weight (lbs)",
+        yaxis=dict(range=[0, max_val * 1.15] if max_val else None),
     )
     apply_chart_layout(fig_wz)
     st.plotly_chart(fig_wz, use_container_width=True)
