@@ -371,7 +371,10 @@ with left:
         if label == "TOTAL":
             continue
         component_labels.append(label)
-        exp_values.append(_metric_value(df[exp_col].sum(), order_count))
+        if exp_col and exp_col in df.columns:
+            exp_values.append(_metric_value(df[exp_col].sum(), order_count))
+        else:
+            exp_values.append(0.0)
         if act_col and act_col in df.columns:
             act_values.append(_metric_value(df[act_col].sum(), order_count))
         else:
@@ -397,7 +400,10 @@ with right:
     rows = []
     var_label = "Variance ($/Shipment)" if use_avg else "Variance ($)"
     for exp_col, act_col, label in COST_POSITIONS:
-        exp = df[exp_col].sum()
+        if exp_col and exp_col in df.columns:
+            exp = df[exp_col].sum()
+        else:
+            exp = 0.0
         if act_col and act_col in df.columns:
             act = df[act_col].sum()
         else:
@@ -436,24 +442,11 @@ if "has_adjustment" in df.columns:
     adj_variance = float((adj_df["actual_total"] - adj_df["cost_total"]).sum()) if adj_count > 0 else 0
     no_adj_variance = float((no_adj_df["actual_total"] - no_adj_df["cost_total"]).sum()) if len(no_adj_df) > 0 else 0
 
-    # Get adjustment amounts if column exists
-    has_amount_col = "adjustment_amount" in df.columns
-    if has_amount_col and adj_count > 0:
-        total_adj_amount = float(adj_df["adjustment_amount"].sum())
-        avg_adj_amount = float(adj_df["adjustment_amount"].mean())
-    else:
-        total_adj_amount = 0
-        avg_adj_amount = 0
-
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Shipments with Adjustments", f"{adj_count:,}")
     c2.metric("% with Adjustments", f"{adj_pct:.1f}%")
-    c3.metric("Total Adjustment Amount", format_currency(total_adj_amount))
-    c4.metric("Avg Adjustment Amount", format_currency(avg_adj_amount))
-
-    c5, c6 = st.columns(2)
-    c5.metric("Variance (Adjusted Shipments)", format_currency(adj_variance))
-    c6.metric("Variance (Non-Adjusted)", format_currency(no_adj_variance))
+    c3.metric("Variance (Adjusted)", format_currency(adj_variance))
+    c4.metric("Variance (Non-Adjusted)", format_currency(no_adj_variance))
 else:
     st.info("No adjustment data available.")
 

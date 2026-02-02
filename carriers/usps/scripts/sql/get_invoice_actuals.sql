@@ -10,7 +10,9 @@ SELECT
     manifest_length::FLOAT as actual_length_in,
     manifest_width::FLOAT as actual_width_in,
     manifest_height::FLOAT as actual_height_in,
-    base_postage::FLOAT as actual_base,
+    -- actual_base absorbs the variance so components sum to actual_total
+    -- Formula: actual_base + actual_nsl1 + actual_nsl2 = actual_total
+    (COALESCE(base_postage, 0) - COALESCE(ca_postage_variance, 0))::FLOAT as actual_base,
     COALESCE(op_nonstandard_fee_len_threshold_1, 0)::FLOAT as actual_nsl1,
     COALESCE(op_nonstandard_fee_len_threshold_2, 0)::FLOAT as actual_nsl2,
     COALESCE(ca_noncompliance_fee, 0)::FLOAT as actual_noncompliance,
@@ -20,3 +22,5 @@ SELECT
     COALESCE(ca_postage_variance, 0)::FLOAT as adjustment_amount
 FROM poc_staging.usps
 WHERE REPLACE(pic, '''', '') IN ({tracking_numbers})
+  AND transaction_type = 'PURCHASE'
+  AND base_postage IS NOT NULL  -- Exclude records without manifest data

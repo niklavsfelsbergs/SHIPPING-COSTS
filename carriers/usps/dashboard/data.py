@@ -26,21 +26,23 @@ UNMATCHED_EXPECTED_PATH = DATA_DIR / "unmatched_expected.parquet"
 UNMATCHED_ACTUAL_PATH = DATA_DIR / "unmatched_actual.parquet"
 
 # Cost positions: (expected_col, actual_col, label)
-# Note: USPS actual_base includes peak, so we compare (cost_base + cost_peak) vs actual_base
+# Note: USPS actual_base absorbs variance (including noncompliance), so:
+#   actual_base + actual_nsl1 + actual_nsl2 = actual_total
+# NSV is excluded because actual_noncompliance is already in the variance absorbed by actual_base
 COST_POSITIONS = [
-    ("cost_base_with_peak", "actual_base", "Base"),  # Combined for comparison
+    ("cost_base_with_peak", "actual_base", "Base"),  # Includes peak (expected) and variance (actual)
     ("cost_nsl1", "actual_nsl1", "NSL1"),
     ("cost_nsl2", "actual_nsl2", "NSL2"),
-    ("cost_nsv", "actual_noncompliance", "NSV"),  # NSV maps to noncompliance
     ("cost_total", "actual_total", "TOTAL"),
 ]
 
 # Raw cost positions (for internal use where we need original columns)
+# Note: NSV excluded from actuals - it's absorbed into actual_base via variance
 COST_POSITIONS_RAW = [
     ("cost_base", "actual_base", "Base (raw)"),
     ("cost_nsl1", "actual_nsl1", "NSL1"),
     ("cost_nsl2", "actual_nsl2", "NSL2"),
-    ("cost_nsv", "actual_noncompliance", "NSV"),
+    ("cost_nsv", None, "NSV"),  # No actual equivalent - absorbed in variance
     ("cost_peak", None, "Peak"),
     ("cost_total", "actual_total", "TOTAL"),
 ]
@@ -333,10 +335,11 @@ def get_filtered_df(
         # First, subtract excluded amounts from totals
         for label in excluded_pos:
             exp_col, act_col = COST_POSITION_MAP[label]
-            df = df.with_columns(
-                (pl.col("cost_total") - pl.col(exp_col).fill_null(0)).alias("cost_total"),
-            )
-            if act_col:
+            if exp_col and exp_col in df.columns:
+                df = df.with_columns(
+                    (pl.col("cost_total") - pl.col(exp_col).fill_null(0)).alias("cost_total"),
+                )
+            if act_col and act_col in df.columns:
                 df = df.with_columns(
                     (pl.col("actual_total") - pl.col(act_col).fill_null(0)).alias("actual_total"),
                 )
@@ -345,10 +348,12 @@ def get_filtered_df(
         zero_exprs = []
         for label in excluded_pos:
             exp_col, act_col = COST_POSITION_MAP[label]
-            zero_exprs.append(pl.lit(0.0).alias(exp_col))
-            if act_col:
+            if exp_col and exp_col in df.columns:
+                zero_exprs.append(pl.lit(0.0).alias(exp_col))
+            if act_col and act_col in df.columns:
                 zero_exprs.append(pl.lit(0.0).alias(act_col))
-        df = df.with_columns(zero_exprs)
+        if zero_exprs:
+            df = df.with_columns(zero_exprs)
 
         # Recompute deviation from adjusted totals
         df = df.with_columns(
