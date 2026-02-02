@@ -375,12 +375,18 @@ with right:
 
     rows = []
     var_label = "Variance ($/Shipment)" if use_avg else "Variance ($)"
+    total_exp = 0.0
+    total_act = 0.0
     for exp_col, act_col, label in COST_POSITIONS:
+        if label == "TOTAL":
+            continue  # We'll add TOTAL row at the end as sum of components
         # Skip if columns don't exist in data (e.g., cost_unpredictable before re-export)
         if exp_col not in df_shipments.columns or act_col not in df_shipments.columns:
             continue
-        exp = df_shipments[exp_col].sum()
-        act = df_shipments[act_col].sum()
+        exp = df_shipments[exp_col].fill_null(0).sum()
+        act = df_shipments[act_col].fill_null(0).sum()
+        total_exp += exp
+        total_act += act
         var_d = act - exp
         var_p = (var_d / exp * 100) if exp else 0
         rows.append({
@@ -390,6 +396,16 @@ with right:
             var_label: format_currency(_metric_value(var_d, order_count)),
             "Variance (%)": format_pct(var_p),
         })
+    # Add TOTAL row as sum of components
+    total_var_d = total_act - total_exp
+    total_var_p = (total_var_d / total_exp * 100) if total_exp else 0
+    rows.append({
+        "Position": "TOTAL",
+        "Expected": format_currency(_metric_value(total_exp, order_count)),
+        "Actual": format_currency(_metric_value(total_act, order_count)),
+        var_label: format_currency(_metric_value(total_var_d, order_count)),
+        "Variance (%)": format_pct(total_var_p),
+    })
 
     st.dataframe(
         pl.DataFrame(rows),

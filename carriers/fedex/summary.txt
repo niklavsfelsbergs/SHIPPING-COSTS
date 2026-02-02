@@ -1,0 +1,99 @@
+================================================================================
+FEDEX RATE INCREASE ANALYSIS - JANUARY 2026
+================================================================================
+
+CONFIRMED: FedEx implemented a systematic base rate increase
+            effective January 1, 2026
+
+================================================================================
+KEY FINDINGS
+================================================================================
+
+RATE CARD CHANGES:
+  - 138 of 140 rate cards increased (98.6%)
+  - 100% of changes were increases (zero decreases)
+  - Average increase: 5.93%
+  - Range: 4.49% to 6.71%
+  - Average dollar increase: $1.66
+
+ACTUAL SHIPMENT IMPACT:
+  - December 2025: 50,272 shipments @ $24.72 avg base
+  - January 2026:   1,646 shipments @ $30.37 avg base
+  - Change: +22.83% average, +35.83% median
+
+WHY THIS IS A RATE INCREASE (NOT NATURAL VARIATION):
+  1. FedEx uses deterministic pricing (no natural variation)
+  2. Standard deviation within rate cards = $0.00 in Dec 2025
+  3. 98.6% of rate cards changed (too systematic to be random)
+  4. 100% of changes were increases (no decreases)
+  5. Tight clustering around 5.9% (deliberate percentage increase)
+  6. Effective date: exactly January 1, 2026
+
+================================================================================
+BREAKDOWN BY DIMENSION
+================================================================================
+
+BY SERVICE:
+  Home Delivery:  5.94% avg increase (128 rate cards)
+  Ground Economy: 5.74% avg increase (10 rate cards)
+
+BY ZONE (distance):
+  Zones 02-06:  5.83-5.94% avg increase ($1.12-$1.46)
+  Zones 07-09:  5.95-6.42% avg increase ($1.85-$6.99)
+  Zones 17:     6.56% avg increase ($10.20)
+
+  Pattern: Higher zones (farther) = larger $ increases
+
+BY WEIGHT:
+  0-5 lbs:    5.68% avg increase ($1.06)
+  5-10 lbs:   5.66% avg increase ($1.11)
+  10-20 lbs:  6.46% avg increase ($1.50) ← HIGHEST %
+  20-50 lbs:  5.73% avg increase ($2.80)
+  50+ lbs:    6.05% avg increase ($4.35)
+
+  Pattern: Heavier = larger $ increases
+           10-20 lbs saw highest % increases
+
+================================================================================
+EXAMPLES
+================================================================================
+
+LARGEST % INCREASES:
+  Home Delivery Zone 07, 12 lbs:  $25.65 → $27.37 (+6.71%)
+  Home Delivery Zone 09, 40 lbs:  $192.09 → $204.96 (+6.70%, +$12.87)
+  Home Delivery Zone 17, 40 lbs:  $192.09 → $204.96 (+6.70%, +$12.87)
+
+SMALLEST % INCREASES:
+  Home Delivery Zone 04, 1 lb:  $12.69 → $13.26 (+4.49%)
+  Home Delivery Zone 03, 1 lb:  $11.65 → $12.21 (+4.81%)
+
+TYPICAL INCREASE:
+  Home Delivery Zone 05, 8 lbs:  $18.71 → $19.74 (+5.51%, +$1.03)
+
+================================================================================
+BUSINESS IMPLICATIONS
+================================================================================
+
+IMMEDIATE:
+  - Budget ~6% increase in FedEx base rates
+  - Actual impact may be higher due to shipment mix
+  - Review contracts/pricing with customers
+
+LONG-TERM:
+  - Expect similar annual increases (Jan 1 each year)
+  - Consider alternative carriers if needed
+  - Track ongoing rate changes for forecasting
+
+================================================================================
+
+Full analysis report: RATE_INCREASE_ANALYSIS.md
+Analysis scripts:
+  - analyze_rate_increase.py (initial analysis)
+  - analyze_rate_variation.py (variation testing)
+  - investigate_base_rates.py (pricing structure)
+  - final_rate_increase_report.py (comprehensive report)
+
+Data: carriers/fedex/dashboard/data/comparison.parquet
+Date: February 2, 2026
+
+================================================================================
