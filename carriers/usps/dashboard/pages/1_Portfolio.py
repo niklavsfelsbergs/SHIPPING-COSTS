@@ -436,28 +436,24 @@ if "has_adjustment" in df.columns:
     adj_variance = float((adj_df["actual_total"] - adj_df["cost_total"]).sum()) if adj_count > 0 else 0
     no_adj_variance = float((no_adj_df["actual_total"] - no_adj_df["cost_total"]).sum()) if len(no_adj_df) > 0 else 0
 
+    # Get adjustment amounts if column exists
+    has_amount_col = "adjustment_amount" in df.columns
+    if has_amount_col and adj_count > 0:
+        total_adj_amount = float(adj_df["adjustment_amount"].sum())
+        avg_adj_amount = float(adj_df["adjustment_amount"].mean())
+    else:
+        total_adj_amount = 0
+        avg_adj_amount = 0
+
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Shipments with Adjustments", f"{adj_count:,}")
     c2.metric("% with Adjustments", f"{adj_pct:.1f}%")
-    c3.metric("Variance (Adjusted)", format_currency(adj_variance))
-    c4.metric("Variance (Non-Adjusted)", format_currency(no_adj_variance))
+    c3.metric("Total Adjustment Amount", format_currency(total_adj_amount))
+    c4.metric("Avg Adjustment Amount", format_currency(avg_adj_amount))
 
-    # Breakdown by adjustment reason if available
-    if "adjustment_reason" in df.columns and adj_count > 0:
-        reason_stats = (
-            adj_df.group_by("adjustment_reason")
-            .agg([
-                pl.len().alias("Count"),
-                (pl.col("actual_total") - pl.col("cost_total")).sum().alias("Variance"),
-            ])
-            .sort("Count", descending=True)
-        )
-        if len(reason_stats) > 0:
-            with st.expander("Adjustment Breakdown by Reason"):
-                reason_display = reason_stats.with_columns(
-                    pl.col("Variance").map_elements(format_currency, return_dtype=pl.Utf8)
-                )
-                st.dataframe(reason_display, use_container_width=True, hide_index=True)
+    c5, c6 = st.columns(2)
+    c5.metric("Variance (Adjusted Shipments)", format_currency(adj_variance))
+    c6.metric("Variance (Non-Adjusted)", format_currency(no_adj_variance))
 else:
     st.info("No adjustment data available.")
 

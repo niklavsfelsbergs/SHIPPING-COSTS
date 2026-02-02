@@ -61,6 +61,7 @@ UPLOAD_COLUMNS = [
     "actual_total",
     "has_adjustment",
     "adjustment_reason",
+    "adjustment_amount",
     "dw_timestamp",
 ]
 
@@ -213,6 +214,7 @@ def get_invoice_data_batched(tracking_numbers: list[str], batch_size: int = 5000
         "actual_total": pl.Float64,
         "has_adjustment": pl.Boolean,
         "adjustment_reason": pl.Utf8,
+        "adjustment_amount": pl.Float64,
     }
 
     for i in range(0, total, batch_size):

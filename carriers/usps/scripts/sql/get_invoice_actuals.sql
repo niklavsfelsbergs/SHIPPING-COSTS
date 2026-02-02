@@ -16,6 +16,7 @@ SELECT
     COALESCE(ca_noncompliance_fee, 0)::FLOAT as actual_noncompliance,
     final_postage_usd::FLOAT as actual_total,
     ca_has_adjustment as has_adjustment,
-    ca_reason::TEXT as adjustment_reason
+    ca_reason::TEXT as adjustment_reason,
+    COALESCE(ca_postage_variance, 0)::FLOAT as adjustment_amount
 FROM poc_staging.usps
 WHERE REPLACE(pic, '''', '') IN ({tracking_numbers})

@@ -23,9 +23,10 @@ CREATE TABLE IF NOT EXISTS shipping_costs.actual_shipping_costs_usps (
     actual_noncompliance    DECIMAL(10,2),
     actual_total            DECIMAL(10,2),
 
-    -- Adjustment info (2)
+    -- Adjustment info (3)
     has_adjustment          BOOLEAN,
     adjustment_reason       VARCHAR(500),
+    adjustment_amount       DECIMAL(10,2),
 
     -- Metadata (1)
     dw_timestamp            TIMESTAMP DEFAULT GETDATE()

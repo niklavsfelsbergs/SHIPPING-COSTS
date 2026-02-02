@@ -186,14 +186,7 @@ tab_pkg, tab_err, tab_zone, tab_weight, tab_site = st.tabs([
     "By Package Type", "By Error Source", "By Zone", "By Weight Bracket", "By Production Site"
 ])
 
-segment_mode = st.radio(
-    "Segment metric",
-    ["Total", "Average per shipment"],
-    key="accuracy_segment_mode",
-    horizontal=True,
-    index=0 if metric_mode == "Total" else 1,
-)
-use_avg_seg = segment_mode.startswith("Average")
+use_avg_seg = metric_mode.startswith("Average")
 
 def _stats_table(grouped_stats: list[dict], segment_label: str) -> None:
     exp_label = "Expected (Avg)" if use_avg_seg else "Expected"

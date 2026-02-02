@@ -326,25 +326,33 @@ def get_filtered_df(
             (pl.col(exp_col).fill_null(0) <= 0) & (pl.col(act_col).fill_null(0) <= 0)
         )
 
-    # Cost positions: unchecked = zero out on both sides.
+    # Cost positions: unchecked = subtract from totals, then zero out columns.
+    # We subtract instead of recalculating to preserve any unknown charges in actual_total.
     excluded_pos = set(ALL_POSITION_LABELS) - set(positions)
     if excluded_pos:
+        # First, subtract excluded amounts from totals
+        for label in excluded_pos:
+            exp_col, act_col = COST_POSITION_MAP[label]
+            df = df.with_columns(
+                (pl.col("cost_total") - pl.col(exp_col).fill_null(0)).alias("cost_total"),
+            )
+            if act_col:
+                df = df.with_columns(
+                    (pl.col("actual_total") - pl.col(act_col).fill_null(0)).alias("actual_total"),
+                )
+
+        # Then zero out the excluded columns
         zero_exprs = []
         for label in excluded_pos:
             exp_col, act_col = COST_POSITION_MAP[label]
             zero_exprs.append(pl.lit(0.0).alias(exp_col))
             if act_col:
                 zero_exprs.append(pl.lit(0.0).alias(act_col))
-
         df = df.with_columns(zero_exprs)
-        # Recompute totals from remaining positions
-        exp_cols = [exp for exp, _, lbl in COST_POSITIONS if lbl != "TOTAL"]
-        act_cols = [act for _, act, lbl in COST_POSITIONS if lbl != "TOTAL" and act]
+
+        # Recompute deviation from adjusted totals
         df = df.with_columns(
-            pl.sum_horizontal(*[pl.col(c) for c in exp_cols]).alias("cost_total"),
-            pl.sum_horizontal(*[pl.col(c) for c in act_cols]).alias("actual_total"),
-            (pl.sum_horizontal(*[pl.col(c) for c in act_cols])
-             - pl.sum_horizontal(*[pl.col(c) for c in exp_cols])).alias("deviation"),
+            (pl.col("actual_total") - pl.col("cost_total")).alias("deviation"),
         )
         df = df.with_columns(
             pl.when(pl.col("cost_total") != 0)

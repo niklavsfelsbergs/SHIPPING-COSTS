@@ -375,6 +375,9 @@ def get_filtered_df(
     actual_charges: tuple[str, ...] = (),
     charges: tuple[str, ...] = (),
     positions: tuple[str, ...] = (),
+    weight_min: float | None = None,
+    weight_max: float | None = None,
+    weight_type: str = "Expected",
     grain: str = "line",
 ) -> pl.DataFrame:
     """
@@ -395,6 +398,14 @@ def get_filtered_df(
         df = df.filter(pl.col("production_site").is_in(list(sites)))
     if services:
         df = df.filter(pl.col("service_type").is_in(list(services)))
+
+    # Weight filter - use correct column based on type
+    weight_col = "billable_weight_lbs" if weight_type == "Expected" else "actual_rated_weight_lbs"
+    if weight_min is not None and weight_col in df.columns:
+        df = df.filter(pl.col(weight_col) >= weight_min)
+    if weight_max is not None and weight_col in df.columns:
+        df = df.filter(pl.col(weight_col) <= weight_max)
+
     if invoices:
         if "invoice_numbers" in df.columns:
             invoice_list = list(invoices)
@@ -430,21 +441,30 @@ def get_filtered_df(
     # Cost positions: unchecked = zero out on both sides.
     excluded_pos = set(ALL_POSITION_LABELS) - set(positions)
     if excluded_pos:
+        # Calculate adjustment amounts before zeroing
+        exp_adjustments = []
+        act_adjustments = []
         zero_exprs = []
+
         for label in excluded_pos:
             exp_col, act_col = COST_POSITION_MAP[label]
+            exp_adjustments.append(pl.col(exp_col).fill_null(0))
+            act_adjustments.append(pl.col(act_col).fill_null(0))
             zero_exprs.append(pl.lit(0.0).alias(exp_col))
             zero_exprs.append(pl.lit(0.0).alias(act_col))
 
+        # Subtract zeroed amounts from original totals (preserves precision)
+        df = df.with_columns([
+            (pl.col("cost_total") - pl.sum_horizontal(*exp_adjustments)).alias("cost_total"),
+            (pl.col("actual_net_charge") - pl.sum_horizontal(*act_adjustments)).alias("actual_net_charge"),
+        ])
+
+        # Now zero out the component columns
         df = df.with_columns(zero_exprs)
-        # Recompute totals from remaining positions
-        exp_cols = [exp for exp, _, lbl in COST_POSITIONS if lbl != "TOTAL"]
-        act_cols = [act for _, act, lbl in COST_POSITIONS if lbl != "TOTAL"]
+
+        # Recalculate deviation from new totals
         df = df.with_columns(
-            pl.sum_horizontal(*[pl.col(c) for c in exp_cols]).alias("cost_total"),
-            pl.sum_horizontal(*[pl.col(c) for c in act_cols]).alias("actual_net_charge"),
-            (pl.sum_horizontal(*[pl.col(c) for c in act_cols])
-             - pl.sum_horizontal(*[pl.col(c) for c in exp_cols])).alias("deviation"),
+            (pl.col("actual_net_charge") - pl.col("cost_total")).alias("deviation"),
         )
         df = df.with_columns(
             pl.when(pl.col("cost_total") != 0)
@@ -491,6 +511,9 @@ def init_page() -> tuple[pl.DataFrame, dict, pl.DataFrame]:
         actual_charges=st.session_state.get("filter_actual_charges", ()),
         charges=st.session_state.get("filter_charges", tuple(ALL_CHARGE_LABELS)),
         positions=st.session_state.get("filter_positions", tuple(ALL_POSITION_LABELS)),
+        weight_min=st.session_state.get("filter_weight_min"),
+        weight_max=st.session_state.get("filter_weight_max"),
+        weight_type=st.session_state.get("filter_weight_type", "Expected"),
         grain="line",
     )
 
@@ -516,6 +539,9 @@ def get_filtered_shipments() -> pl.DataFrame:
         invoices=st.session_state.get("filter_invoices", ()),
         charges=st.session_state.get("filter_charges", tuple(ALL_CHARGE_LABELS)),
         positions=st.session_state.get("filter_positions", tuple(ALL_POSITION_LABELS)),
+        weight_min=st.session_state.get("filter_weight_min"),
+        weight_max=st.session_state.get("filter_weight_max"),
+        weight_type=st.session_state.get("filter_weight_type", "Expected"),
         grain="shipment",
     )
 
@@ -716,20 +742,78 @@ def _render_sidebar(prepared_df: pl.DataFrame) -> None:
     else:
         st.sidebar.warning("No data loaded.")
 
+    # Weight range filter
+    st.sidebar.caption("Filter by weight")
+
+    # Weight type toggle
+    weight_type_options = ["Expected", "Actual"]
+    if "filter_weight_type" not in st.session_state:
+        st.session_state["filter_weight_type"] = "Expected"
+
+    selected_weight_type = st.sidebar.selectbox(
+        "Weight type",
+        weight_type_options,
+        index=weight_type_options.index(st.session_state["filter_weight_type"]),
+        key="sidebar_weight_type",
+    )
+    st.session_state["filter_weight_type"] = selected_weight_type
+
+    # Determine which column to use
+    weight_col = "billable_weight_lbs" if selected_weight_type == "Expected" else "actual_rated_weight_lbs"
+
+    if weight_col in prepared_df.columns:
+        weight_data = prepared_df[weight_col].drop_nulls()
+        if len(weight_data) > 0:
+            min_weight = float(weight_data.min())
+            max_weight = float(weight_data.max())
+
+            # Initialize or reset weight range when switching types
+            if "filter_weight_min" not in st.session_state or \
+               st.session_state.get("_last_weight_type") != selected_weight_type:
+                st.session_state["filter_weight_min"] = min_weight
+                st.session_state["filter_weight_max"] = max_weight
+                st.session_state["_last_weight_type"] = selected_weight_type
+
+            col1, col2 = st.sidebar.columns(2)
+            with col1:
+                weight_min = st.number_input(
+                    "Min weight (lbs)",
+                    min_value=min_weight,
+                    max_value=max_weight,
+                    value=st.session_state["filter_weight_min"],
+                    step=1.0,
+                    key="sidebar_weight_min",
+                )
+                st.session_state["filter_weight_min"] = weight_min
+
+            with col2:
+                weight_max = st.number_input(
+                    "Max weight (lbs)",
+                    min_value=min_weight,
+                    max_value=max_weight,
+                    value=st.session_state["filter_weight_max"],
+                    step=1.0,
+                    key="sidebar_weight_max",
+                )
+                st.session_state["filter_weight_max"] = weight_max
+
     # Metric mode
     metric_mode_options = ["Total", "Average per shipment"]
     if "filter_metric_mode" not in st.session_state:
         st.session_state["filter_metric_mode"] = "Total"
 
+    def _on_metric_mode_change():
+        st.session_state["filter_metric_mode"] = st.session_state["sidebar_metric_mode"]
+
     metric_mode_idx = metric_mode_options.index(st.session_state["filter_metric_mode"])
-    selected_metric_mode = st.sidebar.radio(
+    st.sidebar.radio(
         "Metric mode",
         metric_mode_options,
         index=metric_mode_idx,
         horizontal=True,
-        key="metric_mode",
+        key="sidebar_metric_mode",
+        on_change=_on_metric_mode_change,
     )
-    st.session_state["filter_metric_mode"] = selected_metric_mode
 
     # Production site
     all_sites = sorted(prepared_df["production_site"].drop_nulls().unique().to_list())

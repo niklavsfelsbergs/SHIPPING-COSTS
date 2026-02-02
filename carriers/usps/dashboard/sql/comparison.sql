@@ -68,7 +68,8 @@ SELECT
 
     -- Adjustment info
     a.has_adjustment,
-    a.adjustment_reason
+    a.adjustment_reason,
+    a.adjustment_amount
 
 FROM shipping_costs.expected_shipping_costs_usps e
 INNER JOIN shipping_costs.actual_shipping_costs_usps a
