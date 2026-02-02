@@ -40,6 +40,7 @@ COST_POSITIONS = [
     ("cost_dem_ahs", "actual_dem_ahs", "DEM-AHS"),
     ("cost_dem_oversize", "actual_dem_oversize", "DEM-Oversize"),
     ("cost_fuel", "actual_fuel", "Fuel"),
+    ("cost_unpredictable", "actual_unpredictable", "Unpredictable"),
     ("cost_total", "actual_net_charge", "TOTAL"),
 ]
 
@@ -71,6 +72,7 @@ CHARGE_TYPES = {
     "DEM-Base": ("cost_dem_base", "actual_dem_base"),
     "DEM-AHS": ("cost_dem_ahs", "actual_dem_ahs"),
     "DEM-Oversize": ("cost_dem_oversize", "actual_dem_oversize"),
+    "Unpredictable": ("cost_unpredictable", "actual_unpredictable"),
 }
 ALL_CHARGE_LABELS = list(CHARGE_TYPES.keys())
 
@@ -215,6 +217,9 @@ def prepare_df(df: pl.DataFrame, grain: str = "line") -> pl.DataFrame:
             pl.col("actual_grace_discount").fill_null(0)
         ).alias("actual_net_base"),
     )
+
+    # Add cost_unpredictable column (always 0 - we can't predict unpredictable charges)
+    df = df.with_columns(pl.lit(0.0).alias("cost_unpredictable"))
 
     # SmartPost anomaly flag (10+ lbs)
     df = df.with_columns(
@@ -371,6 +376,7 @@ def get_filtered_df(
     date_col: str = "ship_date",
     sites: tuple[str, ...] | None = None,
     services: tuple[str, ...] | None = None,
+    zones: tuple[str, ...] | None = None,
     invoices: tuple[str, ...] = (),
     actual_charges: tuple[str, ...] = (),
     charges: tuple[str, ...] = (),
@@ -398,6 +404,8 @@ def get_filtered_df(
         df = df.filter(pl.col("production_site").is_in(list(sites)))
     if services:
         df = df.filter(pl.col("service_type").is_in(list(services)))
+    if zones:
+        df = df.filter(pl.col("shipping_zone").is_in(list(zones)))
 
     # Weight filter - use correct column based on type
     weight_col = "billable_weight_lbs" if weight_type == "Expected" else "actual_rated_weight_lbs"
@@ -422,7 +430,7 @@ def get_filtered_df(
         act_cols = [
             CHARGE_TYPES[label][1]
             for label in actual_charges
-            if label in CHARGE_TYPES
+            if label in CHARGE_TYPES and CHARGE_TYPES[label][1] in df.columns
         ]
         if act_cols:
             df = df.filter(
@@ -434,9 +442,11 @@ def get_filtered_df(
     excluded_charges = set(ALL_CHARGE_LABELS) - set(charges)
     for label in excluded_charges:
         exp_col, act_col = CHARGE_TYPES[label]
-        df = df.filter(
-            (pl.col(exp_col).fill_null(0) <= 0) & (pl.col(act_col).fill_null(0) <= 0)
-        )
+        # Only filter if both columns exist in dataframe
+        if exp_col in df.columns and act_col in df.columns:
+            df = df.filter(
+                (pl.col(exp_col).fill_null(0) <= 0) & (pl.col(act_col).fill_null(0) <= 0)
+            )
 
     # Cost positions: unchecked = zero out on both sides.
     excluded_pos = set(ALL_POSITION_LABELS) - set(positions)
@@ -507,6 +517,7 @@ def init_page() -> tuple[pl.DataFrame, dict, pl.DataFrame]:
         date_col=date_col,
         sites=st.session_state.get("filter_sites"),
         services=st.session_state.get("filter_services"),
+        zones=st.session_state.get("filter_zones"),
         invoices=st.session_state.get("filter_invoices", ()),
         actual_charges=st.session_state.get("filter_actual_charges", ()),
         charges=st.session_state.get("filter_charges", tuple(ALL_CHARGE_LABELS)),
@@ -536,6 +547,7 @@ def get_filtered_shipments() -> pl.DataFrame:
         date_col=date_col,
         sites=st.session_state.get("filter_sites"),
         services=st.session_state.get("filter_services"),
+        zones=st.session_state.get("filter_zones"),
         invoices=st.session_state.get("filter_invoices", ()),
         charges=st.session_state.get("filter_charges", tuple(ALL_CHARGE_LABELS)),
         positions=st.session_state.get("filter_positions", tuple(ALL_POSITION_LABELS)),
@@ -708,6 +720,20 @@ def _render_sidebar(prepared_df: pl.DataFrame) -> None:
         min_date, max_date = None, None
 
     if min_date is not None and max_date is not None:
+        # Reset dates when switching between invoice_date and ship_date
+        last_date_col = st.session_state.get("_last_date_col")
+        if last_date_col != date_col:
+            fixed_from = date(2025, 12, 1)
+            fixed_to = date(2025, 12, 31)
+            default_from = max(min_date, fixed_from)
+            default_to = min(max_date, fixed_to)
+            if default_from > default_to:
+                default_from = min_date
+                default_to = max_date
+            st.session_state["filter_date_from"] = default_from
+            st.session_state["filter_date_to"] = default_to
+            st.session_state["_last_date_col"] = date_col
+
         # Initialize date range in session state if not set
         if "filter_date_from" not in st.session_state or "filter_date_to" not in st.session_state:
             fixed_from = date(2025, 12, 1)
@@ -719,16 +745,18 @@ def _render_sidebar(prepared_df: pl.DataFrame) -> None:
                 default_to = max_date
             st.session_state["filter_date_from"] = default_from
             st.session_state["filter_date_to"] = default_to
+            st.session_state["_last_date_col"] = date_col
 
         # Use session state values (preserves user selection across reruns)
         current_from = st.session_state["filter_date_from"]
         current_to = st.session_state["filter_date_to"]
 
+        # Use wide date range to allow any dates
         date_range = st.sidebar.date_input(
             f"{date_label} Range",
             value=(current_from, current_to),
-            min_value=min_date,
-            max_value=max_date,
+            min_value=date(2020, 1, 1),
+            max_value=date(2030, 12, 31),
             key="sidebar_date_range",
         )
 
@@ -764,22 +792,22 @@ def _render_sidebar(prepared_df: pl.DataFrame) -> None:
     if weight_col in prepared_df.columns:
         weight_data = prepared_df[weight_col].drop_nulls()
         if len(weight_data) > 0:
-            min_weight = float(weight_data.min())
-            max_weight = float(weight_data.max())
+            data_min_weight = float(weight_data.min())
+            data_max_weight = float(weight_data.max())
 
-            # Initialize or reset weight range when switching types
+            # Initialize weight range to data bounds when switching types or first time
             if "filter_weight_min" not in st.session_state or \
                st.session_state.get("_last_weight_type") != selected_weight_type:
-                st.session_state["filter_weight_min"] = min_weight
-                st.session_state["filter_weight_max"] = max_weight
+                st.session_state["filter_weight_min"] = data_min_weight
+                st.session_state["filter_weight_max"] = data_max_weight
                 st.session_state["_last_weight_type"] = selected_weight_type
 
             col1, col2 = st.sidebar.columns(2)
             with col1:
                 weight_min = st.number_input(
                     "Min weight (lbs)",
-                    min_value=min_weight,
-                    max_value=max_weight,
+                    min_value=0.0,
+                    max_value=999.0,
                     value=st.session_state["filter_weight_min"],
                     step=1.0,
                     key="sidebar_weight_min",
@@ -789,8 +817,8 @@ def _render_sidebar(prepared_df: pl.DataFrame) -> None:
             with col2:
                 weight_max = st.number_input(
                     "Max weight (lbs)",
-                    min_value=min_weight,
-                    max_value=max_weight,
+                    min_value=0.0,
+                    max_value=999.0,
                     value=st.session_state["filter_weight_max"],
                     step=1.0,
                     key="sidebar_weight_max",
@@ -828,6 +856,16 @@ def _render_sidebar(prepared_df: pl.DataFrame) -> None:
         "Service Type", all_services, default_checked=True, key_prefix="service"
     )
     st.session_state["filter_services"] = tuple(selected_services)
+
+    # Zone filter
+    if "shipping_zone" in prepared_df.columns:
+        all_zones = sorted(prepared_df["shipping_zone"].drop_nulls().unique().to_list())
+        selected_zones = _checkbox_dropdown(
+            "Shipping Zone", all_zones, default_checked=True, key_prefix="zone"
+        )
+        st.session_state["filter_zones"] = tuple(selected_zones)
+    else:
+        st.session_state["filter_zones"] = ()
 
     # Invoice filter — with search bar and scrollable list
     all_invoices = sorted(

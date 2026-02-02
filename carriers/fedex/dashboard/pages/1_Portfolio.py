@@ -12,6 +12,7 @@ import plotly.graph_objects as go
 from carriers.fedex.dashboard.data import (
     COST_POSITIONS,
     init_page,
+    get_filtered_shipments,
     drilldown_section,
     load_unmatched_expected,
     load_unmatched_actual,
@@ -27,6 +28,7 @@ st.title("Portfolio Overview")
 
 # ---------------------------------------------------------------------------
 prepared_df, match_data, df = init_page()
+df_shipments = get_filtered_shipments()  # Shipment-level for per-shipment metrics
 unmatched_expected = load_unmatched_expected()
 unmatched_actual = load_unmatched_actual()
 
@@ -91,11 +93,23 @@ def _filter_unmatched_actual(df_unmatched: pl.DataFrame) -> pl.DataFrame:
 # ROW 1 — KPI Cards
 # ===========================================================================
 
-total_expected = df["cost_total"].sum()
-total_actual = df["actual_net_charge"].sum()
+# Calculate totals by summing included positions (matches table calculation)
+from carriers.fedex.dashboard.data import COST_POSITION_MAP, ALL_POSITION_LABELS
+included_positions = st.session_state.get("filter_positions", tuple(ALL_POSITION_LABELS))
+
+total_expected = sum(
+    df_shipments[COST_POSITION_MAP[pos][0]].fill_null(0).sum()
+    for pos in included_positions
+    if pos in COST_POSITION_MAP and COST_POSITION_MAP[pos][0] in df_shipments.columns
+)
+total_actual = sum(
+    df_shipments[COST_POSITION_MAP[pos][1]].fill_null(0).sum()
+    for pos in included_positions
+    if pos in COST_POSITION_MAP and COST_POSITION_MAP[pos][1] in df_shipments.columns
+)
 variance_d = total_actual - total_expected
 variance_pct = (variance_d / total_expected * 100) if total_expected else 0
-order_count = len(df)
+order_count = len(df_shipments)  # Shipment-level: one row per shipment
 
 match_rate = 0.0
 match_rate_label = "Match Rate"
@@ -220,7 +234,7 @@ st.subheader("Service Type Comparison")
 st.caption("Comparing Home Delivery vs Ground Economy performance")
 
 service_stats = (
-    df.group_by("service_type")
+    df_shipments.group_by("service_type")
     .agg([
         pl.len().alias("Shipments"),
         pl.col("cost_total").sum().alias("Expected"),
@@ -248,13 +262,13 @@ if len(service_stats) > 0:
 st.markdown("---")
 
 # SmartPost 10+ lb anomaly alert
-smartpost_heavy = df.filter(
+smartpost_heavy = df_shipments.filter(
     (pl.col("service_type") == "Ground Economy") &
     (pl.col("billable_weight_lbs") >= 10)
 )
 if len(smartpost_heavy) > 0:
     sp_count = len(smartpost_heavy)
-    sp_pct = sp_count / len(df) * 100
+    sp_pct = sp_count / len(df_shipments) * 100
     st.info(
         f"⚠️ SmartPost 10+ lb rate anomaly: {sp_count:,} shipments ({sp_pct:.1f}% of total). "
         "These packages may have unpredictable rate increases due to Ground Economy weight limits."
@@ -337,9 +351,12 @@ with left:
     for exp_col, act_col, label in COST_POSITIONS:
         if label == "TOTAL":
             continue
+        # Skip if columns don't exist
+        if exp_col not in df_shipments.columns or act_col not in df_shipments.columns:
+            continue
         component_labels.append(label)
-        exp_values.append(_metric_value(df[exp_col].sum(), order_count))
-        act_values.append(_metric_value(df[act_col].sum(), order_count))
+        exp_values.append(_metric_value(df_shipments[exp_col].fill_null(0).sum(), order_count))
+        act_values.append(_metric_value(df_shipments[act_col].fill_null(0).sum(), order_count))
 
     fig2 = go.Figure()
     fig2.add_trace(go.Bar(x=component_labels, y=exp_values, name="Expected", marker_color="#3498db"))
@@ -359,8 +376,11 @@ with right:
     rows = []
     var_label = "Variance ($/Shipment)" if use_avg else "Variance ($)"
     for exp_col, act_col, label in COST_POSITIONS:
-        exp = df[exp_col].sum()
-        act = df[act_col].sum()
+        # Skip if columns don't exist in data (e.g., cost_unpredictable before re-export)
+        if exp_col not in df_shipments.columns or act_col not in df_shipments.columns:
+            continue
+        exp = df_shipments[exp_col].sum()
+        act = df_shipments[act_col].sum()
         var_d = act - exp
         var_p = (var_d / exp * 100) if exp else 0
         rows.append({
@@ -537,10 +557,10 @@ for tab, col_name, label in zip(
     ["Production Site", "Zone", "Service Type"],
 ):
     with tab:
-        if col_name not in df.columns:
+        if col_name not in df_shipments.columns:
             st.info(f"{label} not available in data.")
             continue
-        table = _driver_table(df, col_name)
+        table = _driver_table(df_shipments, col_name)
         display = table.with_columns([
             pl.col("Expected").map_elements(format_currency, return_dtype=pl.Utf8).alias("Expected"),
             pl.col("Actual").map_elements(format_currency, return_dtype=pl.Utf8).alias("Actual"),
