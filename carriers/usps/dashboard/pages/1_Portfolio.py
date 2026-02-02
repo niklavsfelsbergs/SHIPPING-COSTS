@@ -153,7 +153,10 @@ with st.expander("View unmatched shipments"):
             st.info("Unmatched expected data not found. Re-run export_data to generate.")
         else:
             exp_filtered = unmatched_expected_filtered
-            st.metric("Expected-only shipments", f"{len(exp_filtered):,}")
+            exp_cost_total = float(exp_filtered["cost_total"].sum()) if "cost_total" in exp_filtered.columns and len(exp_filtered) > 0 else 0
+            col1, col2 = st.columns(2)
+            col1.metric("Expected-only shipments", f"{len(exp_filtered):,}")
+            col2.metric("Expected-only cost", format_currency(exp_cost_total))
             exp_cols = [
                 "pcs_orderid", "pcs_ordernumber", "shop_ordernumber",
                 "ship_date", "production_site", "shipping_zip_code",
@@ -182,7 +185,10 @@ with st.expander("View unmatched shipments"):
             st.info("Unmatched actual data not found. Re-run export_data to generate.")
         else:
             act_filtered = unmatched_actual_filtered
-            st.metric("Actual-only shipments", f"{len(act_filtered):,}")
+            act_cost_total = float(act_filtered["actual_total"].sum()) if "actual_total" in act_filtered.columns and len(act_filtered) > 0 else 0
+            col1, col2 = st.columns(2)
+            col1.metric("Actual-only shipments", f"{len(act_filtered):,}")
+            col2.metric("Actual-only cost", format_currency(act_cost_total))
             act_cols = [
                 "pcs_orderid", "actual_trackingnumber",
                 "billing_date", "actual_zone", "actual_billed_weight_lbs",
@@ -237,9 +243,12 @@ weekly = (
 
 if len(weekly) > 0:
     weekly_pd = weekly.to_pandas()
+    weekly_pd["Variance"] = weekly_pd["Actual"] - weekly_pd["Expected"]
+    weekly_pd["Variance_pct"] = (weekly_pd["Variance"] / weekly_pd["Expected"] * 100).fillna(0)
     if use_avg_ts:
         weekly_pd["Expected"] = weekly_pd["Expected"] / weekly_pd["shipments"]
         weekly_pd["Actual"] = weekly_pd["Actual"] / weekly_pd["shipments"]
+        weekly_pd["Variance"] = weekly_pd["Variance"] / weekly_pd["shipments"]
 
     fig = go.Figure()
     hover_fmt = "$%{y:,.2f}" if use_avg_ts else "$%{y:,.0f}"
@@ -264,8 +273,77 @@ if len(weekly) > 0:
     )
     apply_chart_layout(fig)
     st.plotly_chart(fig, use_container_width=True)
+
+    # Variance over time chart
+    st.markdown("**Variance Over Time**")
+    fig_var = go.Figure()
+    fig_var.add_trace(go.Scatter(
+        x=weekly_pd["period"], y=weekly_pd["Variance"],
+        name="Variance ($)", line=dict(color="#9b59b6", width=2),
+        customdata=weekly_pd[["Variance_pct", "shipments"]].values,
+        hovertemplate="Variance: $%{y:,.2f}<br>Variance %%: %{customdata[0]:.2f}%%<br>Shipments: %{customdata[1]:,}<extra></extra>",
+    ))
+    fig_var.add_hline(y=0, line_dash="dash", line_color="#666", line_width=1)
+    fig_var.update_layout(
+        title=f"{time_grain} Variance (Actual - Expected) by {date_label}",
+        yaxis_title="Avg Variance ($)" if use_avg_ts else "Total Variance ($)",
+        yaxis_tickprefix="$", yaxis_tickformat=",.2f" if use_avg_ts else ",.0f",
+        hovermode="x unified",
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0),
+    )
+    apply_chart_layout(fig_var)
+    st.plotly_chart(fig_var, use_container_width=True)
 else:
     st.info("Not enough data for time series chart.")
+
+st.markdown("---")
+
+
+# ===========================================================================
+# ROW 2.5 - Top Variance Shipments
+# ===========================================================================
+
+st.subheader("Top Variance Shipments")
+st.caption("Shipments with the largest absolute variance between expected and actual cost.")
+
+top_n = st.number_input(
+    "Number of shipments to show",
+    min_value=5,
+    max_value=100,
+    value=10,
+    step=5,
+    key="top_variance_n",
+)
+
+top_variance_df = (
+    df.with_columns(
+        (pl.col("actual_total") - pl.col("cost_total")).abs().alias("abs_variance")
+    )
+    .sort("abs_variance", descending=True)
+    .head(int(top_n))
+)
+
+with st.expander(f"View Top {int(top_n)} Variance Shipments"):
+    top_var_cols = [
+        "pcs_orderid", "pcs_ordernumber", "ship_date", "billing_date",
+        "production_site", "packagetype", "shipping_zone", "actual_zone",
+        "billable_weight_lbs", "actual_billed_weight_lbs",
+        "cost_total", "actual_total", "deviation",
+    ]
+    top_var_available = [c for c in top_var_cols if c in top_variance_df.columns]
+    st.dataframe(
+        top_variance_df.select(top_var_available),
+        use_container_width=True,
+        hide_index=True,
+    )
+    top_var_csv = top_variance_df.select(top_var_available).to_pandas().to_csv(index=False)
+    st.download_button(
+        "Download Top Variance CSV",
+        top_var_csv,
+        file_name="top_variance_shipments.csv",
+        mime="text/csv",
+        key="dl_top_variance",
+    )
 
 st.markdown("---")
 
@@ -339,6 +417,49 @@ with right:
         use_container_width=True,
         hide_index=True,
     )
+
+st.markdown("---")
+
+
+# ===========================================================================
+# ROW 3.5 - Adjustment Impact
+# ===========================================================================
+
+st.subheader("Adjustment Impact")
+
+if "has_adjustment" in df.columns:
+    adj_df = df.filter(pl.col("has_adjustment") == True)
+    no_adj_df = df.filter((pl.col("has_adjustment") == False) | pl.col("has_adjustment").is_null())
+
+    adj_count = len(adj_df)
+    adj_pct = adj_count / len(df) * 100 if len(df) > 0 else 0
+    adj_variance = float((adj_df["actual_total"] - adj_df["cost_total"]).sum()) if adj_count > 0 else 0
+    no_adj_variance = float((no_adj_df["actual_total"] - no_adj_df["cost_total"]).sum()) if len(no_adj_df) > 0 else 0
+
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Shipments with Adjustments", f"{adj_count:,}")
+    c2.metric("% with Adjustments", f"{adj_pct:.1f}%")
+    c3.metric("Variance (Adjusted)", format_currency(adj_variance))
+    c4.metric("Variance (Non-Adjusted)", format_currency(no_adj_variance))
+
+    # Breakdown by adjustment reason if available
+    if "adjustment_reason" in df.columns and adj_count > 0:
+        reason_stats = (
+            adj_df.group_by("adjustment_reason")
+            .agg([
+                pl.len().alias("Count"),
+                (pl.col("actual_total") - pl.col("cost_total")).sum().alias("Variance"),
+            ])
+            .sort("Count", descending=True)
+        )
+        if len(reason_stats) > 0:
+            with st.expander("Adjustment Breakdown by Reason"):
+                reason_display = reason_stats.with_columns(
+                    pl.col("Variance").map_elements(format_currency, return_dtype=pl.Utf8)
+                )
+                st.dataframe(reason_display, use_container_width=True, hide_index=True)
+else:
+    st.info("No adjustment data available.")
 
 st.markdown("---")
 

@@ -705,7 +705,7 @@ def drilldown_section(
 
     default_cols = [
         "pcs_orderid", "pcs_ordernumber", "shop_ordernumber",
-        "ship_date", "production_site", "shipping_zone", "actual_zone",
+        "ship_date", "production_site", "packagetype", "shipping_zone", "actual_zone",
         "shipping_zip_code", "billable_weight_lbs", "cost_total", "actual_total", "deviation",
     ]
     display_cols = columns or default_cols

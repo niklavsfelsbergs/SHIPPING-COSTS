@@ -250,31 +250,31 @@ if "longest_side_in" in df.columns and "second_longest_in" in df.columns:
     apply_chart_layout(fig_dim)
     st.plotly_chart(fig_dim, use_container_width=True)
 
-    # Threshold proximity analysis
-    st.markdown("**Threshold Proximity Analysis**")
-    st.caption("Packages near dimensional thresholds may have measurement variability.")
+    # Threshold proximity analysis (collapsed)
+    with st.expander("Threshold Proximity Analysis"):
+        st.caption("Packages near dimensional thresholds may have measurement variability.")
 
-    thresholds = [
-        ("22\" (NSL1)", "longest_side_in", 22),
-        ("30\" (NSL2)", "longest_side_in", 30),
-    ]
+        thresholds = [
+            ("22\" (NSL1)", "longest_side_in", 22),
+            ("30\" (NSL2)", "longest_side_in", 30),
+        ]
 
-    proximity_rows = []
-    for label, col, threshold in thresholds:
-        if col in df.columns:
-            vals = df[col].drop_nulls()
-            within_1 = int(((vals >= threshold - 1) & (vals < threshold)).sum())
-            within_2 = int(((vals >= threshold - 2) & (vals < threshold)).sum())
-            within_5 = int(((vals >= threshold - 5) & (vals < threshold)).sum())
-            proximity_rows.append({
-                "Threshold": label,
-                "Within 1\"": within_1,
-                "Within 2\"": within_2,
-                "Within 5\"": within_5,
-            })
+        proximity_rows = []
+        for label, col, threshold in thresholds:
+            if col in df.columns:
+                vals = df[col].drop_nulls()
+                within_1 = int(((vals >= threshold - 1) & (vals < threshold)).sum())
+                within_2 = int(((vals >= threshold - 2) & (vals < threshold)).sum())
+                within_5 = int(((vals >= threshold - 5) & (vals < threshold)).sum())
+                proximity_rows.append({
+                    "Threshold": label,
+                    "Within 1\"": within_1,
+                    "Within 2\"": within_2,
+                    "Within 5\"": within_5,
+                })
 
-    if proximity_rows:
-        st.dataframe(pl.DataFrame(proximity_rows), use_container_width=True, hide_index=True)
+        if proximity_rows:
+            st.dataframe(pl.DataFrame(proximity_rows), use_container_width=True, hide_index=True)
 
 st.markdown("---")
 
@@ -358,44 +358,6 @@ with right:
         )
         apply_chart_layout(fig_zone)
         st.plotly_chart(fig_zone, use_container_width=True)
-
-# Zone distribution by production site
-st.markdown("**Zone Distribution by Production Site**")
-sites = sorted(df["production_site"].drop_nulls().unique().to_list())
-
-if len(sites) > 0:
-    cols = st.columns(len(sites))
-    for i, site in enumerate(sites):
-        with cols[i]:
-            site_df = df.filter(pl.col("production_site") == site)
-            zone_dist = (
-                site_df.group_by("shipping_zone")
-                .agg(pl.len().alias("count"))
-                .sort("shipping_zone")
-            )
-            if len(zone_dist) > 0:
-                zd_pd = zone_dist.to_pandas()
-                total = zd_pd["count"].sum()
-                y_vals = (zd_pd["count"] / total * 100).tolist()
-                max_val = max(y_vals) if y_vals else 0
-                fig_site = go.Figure(go.Bar(
-                    x=zd_pd["shipping_zone"].astype(str),
-                    y=y_vals,
-                    marker_color="#27ae60",
-                    text=[f"{v:.1f}%" for v in y_vals],
-                    textposition="outside",
-                    cliponaxis=False,
-                ))
-                fig_site.update_layout(
-                    title=f"{site}",
-                    xaxis_title="Zone",
-                    yaxis_title="% of Shipments",
-                    yaxis_ticksuffix="%",
-                    height=350,
-                    yaxis=dict(range=[0, max_val * 1.15] if max_val else None),
-                )
-                apply_chart_layout(fig_site)
-                st.plotly_chart(fig_site, use_container_width=True)
 
 drilldown_section(df, "Geography Data", key_suffix="geo")
 
