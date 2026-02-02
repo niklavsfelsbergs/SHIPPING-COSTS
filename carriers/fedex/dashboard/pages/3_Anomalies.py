@@ -140,28 +140,32 @@ st.header("B. Operational Issues")
 
 issues = []
 
-addr_corr_df = df.filter(pl.col("actual_address_correction").fill_null(0) > 0)
-addr_cost = float(addr_corr_df["actual_address_correction"].sum()) if len(addr_corr_df) > 0 else 0
-issues.append(("Address Correction", len(addr_corr_df), addr_cost, addr_corr_df))
+# Only check for columns that exist in FedEx data
+if "actual_address_correction" in df.columns:
+    addr_corr_df = df.filter(pl.col("actual_address_correction").fill_null(0) > 0)
+    addr_cost = float(addr_corr_df["actual_address_correction"].sum()) if len(addr_corr_df) > 0 else 0
+    issues.append(("Address Correction", len(addr_corr_df), addr_cost, addr_corr_df))
 
-undeliverable_df = df.filter(pl.col("actual_undeliverable").fill_null(0) > 0)
-undeliverable_cost = float(undeliverable_df["actual_undeliverable"].sum()) if len(undeliverable_df) > 0 else 0
-issues.append(("Undeliverable", len(undeliverable_df), undeliverable_cost, undeliverable_df))
+if "actual_undeliverable" in df.columns:
+    undeliverable_df = df.filter(pl.col("actual_undeliverable").fill_null(0) > 0)
+    undeliverable_cost = float(undeliverable_df["actual_undeliverable"].sum()) if len(undeliverable_df) > 0 else 0
+    issues.append(("Undeliverable", len(undeliverable_df), undeliverable_cost, undeliverable_df))
 
 if "actual_unpredictable" in df.columns:
     unpred_df = df.filter(pl.col("actual_unpredictable").fill_null(0) > 0)
     unpred_cost = float(unpred_df["actual_unpredictable"].sum()) if len(unpred_df) > 0 else 0
     issues.append(("Unpredictable Charges", len(unpred_df), unpred_cost, unpred_df))
 
-cols = st.columns(len(issues))
-for col, (label, count, cost, _) in zip(cols, issues):
-    col.metric(label, f"{count:,}", help=f"Cost impact: {format_currency(cost)}")
+if len(issues) > 0:
+    cols = st.columns(len(issues))
+    for col, (label, count, cost, _) in zip(cols, issues):
+        col.metric(label, f"{count:,}", help=f"Cost impact: {format_currency(cost)}")
 
-for i, (label, count, cost, issue_df) in enumerate(issues):
-    if count > 0:
-        drilldown_section(
-            issue_df,
-            label,
+    for i, (label, count, cost, issue_df) in enumerate(issues):
+        if count > 0:
+            drilldown_section(
+                issue_df,
+                label,
             columns=[
                 "pcs_orderid", "pcs_ordernumber", "shop_ordernumber", "invoice_number",
                 "ship_date", "production_site", "cost_total", "actual_net_charge",
@@ -241,16 +245,24 @@ for surcharge in DETERMINISTIC_SURCHARGES:
 
     if len(fn_df) > 0 or len(fp_df) > 0:
         with st.expander(f"{surcharge.upper()} detail — FN: {len(fn_df):,} | FP: {len(fp_df):,}"):
+            # Build detail columns list - only include columns that exist
             detail_cols = [
                 "pcs_orderid", "ship_date", "shipping_zone", "actual_zone",
-                "shipping_zip_code",
+            ]
+            if "shipping_zip_code" in df.columns:
+                detail_cols.append("shipping_zip_code")
+            detail_cols.extend([
                 "billable_weight_lbs", "longest_side_in", "second_longest_in",
                 actual_col, "cost_total", "actual_net_charge",
-            ]
+            ])
+            # Filter to only columns that exist in the dataframe
+            detail_cols = [c for c in detail_cols if c in fn_df.columns or c in fp_df.columns]
+
             if len(fn_df) > 0:
                 st.markdown("**False Negatives** — showing up to 20")
-                st.dataframe(fn_df.select(detail_cols).head(20), use_container_width=True, hide_index=True)
-                csv_fn = fn_df.select(detail_cols).to_pandas().to_csv(index=False)
+                fn_cols = [c for c in detail_cols if c in fn_df.columns]
+                st.dataframe(fn_df.select(fn_cols).head(20), use_container_width=True, hide_index=True)
+                csv_fn = fn_df.select(fn_cols).to_pandas().to_csv(index=False)
                 st.download_button(f"Download {surcharge.upper()} FN CSV", csv_fn,
                                    file_name=f"{surcharge}_fn.csv", mime="text/csv",
                                    key=f"anom_dl_fn_{surcharge}")
@@ -261,6 +273,8 @@ for surcharge in DETERMINISTIC_SURCHARGES:
                     "billable_weight_lbs", "longest_side_in", "second_longest_in",
                     f"cost_{surcharge}", "cost_total", "actual_net_charge",
                 ]
+                # Filter to only columns that exist
+                fp_detail_cols = [c for c in fp_detail_cols if c in fp_df.columns]
                 st.dataframe(fp_df.select(fp_detail_cols).head(20), use_container_width=True, hide_index=True)
                 csv_fp = fp_df.select(fp_detail_cols).to_pandas().to_csv(index=False)
                 st.download_button(f"Download {surcharge.upper()} FP CSV", csv_fp,

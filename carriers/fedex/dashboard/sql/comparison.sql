@@ -8,6 +8,7 @@ SELECT
     e.pcs_created,
     e.ship_date,
     e.production_site,
+    e.shipping_zip_code,
     e.shipping_region,
     e.packagetype,
     e.rate_service,

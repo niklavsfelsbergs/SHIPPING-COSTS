@@ -161,6 +161,37 @@ def prepare_df(df: pl.DataFrame, grain: str = "line") -> pl.DataFrame:
     if "actual_zone" in df.columns:
         df = df.with_columns(pl.col("actual_zone").cast(pl.String))
 
+    # Normalize zones for comparison (remove leading zeros, keep letters as-is)
+    if "shipping_zone" in df.columns:
+        df = df.with_columns(
+            pl.col("shipping_zone")
+                .str.strip_chars_start("0")
+                .fill_null("")
+                .alias("shipping_zone_normalized")
+        )
+        # Handle edge case where zone was "0" -> becomes empty string
+        df = df.with_columns(
+            pl.when(pl.col("shipping_zone_normalized") == "")
+            .then(pl.col("shipping_zone"))
+            .otherwise(pl.col("shipping_zone_normalized"))
+            .alias("shipping_zone_normalized")
+        )
+
+    if "actual_zone" in df.columns:
+        df = df.with_columns(
+            pl.col("actual_zone")
+                .str.strip_chars_start("0")
+                .fill_null("")
+                .alias("actual_zone_normalized")
+        )
+        # Handle edge case where zone was "0" -> becomes empty string
+        df = df.with_columns(
+            pl.when(pl.col("actual_zone_normalized") == "")
+            .then(pl.col("actual_zone"))
+            .otherwise(pl.col("actual_zone_normalized"))
+            .alias("actual_zone_normalized")
+        )
+
     # Service type segment
     if "rate_service" in df.columns:
         df = df.with_columns(
@@ -210,7 +241,13 @@ def prepare_df(df: pl.DataFrame, grain: str = "line") -> pl.DataFrame:
         & (pl.col("surcharge_das").fill_null(False) == (pl.col("actual_das").fill_null(0) > 0))
         & (pl.col("surcharge_residential").fill_null(False) == (pl.col("actual_residential").fill_null(0) > 0))
     )
-    zone_matches = pl.col("shipping_zone") == pl.col("actual_zone")
+    # Use normalized zones for comparison if available
+    if "shipping_zone_normalized" in df.columns and "actual_zone_normalized" in df.columns:
+        zone_matches = pl.col("shipping_zone_normalized") == pl.col("actual_zone_normalized")
+    elif "shipping_zone" in df.columns and "actual_zone" in df.columns:
+        zone_matches = pl.col("shipping_zone") == pl.col("actual_zone")
+    else:
+        zone_matches = pl.lit(True)  # Default to match if zones don't exist
 
     df = df.with_columns(
         pl.when(~surcharge_correct)
@@ -241,10 +278,17 @@ def prepare_df(df: pl.DataFrame, grain: str = "line") -> pl.DataFrame:
             )
     df = df.with_columns(expr.alias("weight_bracket"))
 
-    # Zone match
-    df = df.with_columns(
-        (pl.col("shipping_zone") == pl.col("actual_zone")).alias("zone_match"),
-    )
+    # Zone match (use normalized zones if available, otherwise use raw zones)
+    if "shipping_zone_normalized" in df.columns and "actual_zone_normalized" in df.columns:
+        df = df.with_columns(
+            (pl.col("shipping_zone_normalized") == pl.col("actual_zone_normalized")).alias("zone_match"),
+        )
+    elif "shipping_zone" in df.columns and "actual_zone" in df.columns:
+        df = df.with_columns(
+            (pl.col("shipping_zone") == pl.col("actual_zone")).alias("zone_match"),
+        )
+    else:
+        df = df.with_columns(pl.lit(False).alias("zone_match"))
 
     return df
 
@@ -255,7 +299,10 @@ def aggregate_shipments(df: pl.DataFrame) -> pl.DataFrame:
     base_cols = [
         "pcs_ordernumber", "latest_trackingnumber",
         "pcs_created", "ship_date", "production_site",
-        "shipping_region", "shipping_zone", "billable_weight_lbs",
+        "shipping_zip_code", "shipping_region", "shipping_zone", "billable_weight_lbs",
+        "length_in", "width_in", "height_in", "weight_lbs",
+        "cubic_in", "longest_side_in", "second_longest_in",
+        "dim_weight_lbs", "uses_dim_weight",
     ]
 
     if "packagetype" in df.columns:

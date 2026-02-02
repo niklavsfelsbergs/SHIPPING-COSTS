@@ -299,163 +299,165 @@ st.header("B. Dimensional Analysis")
 
 st.markdown("**Package Dimension Scatter — Surcharge Boundaries**")
 
-dim_df = df.filter(
-    pl.col("longest_side_in").is_not_null() & pl.col("second_longest_in").is_not_null()
-)
+if "longest_side_in" in df.columns and "second_longest_in" in df.columns:
 
-if len(dim_df) > 0:
-    longest = dim_df["longest_side_in"].cast(pl.Float64).to_numpy()
-    second = dim_df["second_longest_in"].cast(pl.Float64).to_numpy()
+    dim_df = df.filter(
+        pl.col("longest_side_in").is_not_null() & pl.col("second_longest_in").is_not_null()
+    )
 
-    ahs_flag = dim_df["surcharge_ahs"].fill_null(False).to_numpy()
-    ahs_weight_flag = dim_df["surcharge_ahs_weight"].fill_null(False).to_numpy()
-    oversize_flag = dim_df["surcharge_oversize"].fill_null(False).to_numpy()
+    if len(dim_df) > 0:
+        longest = dim_df["longest_side_in"].cast(pl.Float64).to_numpy()
+        second = dim_df["second_longest_in"].cast(pl.Float64).to_numpy()
 
-    categories = np.full(len(dim_df), "No dim surcharge", dtype=object)
-    categories[ahs_flag] = "AHS"
-    categories[ahs_weight_flag] = "AHS-Weight"
-    categories[oversize_flag] = "Oversize"
+        ahs_flag = dim_df["surcharge_ahs"].fill_null(False).to_numpy()
+        ahs_weight_flag = dim_df["surcharge_ahs_weight"].fill_null(False).to_numpy()
+        oversize_flag = dim_df["surcharge_oversize"].fill_null(False).to_numpy()
 
-    # Sample if needed
-    n = len(longest)
-    if n > 5000:
-        idx = np.random.choice(n, 5000, replace=False)
-        longest_s, second_s, cats_s = longest[idx], second[idx], categories[idx]
-    else:
-        longest_s, second_s, cats_s = longest, second, categories
+        categories = np.full(len(dim_df), "No dim surcharge", dtype=object)
+        categories[ahs_flag] = "AHS"
+        categories[ahs_weight_flag] = "AHS-Weight"
+        categories[oversize_flag] = "Oversize"
 
-    fig_d = go.Figure()
+        # Sample if needed
+        n = len(longest)
+        if n > 5000:
+            idx = np.random.choice(n, 5000, replace=False)
+            longest_s, second_s, cats_s = longest[idx], second[idx], categories[idx]
+        else:
+            longest_s, second_s, cats_s = longest, second, categories
 
-    # Layer order matters: plain packages underneath, surcharges on top and more visible
-    trace_config = [
-        ("No dim surcharge", "#bdc3c7", 0.15, 3),
-        ("AHS",              "#f39c12", 0.6,  5),
-        ("AHS-Weight",       "#e67e22", 0.6,  5),
-        ("Oversize",         "#e74c3c", 0.7,  6),
-    ]
-    for cat_name, color, opacity, size in trace_config:
-        mask = cats_s == cat_name
-        if mask.any():
-            fig_d.add_trace(go.Scattergl(
-                x=longest_s[mask], y=second_s[mask],
-                mode="markers",
-                marker=dict(color=color, size=size, opacity=opacity),
-                name=cat_name,
-                hovertemplate="Longest: %{x:.1f}\"<br>2nd Longest: %{y:.1f}\"<extra></extra>",
+        fig_d = go.Figure()
+
+        # Layer order matters: plain packages underneath, surcharges on top and more visible
+        trace_config = [
+            ("No dim surcharge", "#bdc3c7", 0.15, 3),
+            ("AHS",              "#f39c12", 0.6,  5),
+            ("AHS-Weight",       "#e67e22", 0.6,  5),
+            ("Oversize",         "#e74c3c", 0.7,  6),
+        ]
+        for cat_name, color, opacity, size in trace_config:
+            mask = cats_s == cat_name
+            if mask.any():
+                fig_d.add_trace(go.Scattergl(
+                    x=longest_s[mask], y=second_s[mask],
+                    mode="markers",
+                    marker=dict(color=color, size=size, opacity=opacity),
+                    name=cat_name,
+                    hovertemplate="Longest: %{x:.1f}\"<br>2nd Longest: %{y:.1f}\"<extra></extra>",
+                ))
+
+        # Boundary lines — AHS at 30" second longest
+        fig_d.add_hline(y=30, line_dash="dash", line_color="#f39c12", line_width=1.5, opacity=0.7)
+        fig_d.add_annotation(
+            text="<b>AHS</b> (2nd side > 30\")",
+            xref="paper", x=0.99, y=30, xanchor="right", yanchor="bottom", yshift=4,
+            showarrow=False, font=dict(color="#ffffff", size=10),
+            bgcolor="rgba(0,0,0,0.65)",
+            bordercolor="#f39c12",
+            borderwidth=1,
+        )
+
+        # Oversize at 96" longest or 130" length + girth
+        fig_d.add_vline(x=96, line_dash="dash", line_color="#e74c3c", line_width=1.5, opacity=0.7)
+        fig_d.add_annotation(
+            text="<b>Oversize</b> (> 96\")",
+            x=96, yref="paper", y=0.99, xanchor="left", yanchor="top", xshift=4,
+            showarrow=False, font=dict(color="#ffffff", size=10),
+            bgcolor="rgba(0,0,0,0.65)",
+            bordercolor="#e74c3c",
+            borderwidth=1,
+        )
+
+        fig_d.update_layout(
+            title="Package Dimensions with Surcharge Boundaries",
+            xaxis_title="Longest Side (in)",
+            yaxis_title="Second Longest Side (in)",
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0),
+            height=600,
+        )
+        apply_chart_layout(fig_d)
+        st.plotly_chart(fig_d, use_container_width=True)
+
+        # Threshold proximity
+        st.markdown("**Threshold Proximity (Below Surcharge Cutoffs)**")
+
+        thresholds = [
+            ("AHS (2nd side)", "second_longest_in", 30),
+            ("Oversize (longest side)", "longest_side_in", 96),
+        ]
+
+        proximity_rows = []
+        for label, col, threshold in thresholds:
+            if col not in dim_df.columns:
+                continue
+            within_1 = dim_df.filter(
+                (pl.col(col) >= threshold - 1) & (pl.col(col) < threshold)
+            )
+            within_2 = dim_df.filter(
+                (pl.col(col) >= threshold - 2) & (pl.col(col) < threshold)
+            )
+            within_5 = dim_df.filter(
+                (pl.col(col) >= threshold - 5) & (pl.col(col) < threshold)
+            )
+            total = len(dim_df)
+            proximity_rows.append({
+                "Threshold": label,
+                "Within 1\"": len(within_1),
+                "Within 2\"": len(within_2),
+                "Within 5\"": len(within_5),
+                "Share of Dim Shipments": (len(within_5) / total * 100) if total else 0,
+            })
+
+        if proximity_rows:
+            prox_df = pl.DataFrame(proximity_rows)
+            prox_display = prox_df.with_columns(
+                pl.col("Share of Dim Shipments").map_elements(
+                    lambda v: f"{v:.1f}%", return_dtype=pl.Utf8
+                ).alias("Share of Dim Shipments")
+            )
+            st.dataframe(prox_display, use_container_width=True, hide_index=True)
+
+            fig_p = go.Figure()
+            fig_p.add_trace(go.Bar(
+                x=prox_df["Threshold"],
+                y=prox_df["Within 1\""],
+                name="Within 1\"",
+                marker_color="#f39c12",
+                text=prox_df["Within 1\""],
+                textposition="outside",
+                cliponaxis=False,
             ))
-
-    # Boundary lines — AHS at 30" second longest
-    fig_d.add_hline(y=30, line_dash="dash", line_color="#f39c12", line_width=1.5, opacity=0.7)
-    fig_d.add_annotation(
-        text="<b>AHS</b> (2nd side > 30\")",
-        xref="paper", x=0.99, y=30, xanchor="right", yanchor="bottom", yshift=4,
-        showarrow=False, font=dict(color="#ffffff", size=10),
-        bgcolor="rgba(0,0,0,0.65)",
-        bordercolor="#f39c12",
-        borderwidth=1,
-    )
-
-    # Oversize at 96" longest or 130" length + girth
-    fig_d.add_vline(x=96, line_dash="dash", line_color="#e74c3c", line_width=1.5, opacity=0.7)
-    fig_d.add_annotation(
-        text="<b>Oversize</b> (> 96\")",
-        x=96, yref="paper", y=0.99, xanchor="left", yanchor="top", xshift=4,
-        showarrow=False, font=dict(color="#ffffff", size=10),
-        bgcolor="rgba(0,0,0,0.65)",
-        bordercolor="#e74c3c",
-        borderwidth=1,
-    )
-
-    fig_d.update_layout(
-        title="Package Dimensions with Surcharge Boundaries",
-        xaxis_title="Longest Side (in)",
-        yaxis_title="Second Longest Side (in)",
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0),
-        height=600,
-    )
-    apply_chart_layout(fig_d)
-    st.plotly_chart(fig_d, use_container_width=True)
-
-    # Threshold proximity
-    st.markdown("**Threshold Proximity (Below Surcharge Cutoffs)**")
-
-    thresholds = [
-        ("AHS (2nd side)", "second_longest_in", 30),
-        ("Oversize (longest side)", "longest_side_in", 96),
-    ]
-
-    proximity_rows = []
-    for label, col, threshold in thresholds:
-        if col not in dim_df.columns:
-            continue
-        within_1 = dim_df.filter(
-            (pl.col(col) >= threshold - 1) & (pl.col(col) < threshold)
-        )
-        within_2 = dim_df.filter(
-            (pl.col(col) >= threshold - 2) & (pl.col(col) < threshold)
-        )
-        within_5 = dim_df.filter(
-            (pl.col(col) >= threshold - 5) & (pl.col(col) < threshold)
-        )
-        total = len(dim_df)
-        proximity_rows.append({
-            "Threshold": label,
-            "Within 1\"": len(within_1),
-            "Within 2\"": len(within_2),
-            "Within 5\"": len(within_5),
-            "Share of Dim Shipments": (len(within_5) / total * 100) if total else 0,
-        })
-
-    if proximity_rows:
-        prox_df = pl.DataFrame(proximity_rows)
-        prox_display = prox_df.with_columns(
-            pl.col("Share of Dim Shipments").map_elements(
-                lambda v: f"{v:.1f}%", return_dtype=pl.Utf8
-            ).alias("Share of Dim Shipments")
-        )
-        st.dataframe(prox_display, use_container_width=True, hide_index=True)
-
-        fig_p = go.Figure()
-        fig_p.add_trace(go.Bar(
-            x=prox_df["Threshold"],
-            y=prox_df["Within 1\""],
-            name="Within 1\"",
-            marker_color="#f39c12",
-            text=prox_df["Within 1\""],
-            textposition="outside",
-            cliponaxis=False,
-        ))
-        fig_p.add_trace(go.Bar(
-            x=prox_df["Threshold"],
-            y=prox_df["Within 2\""],
-            name="Within 2\"",
-            marker_color="#e67e22",
-            text=prox_df["Within 2\""],
-            textposition="outside",
-            cliponaxis=False,
-        ))
-        fig_p.add_trace(go.Bar(
-            x=prox_df["Threshold"],
-            y=prox_df["Within 5\""],
-            name="Within 5\"",
-            marker_color="#e74c3c",
-            text=prox_df["Within 5\""],
-            textposition="outside",
-            cliponaxis=False,
-        ))
-        max_val = max(prox_df["Within 5\""].max(), 1)
-        fig_p.update_layout(
-            barmode="group",
-            title="Shipments Just Below Surcharge Thresholds",
-            yaxis_title="Shipments",
-            height=420,
-            margin=dict(t=60, b=60, l=40, r=20),
-        )
-        fig_p.update_yaxes(range=[0, max_val * 1.2], automargin=True)
-        apply_chart_layout(fig_p)
-        st.plotly_chart(fig_p, use_container_width=True)
-    else:
-        st.info("No dimensional proximity data available.")
+            fig_p.add_trace(go.Bar(
+                x=prox_df["Threshold"],
+                y=prox_df["Within 2\""],
+                name="Within 2\"",
+                marker_color="#e67e22",
+                text=prox_df["Within 2\""],
+                textposition="outside",
+                cliponaxis=False,
+            ))
+            fig_p.add_trace(go.Bar(
+                x=prox_df["Threshold"],
+                y=prox_df["Within 5\""],
+                name="Within 5\"",
+                marker_color="#e74c3c",
+                text=prox_df["Within 5\""],
+                textposition="outside",
+                cliponaxis=False,
+            ))
+            max_val = max(prox_df["Within 5\""].max(), 1)
+            fig_p.update_layout(
+                barmode="group",
+                title="Shipments Just Below Surcharge Thresholds",
+                yaxis_title="Shipments",
+                height=420,
+                margin=dict(t=60, b=60, l=40, r=20),
+            )
+            fig_p.update_yaxes(range=[0, max_val * 1.2], automargin=True)
+            apply_chart_layout(fig_p)
+            st.plotly_chart(fig_p, use_container_width=True)
+        else:
+            st.info("No dimensional proximity data available.")
 else:
     st.info("No dimensional data available.")
 
@@ -591,9 +593,12 @@ st.markdown("---")
 
 st.header("D. Weight Analysis")
 
-valid = df.filter(
-    pl.col("weight_lbs").is_not_null() & pl.col("billable_weight_lbs").is_not_null()
-)
+if "weight_lbs" in df.columns:
+    valid = df.filter(
+        pl.col("weight_lbs").is_not_null() & pl.col("billable_weight_lbs").is_not_null()
+    )
+else:
+    valid = pl.DataFrame()
 
 if len(valid) > 0:
     actual_wt = valid["weight_lbs"].cast(pl.Float64).to_numpy()
@@ -648,15 +653,20 @@ if len(valid) > 0:
             st.metric("Avg Extra Weight from DIM", f"{avg_extra:.1f} lbs")
             st.metric("DIM Shipments", f"{len(dim_shipments):,}")
 
+    # Build column list - only include columns that exist
+    dim_cols = [
+        "pcs_orderid", "pcs_ordernumber", "packagetype",
+        "weight_lbs", "dim_weight_lbs", "billable_weight_lbs",
+        "longest_side_in", "second_longest_in", "cubic_in",
+        "cost_total", "actual_net_charge",
+    ]
+    dim_weight_df = valid.filter(pl.col("uses_dim_weight").fill_null(False))
+    available_dim_cols = [c for c in dim_cols if c in dim_weight_df.columns]
+
     drilldown_section(
-        valid.filter(pl.col("uses_dim_weight").fill_null(False)),
+        dim_weight_df,
         "DIM Weight Shipments",
-        columns=[
-            "pcs_orderid", "pcs_ordernumber", "packagetype",
-            "weight_lbs", "dim_weight_lbs", "billable_weight_lbs",
-            "longest_side_in", "second_longest_in", "cubic_in",
-            "cost_total", "actual_net_charge",
-        ],
+        columns=available_dim_cols,
         key_suffix="dim_weight",
     )
 else:

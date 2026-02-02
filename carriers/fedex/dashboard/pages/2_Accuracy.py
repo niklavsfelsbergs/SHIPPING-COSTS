@@ -450,25 +450,30 @@ heatmap_mode = st.radio(
 )
 
 if len(df) > 0:
+    # Use normalized zones for the confusion matrix
     zone_cross = (
-        df.group_by(["shipping_zone", "actual_zone"])
+        df.group_by(["shipping_zone_normalized", "actual_zone_normalized"])
         .agg(pl.len().alias("count"))
-        .sort(["shipping_zone", "actual_zone"])
+        .sort(["shipping_zone_normalized", "actual_zone_normalized"])
     )
 
-    all_zones = sorted(set(
-        zone_cross["shipping_zone"].to_list() + zone_cross["actual_zone"].to_list()
-    ))
+    # Get unique zones and sort numerically
+    all_zones_set = set(
+        [str(z) for z in zone_cross["shipping_zone_normalized"].to_list() if z] +
+        [str(z) for z in zone_cross["actual_zone_normalized"].to_list() if z]
+    )
+    # Sort as integers for proper ordering (1, 2, 3... not 1, 10, 2...)
+    all_zones = sorted(all_zones_set, key=lambda x: int(x) if x.isdigit() else 99)
 
     matrix = np.zeros((len(all_zones), len(all_zones)))
     zone_idx = {z: i for i, z in enumerate(all_zones)}
     for row in zone_cross.iter_rows(named=True):
-        i = zone_idx.get(row["shipping_zone"])
-        j = zone_idx.get(row["actual_zone"])
+        i = zone_idx.get(str(row["shipping_zone_normalized"]))
+        j = zone_idx.get(str(row["actual_zone_normalized"]))
         if i is not None and j is not None:
             matrix[i][j] = row["count"]
 
-    zone_labels = [str(z) for z in all_zones]
+    zone_labels = all_zones
 
     text_matrix = []
     z_vals = matrix.copy()
@@ -510,7 +515,8 @@ if len(df) > 0:
         title="Expected vs Actual Zone",
         xaxis_title="Actual Zone",
         yaxis_title="Expected Zone",
-        yaxis=dict(autorange="reversed"),
+        xaxis=dict(type="category"),
+        yaxis=dict(type="category", autorange="reversed"),
         height=max(600, len(all_zones) * 45 + 200),
         plot_bgcolor="rgba(0,0,0,0)",
         paper_bgcolor="rgba(0,0,0,0)",
@@ -526,8 +532,11 @@ st.markdown("**Zone Match by State**")
 
 state_stats = (
     df.with_columns([
-        (pl.col("shipping_zone") < pl.col("actual_zone")).alias("zone_smaller"),
-        (pl.col("shipping_zone") > pl.col("actual_zone")).alias("zone_bigger"),
+        # Compare as integers for proper ordering
+        (pl.col("shipping_zone_normalized").cast(pl.Int64, strict=False) <
+         pl.col("actual_zone_normalized").cast(pl.Int64, strict=False)).alias("zone_smaller"),
+        (pl.col("shipping_zone_normalized").cast(pl.Int64, strict=False) >
+         pl.col("actual_zone_normalized").cast(pl.Int64, strict=False)).alias("zone_bigger"),
     ])
     .group_by("shipping_region")
     .agg([
