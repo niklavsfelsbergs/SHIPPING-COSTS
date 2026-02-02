@@ -410,12 +410,17 @@ if "longest_side_in" in df.columns and "second_longest_in" in df.columns:
 
         if proximity_rows:
             prox_df = pl.DataFrame(proximity_rows)
-            prox_display = prox_df.with_columns(
-                pl.col("Share of Dim Shipments").map_elements(
-                    lambda v: f"{v:.1f}%", return_dtype=pl.Utf8
-                ).alias("Share of Dim Shipments")
+            st.dataframe(
+                prox_df,
+                use_container_width=True,
+                hide_index=True,
+                column_config={
+                    "Within 1\"": st.column_config.NumberColumn(format="%d"),
+                    "Within 2\"": st.column_config.NumberColumn(format="%d"),
+                    "Within 5\"": st.column_config.NumberColumn(format="%d"),
+                    "Share of Dim Shipments": st.column_config.NumberColumn(format="%.1f%%"),
+                },
             )
-            st.dataframe(prox_display, use_container_width=True, hide_index=True)
 
             fig_p = go.Figure()
             fig_p.add_trace(go.Bar(

@@ -202,19 +202,36 @@ def _stats_table(grouped_stats: list[dict], segment_label: str) -> None:
         variance = s["variance_dollars"] / count if use_avg_seg and count else s["variance_dollars"]
         rows.append({
             segment_label: s["segment"],
-            "Count": f"{s['count']:,}",
-            exp_label: format_currency(expected),
-            act_label: format_currency(actual),
-            var_label: format_currency(variance),
-            "Var (%)": format_pct(s["variance_pct"]),
-            "Mean Dev": format_currency(s["mean_dev"]),
-            "Median Dev": format_currency(s["median_dev"]),
-            "Std Dev": format_currency(s["std_dev"]),
-            "Mean Abs Dev": format_currency(s["mad"]),
-            "Within $1": f"{s['within_1']:.1f}%",
-            "Within $2": f"{s['within_2']:.1f}%",
+            "Count": s["count"],
+            exp_label: expected,
+            act_label: actual,
+            var_label: variance,
+            "Var (%)": s["variance_pct"],
+            "Mean Dev": s["mean_dev"],
+            "Median Dev": s["median_dev"],
+            "Std Dev": s["std_dev"],
+            "Mean Abs Dev": s["mad"],
+            "Within $1": s["within_1"],
+            "Within $2": s["within_2"],
         })
-    st.dataframe(pl.DataFrame(rows), use_container_width=True, hide_index=True)
+    st.dataframe(
+        pl.DataFrame(rows),
+        use_container_width=True,
+        hide_index=True,
+        column_config={
+            "Count": st.column_config.NumberColumn(format="%d"),
+            exp_label: st.column_config.NumberColumn(format="$%.2f"),
+            act_label: st.column_config.NumberColumn(format="$%.2f"),
+            var_label: st.column_config.NumberColumn(format="$%.2f"),
+            "Var (%)": st.column_config.NumberColumn(format="%.2f%%"),
+            "Mean Dev": st.column_config.NumberColumn(format="$%.2f"),
+            "Median Dev": st.column_config.NumberColumn(format="$%.2f"),
+            "Std Dev": st.column_config.NumberColumn(format="$%.2f"),
+            "Mean Abs Dev": st.column_config.NumberColumn(format="$%.2f"),
+            "Within $1": st.column_config.NumberColumn(format="%.1f%%"),
+            "Within $2": st.column_config.NumberColumn(format="%.1f%%"),
+        },
+    )
 
 
 with tab_pkg:
@@ -370,11 +387,22 @@ for surcharge in DETERMINISTIC_SURCHARGES:
         "True Pos": tp,
         "False Pos": fp,
         "False Neg": fn,
-        "Precision": f"{precision:.1f}%",
-        "Recall": f"{recall:.1f}%",
+        "Precision": precision,
+        "Recall": recall,
     })
 
-st.dataframe(pl.DataFrame(detection_rows), use_container_width=True, hide_index=True)
+st.dataframe(
+    pl.DataFrame(detection_rows),
+    use_container_width=True,
+    hide_index=True,
+    column_config={
+        "True Pos": st.column_config.NumberColumn(format="%d"),
+        "False Pos": st.column_config.NumberColumn(format="%d"),
+        "False Neg": st.column_config.NumberColumn(format="%d"),
+        "Precision": st.column_config.NumberColumn(format="%.1f%%"),
+        "Recall": st.column_config.NumberColumn(format="%.1f%%"),
+    },
+)
 
 for surcharge in DETERMINISTIC_SURCHARGES:
     flag_col = f"surcharge_{surcharge}"
@@ -542,7 +570,17 @@ state_stats = (
     .rename({"shipping_region": "State"})
 )
 
-st.dataframe(state_stats, use_container_width=True, hide_index=True)
+st.dataframe(
+    state_stats,
+    use_container_width=True,
+    hide_index=True,
+    column_config={
+        "Shipments": st.column_config.NumberColumn(format="%d"),
+        "Match %": st.column_config.NumberColumn(format="%.1f%%"),
+        "Smaller Zone %": st.column_config.NumberColumn(format="%.1f%%"),
+        "Bigger Zone %": st.column_config.NumberColumn(format="%.1f%%"),
+    },
+)
 
 drilldown_section(mismatch_df, "Zone Mismatches", key_suffix="zone_mm")
 

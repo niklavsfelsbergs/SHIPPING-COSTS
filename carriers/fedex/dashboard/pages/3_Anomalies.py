@@ -106,12 +106,12 @@ if n_anomalies > 0:
     if component_impact:
         component_impact.sort(key=lambda x: abs(x["Overcharge ($)"]), reverse=True)
         st.dataframe(
-            pl.DataFrame([
-                {"Component": c["Component"], "Overcharge ($)": format_currency(c["Overcharge ($)"])}
-                for c in component_impact
-            ]),
+            pl.DataFrame(component_impact),
             use_container_width=True,
             hide_index=True,
+            column_config={
+                "Overcharge ($)": st.column_config.NumberColumn(format="$%.2f"),
+            },
         )
 
     drilldown_section(
@@ -215,22 +215,32 @@ with left_c:
     st.markdown("**False Negatives** (carrier charged, we didn't predict)")
     st.dataframe(
         pl.DataFrame([
-            {"Surcharge": r["Surcharge"], "Count": f"{r['False Negatives']:,}",
-             "Unexpected Cost": format_currency(r["Unexpected Cost ($)"])}
+            {"Surcharge": r["Surcharge"], "Count": r["False Negatives"],
+             "Unexpected Cost": r["Unexpected Cost ($)"]}
             for r in fn_rows
         ]),
-        use_container_width=True, hide_index=True,
+        use_container_width=True,
+        hide_index=True,
+        column_config={
+            "Count": st.column_config.NumberColumn(format="%d"),
+            "Unexpected Cost": st.column_config.NumberColumn(format="$%.2f"),
+        },
     )
 
 with right_c:
     st.markdown("**False Positives** (we predicted, carrier didn't charge)")
     st.dataframe(
         pl.DataFrame([
-            {"Surcharge": r["Surcharge"], "Count": f"{r['False Positives']:,}",
-             "Overestimation": format_currency(r["Overestimation ($)"])}
+            {"Surcharge": r["Surcharge"], "Count": r["False Positives"],
+             "Overestimation": r["Overestimation ($)"]}
             for r in fp_rows
         ]),
-        use_container_width=True, hide_index=True,
+        use_container_width=True,
+        hide_index=True,
+        column_config={
+            "Count": st.column_config.NumberColumn(format="%d"),
+            "Overestimation": st.column_config.NumberColumn(format="$%.2f"),
+        },
     )
 
 for surcharge in DETERMINISTIC_SURCHARGES:

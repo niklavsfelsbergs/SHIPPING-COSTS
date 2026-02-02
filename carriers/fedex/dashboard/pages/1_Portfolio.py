@@ -249,14 +249,16 @@ service_stats = (
 
 if len(service_stats) > 0:
     st.dataframe(
-        service_stats.to_pandas().style.format({
-            "Shipments": "{:,}",
-            "Expected": "${:,.2f}",
-            "Actual": "${:,.2f}",
-            "Variance $": "${:,.2f}",
-            "Variance %": "{:+.2f}%",
-        }),
+        service_stats,
         use_container_width=True,
+        hide_index=True,
+        column_config={
+            "Shipments": st.column_config.NumberColumn(format="%d"),
+            "Expected": st.column_config.NumberColumn(format="$%.2f"),
+            "Actual": st.column_config.NumberColumn(format="$%.2f"),
+            "Variance $": st.column_config.NumberColumn(format="$%.2f"),
+            "Variance %": st.column_config.NumberColumn(format="%.2f%%"),
+        },
     )
 
 st.markdown("---")
@@ -375,6 +377,7 @@ with right:
 
     rows = []
     var_label = "Variance ($/Shipment)" if use_avg else "Variance ($)"
+    var_pct_label = "Variance (%)"
     total_exp = 0.0
     total_act = 0.0
     for exp_col, act_col, label in COST_POSITIONS:
@@ -391,26 +394,32 @@ with right:
         var_p = (var_d / exp * 100) if exp else 0
         rows.append({
             "Position": label,
-            "Expected": format_currency(_metric_value(exp, order_count)),
-            "Actual": format_currency(_metric_value(act, order_count)),
-            var_label: format_currency(_metric_value(var_d, order_count)),
-            "Variance (%)": format_pct(var_p),
+            "Expected": _metric_value(exp, order_count),
+            "Actual": _metric_value(act, order_count),
+            var_label: _metric_value(var_d, order_count),
+            var_pct_label: var_p,
         })
     # Add TOTAL row as sum of components
     total_var_d = total_act - total_exp
     total_var_p = (total_var_d / total_exp * 100) if total_exp else 0
     rows.append({
         "Position": "TOTAL",
-        "Expected": format_currency(_metric_value(total_exp, order_count)),
-        "Actual": format_currency(_metric_value(total_act, order_count)),
-        var_label: format_currency(_metric_value(total_var_d, order_count)),
-        "Variance (%)": format_pct(total_var_p),
+        "Expected": _metric_value(total_exp, order_count),
+        "Actual": _metric_value(total_act, order_count),
+        var_label: _metric_value(total_var_d, order_count),
+        var_pct_label: total_var_p,
     })
 
     st.dataframe(
         pl.DataFrame(rows),
         use_container_width=True,
         hide_index=True,
+        column_config={
+            "Expected": st.column_config.NumberColumn(format="$%.2f"),
+            "Actual": st.column_config.NumberColumn(format="$%.2f"),
+            var_label: st.column_config.NumberColumn(format="$%.2f"),
+            var_pct_label: st.column_config.NumberColumn(format="%.2f%%"),
+        },
     )
 
 st.markdown("---")
@@ -577,11 +586,16 @@ for tab, col_name, label in zip(
             st.info(f"{label} not available in data.")
             continue
         table = _driver_table(df_shipments, col_name)
-        display = table.with_columns([
-            pl.col("Expected").map_elements(format_currency, return_dtype=pl.Utf8).alias("Expected"),
-            pl.col("Actual").map_elements(format_currency, return_dtype=pl.Utf8).alias("Actual"),
-            pl.col("Variance").map_elements(format_currency, return_dtype=pl.Utf8).alias("Variance"),
-            pl.col("Var/Shipment").map_elements(format_currency, return_dtype=pl.Utf8).alias("Var/Shipment"),
-            pl.col("Variance %").map_elements(format_pct, return_dtype=pl.Utf8).alias("Variance %"),
-        ])
-        st.dataframe(display, use_container_width=True, hide_index=True)
+        st.dataframe(
+            table,
+            use_container_width=True,
+            hide_index=True,
+            column_config={
+                "Shipments": st.column_config.NumberColumn(format="%d"),
+                "Expected": st.column_config.NumberColumn(format="$%.2f"),
+                "Actual": st.column_config.NumberColumn(format="$%.2f"),
+                "Variance": st.column_config.NumberColumn(format="$%.2f"),
+                "Var/Shipment": st.column_config.NumberColumn(format="$%.2f"),
+                "Variance %": st.column_config.NumberColumn(format="%.2f%%"),
+            },
+        )

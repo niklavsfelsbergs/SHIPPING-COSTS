@@ -40,6 +40,7 @@ COST_POSITIONS = [
     ("cost_dem_ahs", "actual_dem_ahs", "DEM-AHS"),
     ("cost_dem_oversize", "actual_dem_oversize", "DEM-Oversize"),
     ("cost_fuel", "actual_fuel", "Fuel"),
+    ("cost_discount", "actual_discount", "Other Discount"),
     ("cost_unpredictable", "actual_unpredictable", "Unpredictable"),
     ("cost_total", "actual_net_charge", "TOTAL"),
 ]
@@ -72,6 +73,7 @@ CHARGE_TYPES = {
     "DEM-Base": ("cost_dem_base", "actual_dem_base"),
     "DEM-AHS": ("cost_dem_ahs", "actual_dem_ahs"),
     "DEM-Oversize": ("cost_dem_oversize", "actual_dem_oversize"),
+    "Other Discount": ("cost_discount", "actual_discount"),
     "Unpredictable": ("cost_unpredictable", "actual_unpredictable"),
 }
 ALL_CHARGE_LABELS = list(CHARGE_TYPES.keys())
@@ -218,8 +220,11 @@ def prepare_df(df: pl.DataFrame, grain: str = "line") -> pl.DataFrame:
         ).alias("actual_net_base"),
     )
 
-    # Add cost_unpredictable column (always 0 - we can't predict unpredictable charges)
-    df = df.with_columns(pl.lit(0.0).alias("cost_unpredictable"))
+    # Add cost_unpredictable and cost_discount columns (always 0 - we can't predict these)
+    df = df.with_columns([
+        pl.lit(0.0).alias("cost_unpredictable"),
+        pl.lit(0.0).alias("cost_discount"),
+    ])
 
     # SmartPost anomaly flag (10+ lbs)
     df = df.with_columns(

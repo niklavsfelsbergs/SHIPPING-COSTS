@@ -85,7 +85,8 @@ SELECT
     a.actual_fuel,
     a.actual_net_charge,
 
-    -- Unpredictable charges (FedEx-specific)
+    -- Other discounts and unpredictable charges
+    a.actual_discount,
     a.actual_unpredictable
 
 FROM shipping_costs.expected_shipping_costs_fedex e
