@@ -221,6 +221,7 @@ def _run_calculation_and_upload(
     production_sites: list[str],
     batch_size: int,
     dry_run: bool,
+    end_date: str | None = None,
     date_range_suffix: str = "",
     show_net_change: bool = False,
     calc_step_num: int = 2,
@@ -235,6 +236,7 @@ def _run_calculation_and_upload(
         production_sites: Production sites to include
         batch_size: Rows per INSERT batch
         dry_run: If True, don't upload
+        end_date: Date to end calculation at (YYYY-MM-DD), optional
         date_range_suffix: Extra text for date range line (e.g., " (7 days)")
         show_net_change: If True, show net change in summary
         calc_step_num: Step number for calculation step
@@ -243,10 +245,10 @@ def _run_calculation_and_upload(
     Returns:
         Number of rows uploaded (or would be uploaded if dry_run)
     """
-    print(f"\nStep {calc_step_num}: Calculating expected costs from {start_date}...")
+    print(f"\nStep {calc_step_num}: Calculating expected costs from {start_date} to {end_date or 'today'}...")
     df = run_pipeline(
         start_date=start_date,
-        end_date=None,
+        end_date=end_date,
         production_sites=production_sites,
     )
 
@@ -262,7 +264,7 @@ def _run_calculation_and_upload(
     print(f"New rows to upload: {len(df):,}")
     if show_net_change:
         print(f"Net change: {len(df) - rows_deleted:+,}")
-    print(f"Date range: {start_date} to today{date_range_suffix}")
+    print(f"Date range: {start_date} to {end_date or 'today'}{date_range_suffix}")
     print(f"Total expected cost: ${df['cost_total'].sum():,.2f}")
     print(f"Avg per shipment: ${df['cost_total'].mean():,.2f}")
 
@@ -281,17 +283,25 @@ def run_full_mode(
     production_sites: list[str],
     batch_size: int,
     dry_run: bool,
+    start_date: str | None = None,
+    end_date: str | None = None,
 ) -> int:
-    """Full mode: Delete all, recalculate from 2025-01-01."""
+    """Full mode: Delete all, recalculate from start_date (default 2025-01-01)."""
+    start = start_date or DEFAULT_START_DATE
+
     print("=" * 60)
     print("FULL MODE - MAERSK US EXPECTED COSTS")
     print("=" * 60)
+
+    if end_date:
+        print(f"Date range: {start} to {end_date}")
 
     print("\nStep 1: Deleting all existing rows...")
     deleted = delete_all(dry_run=dry_run)
 
     return _run_calculation_and_upload(
-        start_date=DEFAULT_START_DATE,
+        start_date=start,
+        end_date=end_date,
         rows_deleted=deleted,
         production_sites=production_sites,
         batch_size=batch_size,
@@ -423,6 +433,16 @@ Examples:
         action="store_true",
         help="Don't modify database, just show what would happen"
     )
+    parser.add_argument(
+        "--start-date",
+        type=str,
+        help="Override start date (YYYY-MM-DD). For --full mode only."
+    )
+    parser.add_argument(
+        "--end-date",
+        type=str,
+        help="End date (YYYY-MM-DD). For --full mode only."
+    )
 
     args = parser.parse_args()
 
@@ -433,6 +453,8 @@ Examples:
                 production_sites=args.production_sites,
                 batch_size=args.batch_size,
                 dry_run=args.dry_run,
+                start_date=args.start_date,
+                end_date=args.end_date,
             )
         elif args.incremental:
             rows = run_incremental_mode(
