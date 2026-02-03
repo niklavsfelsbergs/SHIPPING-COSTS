@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS shipping_costs.expected_shipping_costs_p2p_us (
     trackingnumber_count    INTEGER,
     shop_ordernumber        VARCHAR(100),
     packagetype             VARCHAR(100),
-    pcs_shipping_provider   VARCHAR(20),
+    pcs_shipping_provider   VARCHAR(50),
 
     -- Dates (2)
     pcs_created             TIMESTAMP,
