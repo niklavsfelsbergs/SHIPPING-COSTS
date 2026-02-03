@@ -1,9 +1,10 @@
 """
 Load All US Shipments from PCS
 
-Pulls ALL US shipment data from the PCS database, regardless of carrier.
-Used for carrier cost optimization analysis - calculating what shipments
-would cost with OnTrac even if they actually used a different carrier.
+Pulls US shipment data from all production sites for US domestic carriers
+(FedEx, OnTrac, USPS, DHL eCommerce). Used for carrier cost optimization
+analysis - calculating what shipments would cost with OnTrac regardless
+of which carrier was actually used.
 """
 
 import polars as pl
@@ -16,11 +17,13 @@ from shared.database import pull_data
 
 SQL_FILE = Path(shared.__file__).parent / "sql" / "pcs_shipments_country.sql"
 
-# Defaults for all-US analysis (no carrier filter, Columbus only)
-DEFAULT_CARRIER = None  # No carrier filter - get ALL shipments
+# Defaults for all-US analysis
 DEFAULT_COUNTRY = "United States of America"
-DEFAULT_PRODUCTION_SITES = ["Columbus"]  # CMH zones only for consistent comparison
+DEFAULT_PRODUCTION_SITES = None  # All sites - costs calculated using CMH zones
 DEFAULT_START_DATE = "2025-01-01"
+
+# Carrier filter: only US domestic carriers we have calculators for
+DEFAULT_CARRIER_FILTER = "and (ps.extkey like '%FX%' or ps.extkey = 'ONTRAC' or ps.extkey = 'USPS' or ps.extkey = 'DHL ECOMMERCE AMERICA')"
 
 
 def load_pcs_shipments_all_us(
@@ -33,24 +36,22 @@ def load_pcs_shipments_all_us(
     """
     Load ALL US shipment data from PCS database.
 
-    Unlike load_pcs_shipments(), this does not filter by carrier.
-    Used for carrier cost optimization analysis.
+    Loads shipments from all production sites for US domestic carriers
+    (FedEx, OnTrac, USPS, DHL eCommerce). Used for carrier cost optimization
+    analysis - calculating what shipments would cost with different carriers.
 
     Args:
         start_date: Start date (YYYY-MM-DD), defaults to 2025-01-01
         end_date: End date (YYYY-MM-DD), optional
         limit: Max rows to return, optional (for testing)
         country: Country name filter, defaults to 'United States of America'
-        production_sites: List of production sites, defaults to ['Columbus']
+        production_sites: List of production sites, defaults to None (all sites)
 
     Returns:
         DataFrame with shipment data ready for supplement_shipments()
     """
-    if production_sites is None:
-        production_sites = DEFAULT_PRODUCTION_SITES
-
-    # No carrier filter - we want ALL shipments
-    carrier_filter = ""
+    # Carrier filter: only US domestic carriers we have calculators for
+    carrier_filter = DEFAULT_CARRIER_FILTER
 
     # Country filter
     country_filter = ""

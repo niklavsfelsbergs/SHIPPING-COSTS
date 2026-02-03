@@ -1,17 +1,19 @@
 # CLAUDE.md
 
-Guidance for Claude Code when working with this repository.
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Project Overview
 
 Shipping cost validation system. Calculates expected shipping costs from PCS (production system) shipment data, uploads to Redshift, and compares against actual carrier invoices to catch billing errors and understand cost drivers.
 
-**Carriers implemented:**
+**Carriers:**
 | Carrier | Status | Accuracy |
 |---------|--------|----------|
 | OnTrac | Production | -0.52% variance |
 | USPS | Production | +0.65% variance |
+| FedEx | In development | Base rates complete (HD: +0.08%, SmartPost: 0.00%), surcharges TODO |
 | DPD UK | In development | - |
+| Maersk US/EU | Early development | - |
 
 ## Project Structure
 
@@ -26,21 +28,22 @@ SHIPPING-COSTS/
 │   │   │   └── reference/      # zones.csv, base_rates.csv, fuel.py
 │   │   ├── surcharges/         # OML, LPS, AHS, DAS, EDAS, RES, DEM_*
 │   │   ├── scripts/            # upload_expected, upload_actuals, compare, calculator
+│   │   ├── dashboard/          # Streamlit dashboard
 │   │   ├── maintenance/        # generate_zones
 │   │   └── tests/
 │   │
-│   ├── usps/                   # USPS Ground Advantage
-│   │   └── (same structure)
-│   │
-│   └── dpd_uk/                 # DPD UK (in development)
-│       └── (same structure)
+│   ├── usps/                   # USPS Ground Advantage (same structure)
+│   ├── fedex/                  # FedEx Home Delivery + SmartPost (same structure)
+│   ├── dpd_uk/                 # DPD UK (in development)
+│   ├── maersk_us/              # Maersk US (early development)
+│   └── maersk_eu/              # Maersk EU (early development)
 │
 ├── shared/
 │   ├── database/               # Redshift connection (pull_data, push_data)
 │   ├── surcharges/base.py      # Surcharge base class
 │   └── sql/                    # Shared SQL templates
 │
-└── CLAUDE.md                   # This file
+└── CLAUDE.md
 ```
 
 ## Setup
@@ -61,6 +64,8 @@ PCS Database → calculate_costs() → upload_expected → Redshift
 Carrier Invoice → upload_actuals ──────────────────→ Redshift
                                                          ↓
                                    compare_expected_to_actuals → HTML Report
+                                                         ↓
+                                   dashboard/export_data → Streamlit Dashboard
 ```
 
 ### Calculator Pattern
@@ -95,7 +100,6 @@ python -m carriers.ontrac.scripts.calculator                    # Interactive ca
 python -m carriers.ontrac.scripts.upload_expected --incremental # Upload expected costs
 python -m carriers.ontrac.scripts.upload_actuals --incremental  # Upload invoice costs
 python -m carriers.ontrac.scripts.compare_expected_to_actuals   # Generate accuracy report
-python -m carriers.ontrac.scripts.compare_expected_to_actuals --invoice 26D0I70116  # Specific invoice
 pytest carriers/ontrac/tests/ -v                                # Run tests
 ```
 
@@ -105,8 +109,16 @@ python -m carriers.usps.scripts.calculator
 python -m carriers.usps.scripts.upload_expected --incremental
 python -m carriers.usps.scripts.upload_actuals --incremental
 python -m carriers.usps.scripts.compare_expected_to_actuals
-python -m carriers.usps.scripts.compare_expected_to_actuals --date_from 2026-01-01
 pytest carriers/usps/tests/ -v
+```
+
+### FedEx
+```bash
+python -m carriers.fedex.scripts.calculator
+python -m carriers.fedex.scripts.upload_expected --incremental
+python -m carriers.fedex.scripts.upload_actuals --incremental
+python -m carriers.fedex.scripts.compare_expected_to_actuals
+pytest carriers/fedex/tests/ -v
 ```
 
 ### Common Options
@@ -116,6 +128,24 @@ pytest carriers/usps/tests/ -v
 --days N        # Last N days only
 --dry-run       # Preview without database changes
 ```
+
+### Streamlit Dashboards
+
+Each carrier has an interactive dashboard for analyzing expected vs actual costs:
+
+```bash
+# Export data from Redshift first
+python -m carriers.ontrac.dashboard.export_data
+python -m carriers.usps.dashboard.export_data
+python -m carriers.fedex.dashboard.export_data
+
+# Launch dashboard
+streamlit run carriers/ontrac/dashboard/OnTrac.py
+streamlit run carriers/usps/dashboard/USPS.py
+streamlit run carriers/fedex/dashboard/FedEx.py
+```
+
+Dashboard pages: Portfolio Overview, Estimation Accuracy, Anomaly Detection, Cost Drivers.
 
 ## Shared Components
 
@@ -162,12 +192,14 @@ class AHS(Surcharge):
 ### Expected Costs
 - `shipping_costs.expected_shipping_costs_ontrac`
 - `shipping_costs.expected_shipping_costs_usps`
+- `shipping_costs.expected_shipping_costs_fedex`
 
 Contains: order IDs, dimensions, zones, surcharge flags, all cost components, calculator version
 
 ### Actual Costs
 - `shipping_costs.actual_shipping_costs_ontrac`
 - `shipping_costs.actual_shipping_costs_usps`
+- `shipping_costs.actual_shipping_costs_fedex`
 
 Contains: order IDs, invoice data, actual charges by category
 
@@ -188,6 +220,9 @@ Three-tier fallback for zone lookup:
 2. State-level mode (most common zone for that state)
 3. Default zone 5
 
+### FedEx 4-Part Rate Structure
+FedEx invoice charges decompose into: Undiscounted Rate + Performance Pricing (negative) + Earned Discount + Grace Discount. Calculator outputs all components separately. SmartPost uses different undiscounted rate tables for weights 10+ lbs (~26% higher).
+
 ## Adding a New Carrier
 
 1. Create directory structure: `carriers/{carrier}/`
@@ -197,6 +232,7 @@ Three-tier fallback for zone lookup:
 5. Implement scripts: `upload_expected.py`, `upload_actuals.py`, `compare_expected_to_actuals.py`
 6. Add tests
 7. Create `README.md` documenting carrier-specific details
+8. (Optional) Add Streamlit dashboard in `dashboard/`
 
 ## Configuration Updates
 
@@ -218,3 +254,4 @@ Always update `version.py` when changing configuration.
 See detailed README in each carrier directory:
 - `carriers/ontrac/README.md` - Surcharge details, contract references, maintenance procedures
 - `carriers/usps/README.md` - Ground Advantage specifics, peak surcharge tiers
+- `carriers/fedex/README.md` - 4-part rate structure, SmartPost 10+ lb anomaly, service types

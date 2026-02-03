@@ -18,7 +18,7 @@ SQL_FILE = Path(shared.__file__).parent / "sql" / "pcs_shipments.sql"
 # FedEx carrier codes in PCS start with "FX" (FXEHD, FXESPPS, FXEGRD, FXE2D, etc.)
 DEFAULT_CARRIER_PATTERN = "FX%"
 DEFAULT_PRODUCTION_SITES = ["Columbus", "Phoenix"]
-DEFAULT_START_DATE = "2025-06-01"
+DEFAULT_START_DATE = "2025-01-01"
 
 
 def load_pcs_shipments(
