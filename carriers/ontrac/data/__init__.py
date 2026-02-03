@@ -17,6 +17,7 @@ from .reference.fuel import LIST_RATE, DISCOUNT, RATE, APPLICATION
 # Re-export loaders for convenience
 from .loaders import (
     load_pcs_shipments,
+    load_pcs_shipments_all_us,
     DEFAULT_CARRIER,
     DEFAULT_PRODUCTION_SITES,
     DEFAULT_START_DATE,
@@ -70,6 +71,20 @@ def load_zones() -> pl.DataFrame:
     )
 
 
+def load_serviceable_zips() -> set[str]:
+    """
+    Load set of OnTrac serviceable 5-digit zip codes.
+
+    Returns:
+        Set of 5-digit zip code strings (with leading zeros)
+    """
+    df = pl.read_csv(
+        REFERENCE_DIR / "serviceable_zips.csv",
+        schema_overrides={"zip_code": pl.Utf8}
+    )
+    return set(df["zip_code"].to_list())
+
+
 # Re-export fuel rate for convenience
 FUEL_RATE = RATE
 
@@ -77,9 +92,11 @@ __all__ = [
     # Reference data loaders
     "load_rates",
     "load_zones",
+    "load_serviceable_zips",
     "REFERENCE_DIR",
     # PCS data loaders
     "load_pcs_shipments",
+    "load_pcs_shipments_all_us",
     "DEFAULT_CARRIER",
     "DEFAULT_PRODUCTION_SITES",
     "DEFAULT_START_DATE",

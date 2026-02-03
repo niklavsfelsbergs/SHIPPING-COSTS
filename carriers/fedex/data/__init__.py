@@ -8,7 +8,7 @@ Structure:
     - loaders/: Dynamic data loaders (PCS database)
 """
 
-from .loaders import load_pcs_shipments
+from .loaders import load_pcs_shipments, load_pcs_shipments_all_us
 from .reference import (
     load_zones,
     load_das_zones,
@@ -29,6 +29,7 @@ from .reference.service_mapping import (
 __all__ = [
     # PCS data loaders
     "load_pcs_shipments",
+    "load_pcs_shipments_all_us",
     # Reference data loaders
     "load_zones",
     "load_das_zones",
