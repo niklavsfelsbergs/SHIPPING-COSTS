@@ -10,7 +10,7 @@ Calculates expected shipping costs for P2P Parcel Flex Advantage Plus (PFAP2) sh
 
 | Task | Command |
 |------|---------|
-| Upload expected costs (incremental) | `python -m carriers.p2p_us.scripts.upload_expected --incremental` |
+| Upload expected costs (incremental) | `python -m carriers.p2p_us.scripts.upload_expected_all_us --incremental` |
 | Calculate single shipment | `python -m carriers.p2p_us.scripts.calculator` |
 
 ---
@@ -23,16 +23,16 @@ Calculates expected shipping costs from PCS shipment data and uploads to the dat
 
 ```bash
 # Incremental: from latest date in DB (recommended for daily use)
-python -m carriers.p2p_us.scripts.upload_expected --incremental
+python -m carriers.p2p_us.scripts.upload_expected_all_us --incremental
 
 # Full: recalculate everything from 2025-01-01
-python -m carriers.p2p_us.scripts.upload_expected --full
+python -m carriers.p2p_us.scripts.upload_expected_all_us --full
 
 # Last N days only
-python -m carriers.p2p_us.scripts.upload_expected --days 7
+python -m carriers.p2p_us.scripts.upload_expected_all_us --days 7
 
 # Preview without making changes
-python -m carriers.p2p_us.scripts.upload_expected --full --dry-run
+python -m carriers.p2p_us.scripts.upload_expected_all_us --full --dry-run
 ```
 
 **Options:**
@@ -79,7 +79,7 @@ carriers/p2p_us/
 │   ├── additional_handling.py  # AHS ($29)
 │   └── oversize.py             # Oversize ($125)
 ├── scripts/                # CLI tools
-│   ├── upload_expected.py
+│   ├── upload_expected_all_us.py
 │   ├── calculator.py
 │   └── sql/
 │       └── create_expected_table.sql

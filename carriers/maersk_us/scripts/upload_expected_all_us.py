@@ -2,7 +2,7 @@
 Upload Expected Costs to Database
 =================================
 
-Calculates expected P2P US shipping costs and uploads them to the database.
+Calculates expected Maersk US shipping costs and uploads them to the database.
 
 Modes:
     --full          Full calculation since 2025-01-01, delete existing and reupload
@@ -10,10 +10,10 @@ Modes:
     --days N        Delete and recalculate last N days (by pcs_created)
 
 Usage:
-    python -m carriers.p2p_us.scripts.upload_expected --full
-    python -m carriers.p2p_us.scripts.upload_expected --incremental
-    python -m carriers.p2p_us.scripts.upload_expected --days 7
-    python -m carriers.p2p_us.scripts.upload_expected --full --dry-run
+    python -m carriers.maersk_us.scripts.upload_expected_all_us --full
+    python -m carriers.maersk_us.scripts.upload_expected_all_us --incremental
+    python -m carriers.maersk_us.scripts.upload_expected_all_us --days 7
+    python -m carriers.maersk_us.scripts.upload_expected_all_us --full --dry-run
 """
 
 import argparse
@@ -23,15 +23,15 @@ from datetime import datetime, timedelta
 import polars as pl
 
 from shared.database import pull_data, execute_query, push_data
-from carriers.p2p_us.data import load_pcs_shipments, DEFAULT_START_DATE, DEFAULT_PRODUCTION_SITES
-from carriers.p2p_us.calculate_costs import calculate_costs
+from carriers.maersk_us.data import load_pcs_shipments, DEFAULT_START_DATE, DEFAULT_PRODUCTION_SITES
+from carriers.maersk_us.calculate_costs import calculate_costs
 
 
 # =============================================================================
 # CONFIGURATION
 # =============================================================================
 
-TABLE_NAME = "shipping_costs.expected_shipping_costs_p2p_us"
+TABLE_NAME = "shipping_costs.expected_shipping_costs_maersk_us_all_us"
 
 # Columns to upload (matches DDL order)
 UPLOAD_COLUMNS = [
@@ -46,14 +46,14 @@ UPLOAD_COLUMNS = [
     "shipping_country", "shipping_zone",
     # Dimensions imperial (4)
     "length_in", "width_in", "height_in", "weight_lbs",
-    # Calculated dimensions (4)
-    "cubic_in", "longest_side_in", "second_longest_in", "length_plus_girth",
+    # Calculated dimensions (3)
+    "cubic_in", "longest_side_in", "second_longest_in",
     # Weight calculations (3)
     "dim_weight_lbs", "uses_dim_weight", "billable_weight_lbs",
-    # Surcharge flags (2)
-    "surcharge_ahs", "surcharge_oversize",
-    # Costs (6)
-    "cost_base", "cost_ahs", "cost_oversize",
+    # Surcharge flags (4)
+    "surcharge_nsl1", "surcharge_nsl2", "surcharge_nsd", "surcharge_pickup",
+    # Costs (8)
+    "cost_base", "cost_nsl1", "cost_nsl2", "cost_nsd", "cost_pickup",
     "cost_subtotal", "cost_total", "cost_total_multishipment",
     # Metadata (2)
     "calculator_version", "dw_timestamp",
@@ -177,11 +177,11 @@ def run_pipeline(
     if filtered_count > 0:
         print(f"  Filtered {filtered_count:,} shipments with missing dimensions/weight")
 
-    # Filter out shipments over max weight (50 lbs)
-    overweight_count = len(df.filter(pl.col("weight_lbs") > 50))
+    # Filter out shipments over max weight (70 lbs)
+    overweight_count = len(df.filter(pl.col("weight_lbs") > 70))
     if overweight_count > 0:
-        print(f"  Filtering {overweight_count:,} shipments over 50 lbs")
-        df = df.filter(pl.col("weight_lbs") <= 50)
+        print(f"  Filtering {overweight_count:,} shipments over 70 lbs")
+        df = df.filter(pl.col("weight_lbs") <= 70)
 
     if len(df) == 0:
         return pl.DataFrame()
@@ -284,7 +284,7 @@ def run_full_mode(
 ) -> int:
     """Full mode: Delete all, recalculate from 2025-01-01."""
     print("=" * 60)
-    print("FULL MODE - P2P US EXPECTED COSTS")
+    print("FULL MODE - MAERSK US EXPECTED COSTS")
     print("=" * 60)
 
     print("\nStep 1: Deleting all existing rows...")
@@ -306,7 +306,7 @@ def run_incremental_mode(
 ) -> int:
     """Incremental mode: Find max date, delete that day, recalculate from there."""
     print("=" * 60)
-    print("INCREMENTAL MODE - P2P US EXPECTED COSTS")
+    print("INCREMENTAL MODE - MAERSK US EXPECTED COSTS")
     print("=" * 60)
 
     print("\nStep 1: Finding latest data in table...")
@@ -344,7 +344,7 @@ def run_days_mode(
 ) -> int:
     """Days mode: Delete and recalculate last N days."""
     print("=" * 60)
-    print(f"DAYS MODE ({days} days) - P2P US EXPECTED COSTS")
+    print(f"DAYS MODE ({days} days) - MAERSK US EXPECTED COSTS")
     print("=" * 60)
 
     start_date = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
@@ -369,7 +369,7 @@ def run_days_mode(
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Upload expected P2P US shipping costs to database",
+        description="Upload expected Maersk US shipping costs to database",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Modes:
@@ -378,10 +378,10 @@ Modes:
   --days N        Delete and recalculate last N days (by pcs_created)
 
 Examples:
-  python -m carriers.p2p_us.scripts.upload_expected --full
-  python -m carriers.p2p_us.scripts.upload_expected --incremental
-  python -m carriers.p2p_us.scripts.upload_expected --days 7
-  python -m carriers.p2p_us.scripts.upload_expected --full --dry-run
+  python -m carriers.maersk_us.scripts.upload_expected_all_us --full
+  python -m carriers.maersk_us.scripts.upload_expected_all_us --incremental
+  python -m carriers.maersk_us.scripts.upload_expected_all_us --days 7
+  python -m carriers.maersk_us.scripts.upload_expected_all_us --full --dry-run
         """
     )
 

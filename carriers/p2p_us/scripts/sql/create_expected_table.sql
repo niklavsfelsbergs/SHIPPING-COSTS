@@ -1,9 +1,9 @@
--- Create expected_shipping_costs_p2p_us table
+-- Create expected_shipping_costs_p2p_us_all_us table
 -- P2P Parcel Flex Advantage Plus (PFAP2) expected costs from calculator
 --
--- Run this DDL in Redshift before using upload_expected.py
+-- Run this DDL in Redshift before using upload_expected_all_us.py
 
-CREATE TABLE IF NOT EXISTS shipping_costs.expected_shipping_costs_p2p_us (
+CREATE TABLE IF NOT EXISTS shipping_costs.expected_shipping_costs_p2p_us_all_us (
     -- Identification (7)
     pcs_orderid             BIGINT,
     pcs_ordernumber         VARCHAR(50),
@@ -61,4 +61,4 @@ DISTSTYLE AUTO
 SORTKEY (pcs_created, ship_date);
 
 -- Grant permissions
-GRANT ALL ON shipping_costs.expected_shipping_costs_p2p_us TO tcg_nfe;
+GRANT ALL ON shipping_costs.expected_shipping_costs_p2p_us_all_us TO tcg_nfe;
