@@ -2,7 +2,7 @@
 
 ## Executive Summary
 
-This scenario calculates the total shipping cost if 100% of US shipment volume were routed to Maersk US, a carrier not currently used in the production system. **Maersk would cost $6.44M vs the current mix of $6.39M, representing a 0.9% ($55K) increase**. While Maersk is competitive for lightweight packages (1-4 lbs), it becomes significantly more expensive for mid-to-heavy weight shipments due to high base rates and a dramatic rate jump at 30 lbs.
+This scenario calculates the total shipping cost if 100% of US shipment volume were routed to Maersk US, a carrier not currently used in the production system. **Maersk would cost $6.44M vs the current mix of $6.39M, representing a 0.8% ($51K) increase**. While Maersk is competitive for lightweight packages (1-4 lbs), it becomes significantly more expensive for mid-to-heavy weight shipments due to high base rates and a dramatic rate jump at 30 lbs.
 
 ## Methodology
 
@@ -29,8 +29,8 @@ Where:
 |-------------------------------|-----------------------------|
 | Total Shipments               | 558,210                     |
 | Current Mix Total             | $6,389,595.72               |
-| 100% Maersk Total             | $6,444,524.54               |
-| **Difference**                | **+$54,928.82 (+0.9%)**     |
+| 100% Maersk Total             | $6,440,239.70               |
+| **Difference**                | **+$50,643.98 (+0.8%)**     |
 | Avg Cost/Shipment (Current)   | $11.45                      |
 | Avg Cost/Shipment (Maersk)    | $11.54                      |
 
@@ -39,7 +39,7 @@ Where:
 | Rank   | Carrier       | Serviceable   | Total Cost       | Avg Cost   |
 |--------|---------------|---------------|------------------|------------|
 | 1      | Current Mix   | 558,210       | $6,389,596       | $11.45     |
-| 2      | Maersk        | 558,210       | $6,444,525       | $11.54     |
+| 2      | Maersk        | 558,210       | $6,440,240       | $11.54     |
 | 3      | FedEx         | 558,210       | $6,920,940       | $12.40     |
 | 4      | USPS          | 558,210       | $8,195,287       | $14.68     |
 
@@ -56,10 +56,13 @@ The 30 lb rate jump is a critical cost driver for Maersk:
 | 2-3 lbs          | 96,358      | 17.3%        | $10.13        | $8.11        | -$2.02 (-20%)     |
 | 3-4 lbs          | 43,915      | 7.9%         | $12.23        | $9.33        | -$2.89 (-24%)     |
 | 4-5 lbs          | 41,170      | 7.4%         | $12.39        | $12.59       | +$0.20 (+2%)      |
-| 5-10 lbs         | 87,003      | 15.6%        | $18.47        | $21.65       | +$3.18 (+17%)     |
-| 10-20 lbs        | 22,543      | 4.0%         | $24.03        | $42.31       | +$18.28 (+76%)    |
-| 20-30 lbs        | 3,229       | 0.6%         | $26.43        | $74.54       | +$48.11 (+182%)   |
-| **> 30 lbs**     | **1,853**   | **0.3%**     | **$29.47**    | **$99.85**   | **+$70.38 (+239%)**|
+| 5-10 lbs         | 88,003      | 15.8%        | $18.49        | $20.62       | +$2.13 (+12%)     |
+| 10-20 lbs        | 24,071      | 4.3%         | $24.75        | $36.93       | +$12.19 (+49%)    |
+| 20-30 lbs        | 3,684       | 0.7%         | $27.16        | $72.22       | +$45.05 (+166%)   |
+| 30-70 lbs        | 1,853       | 0.3%         | $33.36        | $99.86       | +$66.50 (+199%)   |
+| **>70 lbs**      | **58**      | **0.0%**     | **$58.29**    | **$126.12**  | **+$67.83 (+116%)**|
+
+*Note: Shipments >70 lbs exceed Maersk's weight limit and are priced at the 70 lb rate (maximum available).*
 
 **The 30 lb Rate Jump:**
 
@@ -119,7 +122,7 @@ Maersk is cheaper in nearby zones (1-4) but more expensive in farther zones (5-9
 
 ## Key Findings
 
-1. **Maersk is slightly more expensive than current mix** (+0.9%, +$55K) for full volume.
+1. **Maersk is slightly more expensive than current mix** (+0.8%, +$51K) for full volume.
 
 2. **Maersk is competitive for lightweight packages (1-4 lbs)**: These represent 72% of shipments and show 15-31% cost savings vs current mix.
 
@@ -133,7 +136,7 @@ Maersk is cheaper in nearby zones (1-4) but more expensive in farther zones (5-9
 
 ## Recommendation
 
-**Maersk is not recommended as a 100% volume carrier** at +0.9% vs current mix.
+**Maersk is not recommended as a 100% volume carrier** at +0.8% vs current mix.
 
 However, Maersk could be valuable in a **selective routing strategy** for:
 - Lightweight packages (1-4 lbs) - saves 15-31% vs current mix
