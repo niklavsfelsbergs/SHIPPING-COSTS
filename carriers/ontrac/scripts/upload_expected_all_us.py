@@ -25,6 +25,7 @@ Usage:
 import argparse
 import sys
 from datetime import datetime, timedelta
+from pathlib import Path
 
 import polars as pl
 
@@ -40,6 +41,9 @@ from carriers.ontrac.calculate_costs import calculate_costs
 TABLE_NAME = "shipping_costs.expected_shipping_costs_ontrac_all_us"
 
 DEFAULT_START_DATE = "2025-01-01"
+
+# Output directory for parquet files
+PARQUET_OUTPUT_DIR = Path(__file__).parent / "output" / "all_us"
 
 # OnTrac weight limit
 MAX_WEIGHT_LBS = 70
@@ -234,7 +238,7 @@ def run_pipeline(
 
     unserviceable_count = df.filter(~pl.col("_is_serviceable")).height
     if unserviceable_count > 0:
-        print(f"  Marked {unserviceable_count:,} shipments to non-serviceable zips (will set cost to ${UNSERVICEABLE_PENALTY_COST:.0f})")
+        print(f"  Marked {unserviceable_count:,} shipments to non-serviceable zips (will set cost to null)")
 
     # 4. Override production_site to Columbus (CMH zones)
     df = df.with_columns(pl.lit("Columbus").alias("production_site"))
@@ -243,62 +247,62 @@ def run_pipeline(
     print("  Calculating costs...")
     df = calculate_costs(df)
 
-    # 6. Set non-serviceable shipments to penalty cost
+    # 6. Set non-serviceable shipments to null (they cannot be serviced by OnTrac)
     df = df.with_columns([
         pl.when(~pl.col("_is_serviceable"))
-        .then(pl.lit(UNSERVICEABLE_PENALTY_COST))
+        .then(pl.lit(None))
         .otherwise(pl.col("cost_base"))
         .alias("cost_base"),
         pl.when(~pl.col("_is_serviceable"))
-        .then(pl.lit(0.0))
+        .then(pl.lit(None))
         .otherwise(pl.col("cost_oml"))
         .alias("cost_oml"),
         pl.when(~pl.col("_is_serviceable"))
-        .then(pl.lit(0.0))
+        .then(pl.lit(None))
         .otherwise(pl.col("cost_lps"))
         .alias("cost_lps"),
         pl.when(~pl.col("_is_serviceable"))
-        .then(pl.lit(0.0))
+        .then(pl.lit(None))
         .otherwise(pl.col("cost_ahs"))
         .alias("cost_ahs"),
         pl.when(~pl.col("_is_serviceable"))
-        .then(pl.lit(0.0))
+        .then(pl.lit(None))
         .otherwise(pl.col("cost_das"))
         .alias("cost_das"),
         pl.when(~pl.col("_is_serviceable"))
-        .then(pl.lit(0.0))
+        .then(pl.lit(None))
         .otherwise(pl.col("cost_edas"))
         .alias("cost_edas"),
         pl.when(~pl.col("_is_serviceable"))
-        .then(pl.lit(0.0))
+        .then(pl.lit(None))
         .otherwise(pl.col("cost_res"))
         .alias("cost_res"),
         pl.when(~pl.col("_is_serviceable"))
-        .then(pl.lit(0.0))
+        .then(pl.lit(None))
         .otherwise(pl.col("cost_dem_oml"))
         .alias("cost_dem_oml"),
         pl.when(~pl.col("_is_serviceable"))
-        .then(pl.lit(0.0))
+        .then(pl.lit(None))
         .otherwise(pl.col("cost_dem_lps"))
         .alias("cost_dem_lps"),
         pl.when(~pl.col("_is_serviceable"))
-        .then(pl.lit(0.0))
+        .then(pl.lit(None))
         .otherwise(pl.col("cost_dem_ahs"))
         .alias("cost_dem_ahs"),
         pl.when(~pl.col("_is_serviceable"))
-        .then(pl.lit(0.0))
+        .then(pl.lit(None))
         .otherwise(pl.col("cost_dem_res"))
         .alias("cost_dem_res"),
         pl.when(~pl.col("_is_serviceable"))
-        .then(pl.lit(UNSERVICEABLE_PENALTY_COST))
+        .then(pl.lit(None))
         .otherwise(pl.col("cost_subtotal"))
         .alias("cost_subtotal"),
         pl.when(~pl.col("_is_serviceable"))
-        .then(pl.lit(0.0))
+        .then(pl.lit(None))
         .otherwise(pl.col("cost_fuel"))
         .alias("cost_fuel"),
         pl.when(~pl.col("_is_serviceable"))
-        .then(pl.lit(UNSERVICEABLE_PENALTY_COST))
+        .then(pl.lit(None))
         .otherwise(pl.col("cost_total"))
         .alias("cost_total"),
     ])
@@ -477,6 +481,56 @@ def run_days_mode(
     )
 
 
+def run_parquet_mode(
+    start_date: str | None = None,
+    end_date: str | None = None,
+    limit: int | None = None,
+) -> int:
+    """Parquet mode: Calculate costs and save to parquet file instead of database."""
+    start = start_date or DEFAULT_START_DATE
+
+    print("=" * 60)
+    print("PARQUET MODE - ALL US EXPECTED COSTS (OnTrac)")
+    print("=" * 60)
+    print(f"Date range: {start} to {end_date or 'today'}")
+    if limit:
+        print(f"Row limit: {limit:,}")
+
+    print("\nStep 1: Calculating expected costs...")
+    df = run_pipeline(
+        start_date=start,
+        end_date=end_date,
+        limit=limit,
+    )
+
+    if len(df) == 0:
+        print("\nNo shipments found.")
+        return 0
+
+    # Print summary
+    print("\n" + "=" * 60)
+    print("CALCULATION SUMMARY")
+    print("=" * 60)
+    print(f"Rows calculated: {len(df):,}")
+    print(f"Date range: {start} to {end_date or 'today'}")
+    print(f"Total expected cost: ${df['ontrac_cost_total'].sum():,.2f}")
+    print(f"Avg per shipment: ${df['ontrac_cost_total'].mean():,.2f}")
+
+    # Create output directory if it doesn't exist
+    PARQUET_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
+    # Generate filename with date range
+    end_str = end_date or datetime.now().strftime("%Y-%m-%d")
+    filename = f"ontrac_all_us_{start}_{end_str}.parquet"
+    output_path = PARQUET_OUTPUT_DIR / filename
+
+    print(f"\nStep 2: Saving to {output_path}...")
+    df.write_parquet(output_path)
+    print(f"Saved {len(df):,} rows to {output_path}")
+
+    return len(df)
+
+
 # =============================================================================
 # MAIN
 # =============================================================================
@@ -545,12 +599,27 @@ Examples:
         type=int,
         help="Limit number of rows to process (for testing)"
     )
+    parser.add_argument(
+        "--parquet",
+        action="store_true",
+        help="Save to parquet file instead of uploading to database"
+    )
 
     args = parser.parse_args()
 
     # Run appropriate mode
     try:
-        if args.full:
+        if args.parquet:
+            # Parquet mode - save to file instead of database
+            rows = run_parquet_mode(
+                start_date=args.start_date,
+                end_date=args.end_date,
+                limit=args.limit,
+            )
+            print("\n" + "=" * 60)
+            print(f"Successfully saved {rows:,} rows to parquet")
+            print("=" * 60)
+        elif args.full:
             rows = run_full_mode(
                 batch_size=args.batch_size,
                 dry_run=args.dry_run,
@@ -558,25 +627,35 @@ Examples:
                 end_date=args.end_date,
                 limit=args.limit,
             )
+            print("\n" + "=" * 60)
+            if args.dry_run:
+                print(f"[DRY RUN] Would have uploaded {rows:,} rows to {TABLE_NAME}")
+            else:
+                print(f"Successfully uploaded {rows:,} rows to {TABLE_NAME}")
+            print("=" * 60)
         elif args.incremental:
             rows = run_incremental_mode(
                 batch_size=args.batch_size,
                 dry_run=args.dry_run,
             )
+            print("\n" + "=" * 60)
+            if args.dry_run:
+                print(f"[DRY RUN] Would have uploaded {rows:,} rows to {TABLE_NAME}")
+            else:
+                print(f"Successfully uploaded {rows:,} rows to {TABLE_NAME}")
+            print("=" * 60)
         else:  # args.days
             rows = run_days_mode(
                 days=args.days,
                 batch_size=args.batch_size,
                 dry_run=args.dry_run,
             )
-
-        # Final summary
-        print("\n" + "=" * 60)
-        if args.dry_run:
-            print(f"[DRY RUN] Would have uploaded {rows:,} rows to {TABLE_NAME}")
-        else:
-            print(f"Successfully uploaded {rows:,} rows to {TABLE_NAME}")
-        print("=" * 60)
+            print("\n" + "=" * 60)
+            if args.dry_run:
+                print(f"[DRY RUN] Would have uploaded {rows:,} rows to {TABLE_NAME}")
+            else:
+                print(f"Successfully uploaded {rows:,} rows to {TABLE_NAME}")
+            print("=" * 60)
 
     except KeyboardInterrupt:
         print("\n\nCancelled.")

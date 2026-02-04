@@ -19,11 +19,12 @@ Usage:
 import argparse
 import sys
 from datetime import datetime, timedelta
+from pathlib import Path
 
 import polars as pl
 
 from shared.database import pull_data, execute_query, push_data
-from carriers.maersk_us.data import load_pcs_shipments, DEFAULT_START_DATE, DEFAULT_PRODUCTION_SITES
+from carriers.maersk_us.data import load_pcs_shipments_all_us, DEFAULT_START_DATE
 from carriers.maersk_us.calculate_costs import calculate_costs
 
 
@@ -32,6 +33,15 @@ from carriers.maersk_us.calculate_costs import calculate_costs
 # =============================================================================
 
 TABLE_NAME = "shipping_costs.expected_shipping_costs_maersk_us_all_us"
+
+# Output directory for parquet files
+PARQUET_OUTPUT_DIR = Path(__file__).parent / "output" / "all_us"
+
+# Maersk US weight limit
+MAX_WEIGHT_LBS = 70
+
+# Penalty cost for overweight shipments (ensures they're never optimal)
+OVERWEIGHT_PENALTY_COST = 200.0
 
 # Columns to upload (matches DDL order)
 UPLOAD_COLUMNS = [
@@ -143,22 +153,17 @@ def delete_from_date(start_date: str, dry_run: bool = False) -> int:
 def run_pipeline(
     start_date: str,
     end_date: str | None = None,
-    production_sites: list[str] | None = None,
 ) -> pl.DataFrame:
     """
     Run the full calculation pipeline for a date range.
 
     Returns DataFrame ready for upload with UPLOAD_COLUMNS.
     """
-    if production_sites is None:
-        production_sites = DEFAULT_PRODUCTION_SITES
-
-    # Load shipments
-    print(f"  Loading shipments from {start_date} to {end_date or 'today'}...")
-    df = load_pcs_shipments(
+    # Load ALL US shipments (all production sites, US domestic carriers only)
+    print(f"  Loading ALL US shipments from {start_date} to {end_date or 'today'}...")
+    df = load_pcs_shipments_all_us(
         start_date=start_date,
         end_date=end_date,
-        production_sites=production_sites,
     )
     print(f"  Loaded {len(df):,} shipments")
 
@@ -177,18 +182,68 @@ def run_pipeline(
     if filtered_count > 0:
         print(f"  Filtered {filtered_count:,} shipments with missing dimensions/weight")
 
-    # Filter out shipments over max weight (70 lbs)
-    overweight_count = len(df.filter(pl.col("weight_lbs") > 70))
+    # Mark overweight shipments (Maersk US max 70 lbs)
+    overweight_count = df.filter(pl.col("weight_lbs") > MAX_WEIGHT_LBS).height
     if overweight_count > 0:
-        print(f"  Filtering {overweight_count:,} shipments over 70 lbs")
-        df = df.filter(pl.col("weight_lbs") <= 70)
+        print(f"  Marked {overweight_count:,} shipments over {MAX_WEIGHT_LBS} lbs (will set cost to ${OVERWEIGHT_PENALTY_COST:.0f})")
+
+    df = df.with_columns(
+        (pl.col("weight_lbs") > MAX_WEIGHT_LBS).alias("_is_overweight")
+    )
+
+    print(f"  {len(df):,} shipments to process")
 
     if len(df) == 0:
         return pl.DataFrame()
 
+    # For overweight shipments, cap weight at max for calculation to avoid errors
+    df = df.with_columns(
+        pl.when(pl.col("_is_overweight"))
+        .then(pl.lit(MAX_WEIGHT_LBS))
+        .otherwise(pl.col("weight_lbs"))
+        .alias("weight_lbs_calc")
+    )
+    original_weight = df["weight_lbs"]
+    df = df.with_columns(pl.col("weight_lbs_calc").alias("weight_lbs"))
+
     # Calculate costs
     print("  Calculating costs...")
     df = calculate_costs(df)
+
+    # Restore original weight
+    df = df.with_columns(original_weight.alias("weight_lbs"))
+
+    # Set overweight shipments to penalty cost
+    df = df.with_columns([
+        pl.when(pl.col("_is_overweight"))
+        .then(pl.lit(OVERWEIGHT_PENALTY_COST))
+        .otherwise(pl.col("cost_base"))
+        .alias("cost_base"),
+        pl.when(pl.col("_is_overweight"))
+        .then(pl.lit(0.0))
+        .otherwise(pl.col("cost_nsl1"))
+        .alias("cost_nsl1"),
+        pl.when(pl.col("_is_overweight"))
+        .then(pl.lit(0.0))
+        .otherwise(pl.col("cost_nsl2"))
+        .alias("cost_nsl2"),
+        pl.when(pl.col("_is_overweight"))
+        .then(pl.lit(0.0))
+        .otherwise(pl.col("cost_nsd"))
+        .alias("cost_nsd"),
+        pl.when(pl.col("_is_overweight"))
+        .then(pl.lit(0.0))
+        .otherwise(pl.col("cost_pickup"))
+        .alias("cost_pickup"),
+        pl.when(pl.col("_is_overweight"))
+        .then(pl.lit(OVERWEIGHT_PENALTY_COST))
+        .otherwise(pl.col("cost_subtotal"))
+        .alias("cost_subtotal"),
+        pl.when(pl.col("_is_overweight"))
+        .then(pl.lit(OVERWEIGHT_PENALTY_COST))
+        .otherwise(pl.col("cost_total"))
+        .alias("cost_total"),
+    ])
 
     # Calculate multishipment cost (cost_total * trackingnumber_count)
     # For orders with multiple tracking numbers, this gives total expected cost
@@ -218,7 +273,6 @@ def run_pipeline(
 def _run_calculation_and_upload(
     start_date: str,
     rows_deleted: int,
-    production_sites: list[str],
     batch_size: int,
     dry_run: bool,
     end_date: str | None = None,
@@ -233,7 +287,6 @@ def _run_calculation_and_upload(
     Args:
         start_date: Date to start calculation from (YYYY-MM-DD)
         rows_deleted: Number of rows deleted in previous step (for summary)
-        production_sites: Production sites to include
         batch_size: Rows per INSERT batch
         dry_run: If True, don't upload
         end_date: Date to end calculation at (YYYY-MM-DD), optional
@@ -249,7 +302,6 @@ def _run_calculation_and_upload(
     df = run_pipeline(
         start_date=start_date,
         end_date=end_date,
-        production_sites=production_sites,
     )
 
     if len(df) == 0:
@@ -280,7 +332,6 @@ def _run_calculation_and_upload(
 
 
 def run_full_mode(
-    production_sites: list[str],
     batch_size: int,
     dry_run: bool,
     start_date: str | None = None,
@@ -290,7 +341,7 @@ def run_full_mode(
     start = start_date or DEFAULT_START_DATE
 
     print("=" * 60)
-    print("FULL MODE - MAERSK US EXPECTED COSTS")
+    print("FULL MODE - MAERSK US EXPECTED COSTS (ALL US)")
     print("=" * 60)
 
     if end_date:
@@ -303,20 +354,18 @@ def run_full_mode(
         start_date=start,
         end_date=end_date,
         rows_deleted=deleted,
-        production_sites=production_sites,
         batch_size=batch_size,
         dry_run=dry_run,
     )
 
 
 def run_incremental_mode(
-    production_sites: list[str],
     batch_size: int,
     dry_run: bool,
 ) -> int:
     """Incremental mode: Find max date, delete that day, recalculate from there."""
     print("=" * 60)
-    print("INCREMENTAL MODE - MAERSK US EXPECTED COSTS")
+    print("INCREMENTAL MODE - MAERSK US EXPECTED COSTS (ALL US)")
     print("=" * 60)
 
     print("\nStep 1: Finding latest data in table...")
@@ -337,7 +386,6 @@ def run_incremental_mode(
     return _run_calculation_and_upload(
         start_date=start_date,
         rows_deleted=rows_deleted,
-        production_sites=production_sites,
         batch_size=batch_size,
         dry_run=dry_run,
         show_net_change=True,
@@ -348,13 +396,12 @@ def run_incremental_mode(
 
 def run_days_mode(
     days: int,
-    production_sites: list[str],
     batch_size: int,
     dry_run: bool,
 ) -> int:
     """Days mode: Delete and recalculate last N days."""
     print("=" * 60)
-    print(f"DAYS MODE ({days} days) - MAERSK US EXPECTED COSTS")
+    print(f"DAYS MODE ({days} days) - MAERSK US EXPECTED COSTS (ALL US)")
     print("=" * 60)
 
     start_date = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
@@ -365,12 +412,57 @@ def run_days_mode(
     return _run_calculation_and_upload(
         start_date=start_date,
         rows_deleted=rows_deleted,
-        production_sites=production_sites,
         batch_size=batch_size,
         dry_run=dry_run,
         date_range_suffix=f" ({days} days)",
         show_net_change=True,
     )
+
+
+def run_parquet_mode(
+    start_date: str | None = None,
+    end_date: str | None = None,
+) -> int:
+    """Parquet mode: Calculate costs and save to parquet file instead of database."""
+    start = start_date or DEFAULT_START_DATE
+
+    print("=" * 60)
+    print("PARQUET MODE - MAERSK US EXPECTED COSTS (ALL US)")
+    print("=" * 60)
+    print(f"Date range: {start} to {end_date or 'today'}")
+
+    print("\nStep 1: Calculating expected costs...")
+    df = run_pipeline(
+        start_date=start,
+        end_date=end_date,
+    )
+
+    if len(df) == 0:
+        print("\nNo shipments found.")
+        return 0
+
+    # Print summary
+    print("\n" + "=" * 60)
+    print("CALCULATION SUMMARY")
+    print("=" * 60)
+    print(f"Rows calculated: {len(df):,}")
+    print(f"Date range: {start} to {end_date or 'today'}")
+    print(f"Total expected cost: ${df['cost_total'].sum():,.2f}")
+    print(f"Avg per shipment: ${df['cost_total'].mean():,.2f}")
+
+    # Create output directory if it doesn't exist
+    PARQUET_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
+    # Generate filename with date range
+    end_str = end_date or datetime.now().strftime("%Y-%m-%d")
+    filename = f"maersk_us_all_us_{start}_{end_str}.parquet"
+    output_path = PARQUET_OUTPUT_DIR / filename
+
+    print(f"\nStep 2: Saving to {output_path}...")
+    df.write_parquet(output_path)
+    print(f"Saved {len(df):,} rows to {output_path}")
+
+    return len(df)
 
 
 # =============================================================================
@@ -416,13 +508,6 @@ Examples:
 
     # Common options
     parser.add_argument(
-        "--production-sites",
-        type=str,
-        nargs="+",
-        default=DEFAULT_PRODUCTION_SITES,
-        help=f"Production sites to include (default: {' '.join(DEFAULT_PRODUCTION_SITES)})"
-    )
-    parser.add_argument(
         "--batch-size",
         type=int,
         default=5000,
@@ -443,40 +528,61 @@ Examples:
         type=str,
         help="End date (YYYY-MM-DD). For --full mode only."
     )
+    parser.add_argument(
+        "--parquet",
+        action="store_true",
+        help="Save to parquet file instead of uploading to database"
+    )
 
     args = parser.parse_args()
 
     # Run appropriate mode
     try:
-        if args.full:
+        if args.parquet:
+            # Parquet mode - save to file instead of database
+            rows = run_parquet_mode(
+                start_date=args.start_date,
+                end_date=args.end_date,
+            )
+            print("\n" + "=" * 60)
+            print(f"Successfully saved {rows:,} rows to parquet")
+            print("=" * 60)
+        elif args.full:
             rows = run_full_mode(
-                production_sites=args.production_sites,
                 batch_size=args.batch_size,
                 dry_run=args.dry_run,
                 start_date=args.start_date,
                 end_date=args.end_date,
             )
+            print("\n" + "=" * 60)
+            if args.dry_run:
+                print(f"[DRY RUN] Would have uploaded {rows:,} rows to {TABLE_NAME}")
+            else:
+                print(f"Successfully uploaded {rows:,} rows to {TABLE_NAME}")
+            print("=" * 60)
         elif args.incremental:
             rows = run_incremental_mode(
-                production_sites=args.production_sites,
                 batch_size=args.batch_size,
                 dry_run=args.dry_run,
             )
+            print("\n" + "=" * 60)
+            if args.dry_run:
+                print(f"[DRY RUN] Would have uploaded {rows:,} rows to {TABLE_NAME}")
+            else:
+                print(f"Successfully uploaded {rows:,} rows to {TABLE_NAME}")
+            print("=" * 60)
         else:  # args.days
             rows = run_days_mode(
                 days=args.days,
-                production_sites=args.production_sites,
                 batch_size=args.batch_size,
                 dry_run=args.dry_run,
             )
-
-        # Final summary
-        print("\n" + "=" * 60)
-        if args.dry_run:
-            print(f"[DRY RUN] Would have uploaded {rows:,} rows to {TABLE_NAME}")
-        else:
-            print(f"Successfully uploaded {rows:,} rows to {TABLE_NAME}")
-        print("=" * 60)
+            print("\n" + "=" * 60)
+            if args.dry_run:
+                print(f"[DRY RUN] Would have uploaded {rows:,} rows to {TABLE_NAME}")
+            else:
+                print(f"Successfully uploaded {rows:,} rows to {TABLE_NAME}")
+            print("=" * 60)
 
     except KeyboardInterrupt:
         print("\n\nCancelled.")

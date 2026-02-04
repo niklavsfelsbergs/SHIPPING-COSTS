@@ -55,17 +55,27 @@ def load_data() -> pl.DataFrame:
 
 
 def greedy_assignment(df: pl.DataFrame) -> pl.DataFrame:
-    """Step 1: Assign each group to the cheapest carrier."""
-    # For each row, find the cheapest among OnTrac, USPS, FedEx
+    """Step 1: Assign each group to the cheapest carrier that can service it.
+
+    Handles null costs - a carrier with null cost cannot be assigned.
+    """
+    # For each row, find the cheapest among available carriers (non-null costs only)
+    # min_horizontal ignores nulls, so it naturally picks the cheapest available
     df = df.with_columns([
         pl.min_horizontal("ontrac_cost_avg", "usps_cost_avg", "fedex_cost_avg").alias("min_cost_avg"),
     ])
 
-    # Determine which carrier is cheapest
+    # Determine which carrier is cheapest (only if that carrier has non-null cost)
     df = df.with_columns([
-        pl.when(pl.col("ontrac_cost_avg") == pl.col("min_cost_avg"))
+        pl.when(
+            (pl.col("ontrac_cost_avg") == pl.col("min_cost_avg")) &
+            (pl.col("ontrac_cost_avg").is_not_null())
+        )
           .then(pl.lit("ONTRAC"))
-          .when(pl.col("usps_cost_avg") == pl.col("min_cost_avg"))
+          .when(
+            (pl.col("usps_cost_avg") == pl.col("min_cost_avg")) &
+            (pl.col("usps_cost_avg").is_not_null())
+        )
           .then(pl.lit("USPS"))
           .otherwise(pl.lit("FEDEX"))
           .alias("assigned_carrier")
@@ -98,12 +108,17 @@ def calculate_shift_penalty(df: pl.DataFrame, from_carrier: str, to_carrier: str
     Calculate the cost penalty for shifting each group from one carrier to another.
 
     Penalty = (target_cost_avg - current_cost_avg) * shipment_count
+
+    Only considers groups where the target carrier has non-null cost (can service).
     """
     cost_col_from = f"{from_carrier.lower()}_cost_avg"
     cost_col_to = f"{to_carrier.lower()}_cost_avg"
 
-    # Filter to groups currently assigned to from_carrier
-    groups_to_shift = df.filter(pl.col("assigned_carrier") == from_carrier)
+    # Filter to groups currently assigned to from_carrier AND where target carrier can service
+    groups_to_shift = df.filter(
+        (pl.col("assigned_carrier") == from_carrier) &
+        (pl.col(cost_col_to).is_not_null())  # Target carrier must be able to service
+    )
 
     # Calculate penalty
     groups_to_shift = groups_to_shift.with_columns([
@@ -114,22 +129,41 @@ def calculate_shift_penalty(df: pl.DataFrame, from_carrier: str, to_carrier: str
     return groups_to_shift
 
 
-def check_constraint_feasibility(total_shipments: int) -> dict:
+def check_constraint_feasibility(df: pl.DataFrame) -> dict:
     """
     Check if both USPS and OnTrac minimums can be satisfied simultaneously.
 
+    Now accounts for the fact that OnTrac can only service some shipments (non-null costs).
+
     Returns feasibility info and recommended approach.
     """
+    total_shipments = int(df["shipment_count"].sum())
+
+    # Calculate serviceable shipments per carrier
+    ontrac_serviceable = int(df.filter(pl.col("ontrac_cost_avg").is_not_null())["shipment_count"].sum())
+    usps_serviceable = int(df.filter(pl.col("usps_cost_avg").is_not_null())["shipment_count"].sum())
+    fedex_serviceable = int(df.filter(pl.col("fedex_cost_avg").is_not_null())["shipment_count"].sum())
+
+    # OnTrac constraint feasibility
+    ontrac_feasible = ontrac_serviceable >= ONTRAC_MIN_ANNUAL
+
+    # Combined constraint feasibility (more complex - depends on overlap)
     combined_minimum = USPS_MIN_ANNUAL + ONTRAC_MIN_ANNUAL
-    feasible = total_shipments >= combined_minimum
+    combined_feasible = total_shipments >= combined_minimum and ontrac_feasible
 
     return {
-        "feasible": feasible,
+        "feasible": combined_feasible,
+        "ontrac_feasible": ontrac_feasible,
         "total_shipments": total_shipments,
         "combined_minimum": combined_minimum,
         "shortfall": max(0, combined_minimum - total_shipments),
         "usps_min": USPS_MIN_ANNUAL,
         "ontrac_min": ONTRAC_MIN_ANNUAL,
+        "serviceable": {
+            "ONTRAC": ontrac_serviceable,
+            "USPS": usps_serviceable,
+            "FEDEX": fedex_serviceable,
+        }
     }
 
 
@@ -153,15 +187,22 @@ def adjust_for_constraints(df: pl.DataFrame, constraints: dict, enforce_usps: bo
     shift_log = []
     total_shipments = int(df["shipment_count"].sum())
 
-    # Check if constraints are feasible
-    feasibility = check_constraint_feasibility(total_shipments)
+    # Check if constraints are feasible (now accounts for serviceable volumes)
+    feasibility = check_constraint_feasibility(df)
 
     if not feasibility["feasible"] and enforce_usps:
         print(f"\n  WARNING: Constraints are infeasible!")
         print(f"    Total shipments: {total_shipments:,}")
+        print(f"    OnTrac serviceable: {feasibility['serviceable']['ONTRAC']:,}")
         print(f"    Combined minimum (USPS + OnTrac): {feasibility['combined_minimum']:,}")
         print(f"    Shortfall: {feasibility['shortfall']:,}")
         print(f"\n  Strategy: Prioritize OnTrac minimum (contractual), then maximize USPS")
+
+    if not feasibility["ontrac_feasible"]:
+        print(f"\n  CRITICAL: OnTrac constraint is INFEASIBLE!")
+        print(f"    OnTrac serviceable: {feasibility['serviceable']['ONTRAC']:,}")
+        print(f"    OnTrac minimum: {feasibility['ontrac_min']:,}")
+        print(f"    Cannot meet OnTrac contractual minimum with available serviceable volume.")
 
     # Add a unique row index for efficient joins
     df = df.with_row_index("_row_idx")
@@ -326,14 +367,20 @@ def apply_fedex_earned_discount(costs: dict) -> tuple[dict, dict]:
 
 
 def get_current_mix_costs(df: pl.DataFrame) -> dict:
-    """Get the baseline costs using the current carrier mix."""
-    # Use cost_current_carrier_total which represents actual carrier used
-    total_cost = df.filter(pl.col("cost_current_carrier_total").is_not_null())["cost_current_carrier_total"].sum()
-    total_shipments = df["shipment_count"].sum()
+    """Get the baseline costs using the current carrier mix.
+
+    Note: Uses hardcoded baseline from Scenario 1 for consistency.
+    Scenario 1 includes imputations for DHL ($6/shipment) and OnTrac null costs.
+    """
+    total_shipments = int(df["shipment_count"].sum())
+
+    # Hardcoded from Scenario 1 results for consistency
+    # (Scenario 1 imputes DHL @ $6 and OnTrac nulls with packagetype averages)
+    SCENARIO_1_BASELINE = 6_389_595.72
 
     return {
-        "total_shipments": int(total_shipments),
-        "total_cost": float(total_cost),
+        "total_shipments": total_shipments,
+        "total_cost": SCENARIO_1_BASELINE,
     }
 
 
@@ -363,8 +410,15 @@ def main():
     # Load data
     print("\n[1] Loading data...")
     df = load_data()
-    total_shipments = df["shipment_count"].sum()
+    total_shipments = int(df["shipment_count"].sum())
     print(f"    Loaded {df.shape[0]:,} groups representing {total_shipments:,} shipments")
+
+    # Check serviceability per carrier
+    print("\n[1b] Checking carrier serviceability...")
+    feasibility = check_constraint_feasibility(df)
+    for carrier, serviceable in feasibility["serviceable"].items():
+        pct = serviceable / total_shipments * 100
+        print(f"    {carrier}: {serviceable:,} serviceable ({pct:.1f}%)")
 
     # Get baseline (current mix)
     print("\n[2] Calculating current mix baseline...")

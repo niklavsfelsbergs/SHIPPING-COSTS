@@ -88,13 +88,15 @@ python -m analysis.US_2026_tenders.scripts.build_aggregated_dataset
 
 | Scenario                | Total Cost   | vs Current |
 |-------------------------|--------------|------------|
-| Current mix             | $6,218,605   | -          |
-| 100% P2P                | $5,778,874   | -7.1%      |
-| 100% Maersk             | $6,444,525   | +3.6%      |
-| 100% FedEx              | $6,920,940   | +11.3%     |
-| 100% USPS               | $8,195,287   | +31.8%     |
-| 100% OnTrac             | $102,989,854 | +1556%*    |
-| Optimal (unconstrained) | $5,192,509   | -16.5%     |
+| Current mix             | $6,459,547   | -          |
+| 100% P2P                | $5,778,874   | -10.5%     |
+| 100% Maersk             | $6,444,525   | -0.2%      |
+| 100% FedEx              | $6,920,940   | +7.1%      |
+| 100% USPS               | $8,195,287   | +26.9%     |
+| 100% OnTrac             | $102,989,854 | +1494%*    |
+| Optimal (unconstrained) | $5,192,509   | -19.6%     |
+
+*Note: Current mix baseline includes DHL shipments @ $6.00/shipment estimate (40,157 × $6 = $240,942)*
 
 *OnTrac has penalty costs for non-serviceable areas
 
@@ -154,6 +156,41 @@ python -m analysis.US_2026_tenders.optimization.scenario_3_fedex_100
 python -m analysis.US_2026_tenders.optimization.scenario_4_constrained
 python -m analysis.US_2026_tenders.optimization.scenario_5_with_p2p
 ```
+
+---
+
+---
+
+## Output Formatting Requirements
+
+### Markdown Table Alignment
+
+All markdown tables in result summaries **MUST** have properly aligned columns for readability. Use consistent column widths with padding spaces so columns align vertically.
+
+**Bad (unaligned):**
+```markdown
+| Carrier | Shipments | Share | Total Cost |
+|---------|-----------|-------|------------|
+| FedEx | 273,941 | 49.1% | $3,531,655.39 |
+| OnTrac | 137,961 | 24.7% | $1,890,986.48 |
+```
+
+**Good (aligned):**
+```markdown
+| Carrier   | Shipments   | Share    | Total Cost        |
+|-----------|-------------|----------|-------------------|
+| FedEx     | 273,941     | 49.1%    | $3,531,655.39     |
+| OnTrac    | 137,961     | 24.7%    | $1,890,986.48     |
+```
+
+**Rules:**
+1. Column headers and separators should have consistent widths
+2. Numeric values should be right-aligned within their column width
+3. Text values should be left-aligned within their column width
+4. Add at least 2-3 spaces of padding after the longest value in each column
+5. Use consistent separator line widths (match header width)
+
+This ensures tables are readable in both raw markdown and rendered views.
 
 ---
 

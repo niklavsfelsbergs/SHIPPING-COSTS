@@ -15,6 +15,9 @@ PROJECT_ROOT = Path(__file__).parent.parent.parent.parent
 COMBINED_DATASETS = PROJECT_ROOT / "analysis" / "US_2026_tenders" / "combined_datasets"
 RESULTS_DIR = PROJECT_ROOT / "analysis" / "US_2026_tenders" / "results" / "scenario_1_current_mix"
 
+# DHL estimated cost per shipment (no calculator available, so use flat estimate)
+DHL_ESTIMATED_COST = 6.00
+
 
 def map_provider_to_carrier(provider: str) -> str:
     """Map pcs_shipping_provider to carrier name."""
@@ -49,6 +52,42 @@ def main():
         .alias("carrier")
     )
 
+    # Fill DHL shipments with estimated cost (no calculator available)
+    # This ensures fair comparison with single-carrier scenarios that include all shipments
+    dhl_shipments = df.filter(pl.col("carrier") == "DHL (unmapped)").shape[0]
+    df = df.with_columns(
+        pl.when(pl.col("carrier") == "DHL (unmapped)")
+        .then(pl.lit(DHL_ESTIMATED_COST))
+        .otherwise(pl.col("cost_current_carrier"))
+        .alias("cost_current_carrier")
+    )
+    print(f"  DHL shipments assigned ${DHL_ESTIMATED_COST:.2f} estimated cost: {dhl_shipments:,}")
+
+    # Impute null OnTrac costs (shipments to "non-serviceable" ZIPs that were actually shipped)
+    # Use average OnTrac cost by packagetype
+    ontrac_null_count = df.filter(
+        (pl.col("carrier") == "OnTrac") & (pl.col("cost_current_carrier").is_null())
+    ).shape[0]
+
+    if ontrac_null_count > 0:
+        print(f"  OnTrac shipments with null cost (to be imputed): {ontrac_null_count:,}")
+        # Calculate average OnTrac cost by packagetype (excluding nulls)
+        ontrac_avg_by_pkg = df.filter(
+            (pl.col("carrier") == "OnTrac") & (pl.col("cost_current_carrier").is_not_null())
+        ).group_by("packagetype").agg(
+            pl.col("cost_current_carrier").mean().alias("avg_cost")
+        )
+
+        # Join and fill nulls
+        df = df.join(ontrac_avg_by_pkg, on="packagetype", how="left", suffix="_impute")
+        df = df.with_columns(
+            pl.when((pl.col("carrier") == "OnTrac") & (pl.col("cost_current_carrier").is_null()))
+            .then(pl.col("avg_cost"))
+            .otherwise(pl.col("cost_current_carrier"))
+            .alias("cost_current_carrier")
+        ).drop("avg_cost")
+        print(f"  OnTrac null costs imputed with packagetype average: {ontrac_null_count:,}")
+
     # =================================================================
     # TOTAL COST
     # =================================================================
@@ -58,14 +97,16 @@ def main():
 
     total_shipments = df.shape[0]
     total_cost = df["cost_current_carrier"].sum()
-    dhl_shipments = df.filter(pl.col("carrier") == "DHL (unmapped)").shape[0]
-    mapped_shipments = total_shipments - dhl_shipments
+    dhl_count = df.filter(pl.col("carrier") == "DHL (unmapped)").shape[0]
+    dhl_cost = dhl_count * DHL_ESTIMATED_COST
+    non_dhl_shipments = total_shipments - dhl_count
 
-    print(f"\n  Total shipments:      {total_shipments:>12,}")
-    print(f"  Mapped shipments:     {mapped_shipments:>12,} ({mapped_shipments/total_shipments*100:.1f}%)")
-    print(f"  Unmapped (DHL):       {dhl_shipments:>12,} ({dhl_shipments/total_shipments*100:.1f}%)")
-    print(f"\n  Total expected cost:  ${total_cost:>15,.2f}")
-    print(f"  Average cost/shipment: ${total_cost/mapped_shipments:>13,.2f} (mapped only)")
+    print(f"\n  Total shipments:        {total_shipments:>12,}")
+    print(f"  Non-DHL shipments:      {non_dhl_shipments:>12,} ({non_dhl_shipments/total_shipments*100:.1f}%)")
+    print(f"  DHL shipments:          {dhl_count:>12,} ({dhl_count/total_shipments*100:.1f}%) @ ${DHL_ESTIMATED_COST:.2f} each")
+    print(f"\n  Total expected cost:    ${total_cost:>15,.2f}")
+    print(f"  (includes DHL estimate: ${dhl_cost:>15,.2f})")
+    print(f"  Average cost/shipment:  ${total_cost/total_shipments:>13,.2f}")
 
     # =================================================================
     # BREAKDOWN BY CARRIER
@@ -151,7 +192,7 @@ def main():
     print("BREAKDOWN BY PACKAGE TYPE (Top 15)")
     print("-" * 60)
 
-    # Filter to mapped shipments only for package type analysis
+    # Filter to non-DHL shipments for detailed analysis (DHL uses flat estimated cost)
     df_mapped = df.filter(pl.col("carrier") != "DHL (unmapped)")
 
     packagetype_summary = df_mapped.group_by("packagetype").agg([
@@ -266,7 +307,7 @@ def main():
             count = row["shipment_count"][0]
             cost = row["total_cost"][0]
             avg = row["avg_cost"][0]
-            share = count / mapped_shipments * 100
+            share = count / total_shipments * 100
 
             weight_data.append({
                 "weight_bracket": bracket,
@@ -304,7 +345,7 @@ def main():
         count = row["shipment_count"]
         cost = row["total_cost"]
         avg = row["avg_cost"]
-        share = count / mapped_shipments * 100
+        share = count / total_shipments * 100
 
         site_data.append({
             "production_site": site,
@@ -322,54 +363,64 @@ def main():
     # COMPARISON WITH SINGLE-CARRIER SCENARIOS
     # =================================================================
     print("\n" + "-" * 60)
-    print("COMPARISON: Current Mix vs 100% Single Carrier (all shipments)")
+    print("COMPARISON: 100% Single Carrier Scenarios")
     print("-" * 60)
 
-    # Calculate costs for 100% of each carrier
+    # Calculate costs for each carrier (some have partial coverage due to nulls)
     comparison_data = []
     for carrier, col in [("OnTrac", "ontrac_cost_total"),
                           ("USPS", "usps_cost_total"),
-                          ("FedEx", "fedex_cost_total")]:
-        carrier_total = df[col].sum()
-        diff = carrier_total - total_cost
-        diff_pct = diff / total_cost * 100
+                          ("FedEx", "fedex_cost_total"),
+                          ("P2P", "p2p_cost_total"),
+                          ("Maersk", "maersk_cost_total")]:
+        serviceable = df.filter(pl.col(col).is_not_null())
+        serviceable_count = serviceable.shape[0]
+        carrier_total = serviceable[col].sum()
+        avg_cost = carrier_total / serviceable_count if serviceable_count > 0 else 0
 
         comparison_data.append({
-            "scenario": f"100% {carrier}",
+            "carrier": carrier,
+            "serviceable_count": serviceable_count,
             "total_cost": carrier_total,
-            "diff_vs_current": diff,
-            "diff_pct": diff_pct
+            "avg_cost": avg_cost,
+            "coverage_pct": serviceable_count / total_shipments * 100
         })
 
-    print("\n  {:25} {:>18} {:>18} {:>10}".format(
-        "Scenario", "Total Cost", "vs Current Mix", "Diff %"
+    print("\n  {:10} {:>12} {:>10} {:>18} {:>12}".format(
+        "Carrier", "Serviceable", "Coverage", "Total Cost", "Avg Cost"
     ))
-    print("  " + "-" * 73)
-    print("  {:25} ${:>17,.2f} {:>18} {:>10}".format(
-        "Current Mix (baseline)", total_cost, "-", "-"
+    print("  " + "-" * 66)
+    print("  {:10} {:>12,} {:>9.1f}% ${:>17,.2f} ${:>11,.2f}".format(
+        "Current", total_shipments, 100.0, total_cost, total_cost / total_shipments
     ))
+    print("  " + "-" * 66)
 
     for c in comparison_data:
-        print("  {:25} ${:>17,.2f} ${:>17,.2f} {:>+9.1f}%".format(
-            c["scenario"], c["total_cost"], c["diff_vs_current"], c["diff_pct"]
-        ))
+        print("  {:10} {:>12,} {:>9.1f}% ${:>17,.2f} ${:>11,.2f}".format(
+            c["carrier"], c["serviceable_count"], c["coverage_pct"],
+            c["total_cost"], c["avg_cost"])
+        )
+
+    print("\n  Note: OnTrac and P2P have partial coverage (nulls for non-serviceable areas)")
 
     # =================================================================
-    # DHL HANDLING NOTE
+    # COST IMPUTATION NOTES
     # =================================================================
     print("\n" + "-" * 60)
-    print("NOTE: DHL SHIPMENTS HANDLING")
+    print("NOTE: COST IMPUTATIONS")
     print("-" * 60)
     print(f"""
-  DHL eCommerce America shipments: {dhl_shipments:,} ({dhl_shipments/total_shipments*100:.1f}% of total)
+  1. DHL eCommerce America: {dhl_count:,} shipments ({dhl_count/total_shipments*100:.1f}%)
+     - Assigned ${DHL_ESTIMATED_COST:.2f}/shipment (no DHL calculator available)
+     - Contribution: ${dhl_cost:,.2f}
 
-  These shipments have NULL cost_current_carrier because DHL is not one of the
-  carriers with calculated costs in this analysis. The total cost figure above
-  ($6,218,604.91) represents only the {mapped_shipments:,} mapped shipments.
+  2. OnTrac to non-serviceable ZIPs: {ontrac_null_count:,} shipments
+     - Imputed with average OnTrac cost by packagetype
+     - These were historically shipped via OnTrac but marked non-serviceable
 
-  For scenario comparisons, DHL shipments ARE included when calculating costs
-  for 100% single-carrier scenarios (e.g., "100% FedEx" includes all {total_shipments:,}
-  shipments costed as FedEx).
+  3. Single-carrier scenarios show partial coverage for OnTrac and P2P
+     - OnTrac: Cannot service all US ZIPs (West region only)
+     - P2P: Cannot service all US ZIPs (limited coverage)
 """)
 
     # =================================================================
@@ -419,8 +470,8 @@ def main():
 
     return {
         "total_shipments": total_shipments,
-        "mapped_shipments": mapped_shipments,
-        "dhl_shipments": dhl_shipments,
+        "dhl_shipments": dhl_count,
+        "dhl_estimated_cost": DHL_ESTIMATED_COST,
         "total_cost": total_cost,
         "carrier_data": carrier_data,
         "provider_data": provider_data,

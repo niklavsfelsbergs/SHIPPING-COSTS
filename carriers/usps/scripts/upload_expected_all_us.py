@@ -25,6 +25,7 @@ Usage:
 import argparse
 import sys
 from datetime import datetime, timedelta
+from pathlib import Path
 
 import polars as pl
 
@@ -40,6 +41,9 @@ from carriers.usps.calculate_costs import calculate_costs
 TABLE_NAME = "shipping_costs.expected_shipping_costs_usps_all_us"
 
 DEFAULT_START_DATE = "2025-01-01"
+
+# Output directory for parquet files
+PARQUET_OUTPUT_DIR = Path(__file__).parent / "output" / "all_us"
 
 # USPS Ground Advantage weight limit
 MAX_WEIGHT_LBS = 20
@@ -436,6 +440,52 @@ def run_days_mode(
     )
 
 
+def run_parquet_mode(
+    start_date: str | None = None,
+    end_date: str | None = None,
+) -> int:
+    """Parquet mode: Calculate costs and save to parquet file instead of database."""
+    start = start_date or DEFAULT_START_DATE
+
+    print("=" * 60)
+    print("PARQUET MODE - ALL US EXPECTED COSTS (USPS)")
+    print("=" * 60)
+    print(f"Date range: {start} to {end_date or 'today'}")
+
+    print("\nStep 1: Calculating expected costs...")
+    df = run_pipeline(
+        start_date=start,
+        end_date=end_date,
+    )
+
+    if len(df) == 0:
+        print("\nNo shipments found.")
+        return 0
+
+    # Print summary
+    print("\n" + "=" * 60)
+    print("CALCULATION SUMMARY")
+    print("=" * 60)
+    print(f"Rows calculated: {len(df):,}")
+    print(f"Date range: {start} to {end_date or 'today'}")
+    print(f"Total expected cost: ${df['usps_cost_total'].sum():,.2f}")
+    print(f"Avg per shipment: ${df['usps_cost_total'].mean():,.2f}")
+
+    # Create output directory if it doesn't exist
+    PARQUET_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
+    # Generate filename with date range
+    end_str = end_date or datetime.now().strftime("%Y-%m-%d")
+    filename = f"usps_all_us_{start}_{end_str}.parquet"
+    output_path = PARQUET_OUTPUT_DIR / filename
+
+    print(f"\nStep 2: Saving to {output_path}...")
+    df.write_parquet(output_path)
+    print(f"Saved {len(df):,} rows to {output_path}")
+
+    return len(df)
+
+
 # =============================================================================
 # MAIN
 # =============================================================================
@@ -499,37 +549,61 @@ Examples:
         type=str,
         help="End date (YYYY-MM-DD). For --full mode only."
     )
+    parser.add_argument(
+        "--parquet",
+        action="store_true",
+        help="Save to parquet file instead of uploading to database"
+    )
 
     args = parser.parse_args()
 
     # Run appropriate mode
     try:
-        if args.full:
+        if args.parquet:
+            # Parquet mode - save to file instead of database
+            rows = run_parquet_mode(
+                start_date=args.start_date,
+                end_date=args.end_date,
+            )
+            print("\n" + "=" * 60)
+            print(f"Successfully saved {rows:,} rows to parquet")
+            print("=" * 60)
+        elif args.full:
             rows = run_full_mode(
                 batch_size=args.batch_size,
                 dry_run=args.dry_run,
                 start_date=args.start_date,
                 end_date=args.end_date,
             )
+            print("\n" + "=" * 60)
+            if args.dry_run:
+                print(f"[DRY RUN] Would have uploaded {rows:,} rows to {TABLE_NAME}")
+            else:
+                print(f"Successfully uploaded {rows:,} rows to {TABLE_NAME}")
+            print("=" * 60)
         elif args.incremental:
             rows = run_incremental_mode(
                 batch_size=args.batch_size,
                 dry_run=args.dry_run,
             )
+            print("\n" + "=" * 60)
+            if args.dry_run:
+                print(f"[DRY RUN] Would have uploaded {rows:,} rows to {TABLE_NAME}")
+            else:
+                print(f"Successfully uploaded {rows:,} rows to {TABLE_NAME}")
+            print("=" * 60)
         else:  # args.days
             rows = run_days_mode(
                 days=args.days,
                 batch_size=args.batch_size,
                 dry_run=args.dry_run,
             )
-
-        # Final summary
-        print("\n" + "=" * 60)
-        if args.dry_run:
-            print(f"[DRY RUN] Would have uploaded {rows:,} rows to {TABLE_NAME}")
-        else:
-            print(f"Successfully uploaded {rows:,} rows to {TABLE_NAME}")
-        print("=" * 60)
+            print("\n" + "=" * 60)
+            if args.dry_run:
+                print(f"[DRY RUN] Would have uploaded {rows:,} rows to {TABLE_NAME}")
+            else:
+                print(f"Successfully uploaded {rows:,} rows to {TABLE_NAME}")
+            print("=" * 60)
 
     except KeyboardInterrupt:
         print("\n\nCancelled.")

@@ -52,19 +52,37 @@ def load_data() -> pl.DataFrame:
 
 
 def greedy_assignment_with_p2p(df: pl.DataFrame) -> pl.DataFrame:
-    """Assign each group to cheapest among OnTrac, USPS, FedEx, P2P."""
+    """Assign each group to cheapest among OnTrac, USPS, FedEx, P2P.
+
+    Handles null costs - a carrier with null cost cannot be assigned.
+    min_horizontal ignores nulls, so it picks cheapest available.
+    """
     df = df.with_columns([
         pl.min_horizontal("ontrac_cost_avg", "usps_cost_avg", "fedex_cost_avg", "p2p_cost_avg").alias("min_cost_avg"),
     ])
 
     df = df.with_columns([
-        pl.when(pl.col("ontrac_cost_avg") == pl.col("min_cost_avg"))
+        pl.when(
+            (pl.col("ontrac_cost_avg") == pl.col("min_cost_avg")) &
+            (pl.col("ontrac_cost_avg").is_not_null())
+        )
           .then(pl.lit("ONTRAC"))
-          .when(pl.col("usps_cost_avg") == pl.col("min_cost_avg"))
+          .when(
+            (pl.col("usps_cost_avg") == pl.col("min_cost_avg")) &
+            (pl.col("usps_cost_avg").is_not_null())
+        )
           .then(pl.lit("USPS"))
-          .when(pl.col("fedex_cost_avg") == pl.col("min_cost_avg"))
+          .when(
+            (pl.col("fedex_cost_avg") == pl.col("min_cost_avg")) &
+            (pl.col("fedex_cost_avg").is_not_null())
+        )
           .then(pl.lit("FEDEX"))
-          .otherwise(pl.lit("P2P"))
+          .when(
+            (pl.col("p2p_cost_avg") == pl.col("min_cost_avg")) &
+            (pl.col("p2p_cost_avg").is_not_null())
+        )
+          .then(pl.lit("P2P"))
+          .otherwise(pl.lit("FEDEX"))  # FedEx is fallback (100% coverage)
           .alias("assigned_carrier")
     ])
 
@@ -91,6 +109,8 @@ def adjust_for_constraints(df: pl.DataFrame) -> tuple[pl.DataFrame, list]:
     """
     Shift groups to meet constraints using vectorized operations.
     Priority: Meet OnTrac first, then USPS. Don't shift FROM P2P unless necessary.
+
+    Only shifts to carriers that can service the shipment (non-null cost).
     """
     shift_log = []
     df = df.with_row_index("_row_idx")
@@ -112,6 +132,7 @@ def adjust_for_constraints(df: pl.DataFrame) -> tuple[pl.DataFrame, list]:
         print(f"\n{carrier} has shortfall of {shortfall:,} shipments")
 
         # Calculate shift penalties from non-P2P carriers first
+        # IMPORTANT: Only consider groups where target carrier can service (non-null cost)
         cost_col_to = f"{carrier.lower()}_cost_avg"
         other_carriers = ["ONTRAC", "USPS", "FEDEX"]
         other_carriers.remove(carrier)
@@ -119,7 +140,12 @@ def adjust_for_constraints(df: pl.DataFrame) -> tuple[pl.DataFrame, list]:
         all_penalties = []
         for from_carrier in other_carriers:
             cost_col_from = f"{from_carrier.lower()}_cost_avg"
-            available = df.filter((pl.col("assigned_carrier") == from_carrier) & (~pl.col("locked")))
+            # Filter: assigned to from_carrier, not locked, AND target carrier can service (non-null)
+            available = df.filter(
+                (pl.col("assigned_carrier") == from_carrier) &
+                (~pl.col("locked")) &
+                (pl.col(cost_col_to).is_not_null())  # Target carrier must be able to service
+            )
             if available.shape[0] > 0:
                 penalties = available.with_columns([
                     ((pl.col(cost_col_to) - pl.col(cost_col_from)) * pl.col("shipment_count")).alias("shift_penalty"),
@@ -166,7 +192,12 @@ def adjust_for_constraints(df: pl.DataFrame) -> tuple[pl.DataFrame, list]:
                 print(f"  Still short, shifting from P2P...")
                 remaining_shortfall = constraints[carrier]["shortfall"]
 
-                p2p_available = df.filter((pl.col("assigned_carrier") == "P2P") & (~pl.col("locked")))
+                # Only consider P2P shipments where target carrier can service (non-null)
+                p2p_available = df.filter(
+                    (pl.col("assigned_carrier") == "P2P") &
+                    (~pl.col("locked")) &
+                    (pl.col(cost_col_to).is_not_null())  # Target carrier must be able to service
+                )
                 if p2p_available.shape[0] > 0:
                     p2p_penalties = p2p_available.with_columns([
                         ((pl.col(cost_col_to) - pl.col("p2p_cost_avg")) * pl.col("shipment_count")).alias("shift_penalty"),
@@ -221,6 +252,18 @@ def calculate_costs(df: pl.DataFrame) -> dict:
     return results
 
 
+def get_serviceability(df: pl.DataFrame) -> dict:
+    """Calculate how many shipments each carrier can service (non-null costs)."""
+    total = int(df["shipment_count"].sum())
+    return {
+        "total": total,
+        "ONTRAC": int(df.filter(pl.col("ontrac_cost_avg").is_not_null())["shipment_count"].sum()),
+        "USPS": int(df.filter(pl.col("usps_cost_avg").is_not_null())["shipment_count"].sum()),
+        "FEDEX": int(df.filter(pl.col("fedex_cost_avg").is_not_null())["shipment_count"].sum()),
+        "P2P": int(df.filter(pl.col("p2p_cost_avg").is_not_null())["shipment_count"].sum()),
+    }
+
+
 def main():
     print("=" * 70)
     print("Scenario 5: Optimal with P2P")
@@ -229,12 +272,20 @@ def main():
     # Load data
     print("\n[1] Loading data...")
     df = load_data()
-    total_shipments = df["shipment_count"].sum()
+    total_shipments = int(df["shipment_count"].sum())
     print(f"    {df.shape[0]:,} groups, {total_shipments:,} shipments")
 
-    # Get baseline from current mix
-    current_mix_cost = df.filter(pl.col("cost_current_carrier_total").is_not_null())["cost_current_carrier_total"].sum()
-    print(f"\n    Current mix cost: ${current_mix_cost:,.2f}")
+    # Check serviceability
+    print("\n[1b] Carrier serviceability...")
+    serviceability = get_serviceability(df)
+    for carrier in ["ONTRAC", "USPS", "FEDEX", "P2P"]:
+        svc = serviceability[carrier]
+        pct = svc / total_shipments * 100
+        print(f"    {carrier}: {svc:,} serviceable ({pct:.1f}%)")
+
+    # Use consistent baseline from Scenario 1
+    SCENARIO_1_BASELINE = 6_389_595.72
+    print(f"\n    Current mix cost (from S1): ${SCENARIO_1_BASELINE:,.2f}")
 
     # Greedy assignment with P2P
     print("\n[2] Greedy assignment (4 carriers)...")

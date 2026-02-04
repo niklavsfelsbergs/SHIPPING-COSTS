@@ -2,7 +2,7 @@
 
 ## Executive Summary
 
-This scenario establishes the baseline shipping cost using the current carrier routing strategy. Using calculated/expected costs from 2026 rate tables (not invoice actuals), the current carrier mix achieves a total cost of **$6,218,604.91** for 518,053 mapped shipments. The remaining 40,157 shipments (7.2%) were shipped via DHL eCommerce America, which is not included in the carrier optimization analysis.
+This scenario establishes the baseline shipping cost using the current carrier routing strategy. Using calculated/expected costs from 2026 rate tables (not invoice actuals), the current carrier mix achieves a total cost of **$6,389,595.72** for 558,210 shipments.
 
 ## Methodology
 
@@ -13,123 +13,115 @@ This scenario establishes the baseline shipping cost using the current carrier r
 - FedEx shipments use FedEx calculated costs
 - OnTrac shipments use OnTrac calculated costs
 - USPS shipments use USPS calculated costs
-- DHL shipments have NULL costs (no DHL calculator available)
+- DHL shipments use **$6.00 estimated cost** (no DHL calculator available)
+- 144 OnTrac shipments to "non-serviceable" ZIPs imputed with packagetype average
 
 **Carrier Mapping:**
-| Provider Code | Carrier | Description |
-|---------------|---------|-------------|
-| ONTRAC | OnTrac | OnTrac Ground |
-| USPS | USPS | USPS Ground Advantage |
-| FXEHD | FedEx | FedEx Home Delivery |
-| FXESPPS | FedEx | FedEx SmartPost Parcel Select |
-| FXEGRD | FedEx | FedEx Ground |
-| FXE2D | FedEx | FedEx 2Day |
-| FXEINTPRIO | FedEx | FedEx International Priority |
-| FXEINTECON | FedEx | FedEx International Economy |
-| DHL ECOMMERCE AMERICA | DHL (unmapped) | Not included in analysis |
+
+| Provider Code           | Carrier   | Description                      |
+|-------------------------|-----------|----------------------------------|
+| ONTRAC                  | OnTrac    | OnTrac Ground                    |
+| USPS                    | USPS      | USPS Ground Advantage            |
+| FXEHD                   | FedEx     | FedEx Home Delivery              |
+| FXESPPS                 | FedEx     | FedEx SmartPost Parcel Select    |
+| FXEGRD                  | FedEx     | FedEx Ground                     |
+| FXE2D                   | FedEx     | FedEx 2Day                       |
+| DHL ECOMMERCE AMERICA   | DHL       | $6.00 estimated cost             |
 
 ## Results
 
 ### Total Cost
 
-| Metric | Value |
-|--------|-------|
-| **Total Expected Cost** | **$6,218,604.91** |
-| Total Shipments | 558,210 |
-| Mapped Shipments | 518,053 (92.8%) |
-| Unmapped (DHL) | 40,157 (7.2%) |
-| Average Cost per Shipment | $12.00 |
+| Metric                      | Value                |
+|-----------------------------|----------------------|
+| **Total Expected Cost**     | **$6,389,595.72**    |
+| Total Shipments             | 558,210              |
+| Non-DHL Shipments           | 518,053 (92.8%)      |
+| DHL Shipments               | 40,157 (7.2%)        |
+| DHL Estimated Cost          | $240,942.00          |
+| Average Cost per Shipment   | $11.45               |
 
 ### Breakdown by Carrier
 
-| Carrier | Shipments | Share | Total Cost | Avg Cost |
-|---------|-----------|-------|------------|----------|
-| FedEx | 273,941 | 49.1% | $3,531,655.39 | $12.89 |
-| OnTrac | 137,961 | 24.7% | $1,890,986.48 | $13.71 |
-| USPS | 106,151 | 19.0% | $795,963.04 | $7.50 |
-| DHL (unmapped) | 40,157 | 7.2% | $0.00 | - |
+| Carrier         | Shipments   | Share    | Total Cost        | Avg Cost   |
+|-----------------|-------------|----------|-------------------|------------|
+| FedEx           | 273,941     | 49.1%    | $3,531,655.39     | $12.89     |
+| OnTrac          | 137,961     | 24.7%    | $1,821,035.29     | $13.20     |
+| USPS            | 106,151     | 19.0%    | $795,963.04       | $7.50      |
+| DHL             | 40,157      | 7.2%     | $240,942.00       | $6.00      |
 
 ### Breakdown by Provider (Detailed)
 
-| Provider | Shipments | Share | Total Cost | Avg Cost |
-|----------|-----------|-------|------------|----------|
-| FXEHD (Home Delivery) | 165,565 | 29.7% | $2,485,410.93 | $15.01 |
-| ONTRAC | 137,961 | 24.7% | $1,890,986.48 | $13.71 |
-| FXESPPS (SmartPost) | 107,197 | 19.2% | $1,029,712.98 | $9.61 |
-| USPS | 106,151 | 19.0% | $795,963.04 | $7.50 |
-| DHL ECOMMERCE AMERICA | 40,157 | 7.2% | - | - |
-| FXEGRD (Ground) | 850 | 0.2% | $10,849.20 | $12.76 |
-| FXE2D (2Day) | 326 | 0.1% | $5,616.81 | $17.23 |
-| Other FedEx | 3 | 0.0% | $65.47 | $21.82 |
-
-### Breakdown by Package Type (Top 15)
-
-| Package Type | Shipments | Total Cost | Avg Cost |
-|--------------|-----------|------------|----------|
-| PIZZA BOX 20x16x1 | 117,166 | $1,018,108.57 | $8.69 |
-| PIZZA BOX 42x32x2 | 24,827 | $705,266.25 | $28.41 |
-| PIZZA BOX 48X36X1 | 19,799 | $669,969.83 | $33.84 |
-| PIZZA BOX 40x30x1 | 21,021 | $444,327.82 | $21.14 |
-| PIZZA BOX 36x24x2 | 37,115 | $434,609.89 | $11.71 |
-| PIZZA BOX 24x20x2 | 40,941 | $431,755.71 | $10.55 |
-| PIZZA BOX 16x12x2 | 43,668 | $385,133.32 | $8.82 |
-| PIZZA BOX 20x16x2 | 36,290 | $347,072.09 | $9.56 |
-| WRAP 16''x12'' | 33,368 | $265,154.43 | $7.95 |
-| WRAP 24''x16'' | 23,412 | $226,182.88 | $9.66 |
-| PIZZA BOX 12x8x1 | 32,954 | $196,438.07 | $5.96 |
-| CROSS PACKAGING 30X24" | 15,092 | $163,793.18 | $10.85 |
-| PIZZA BOX 30x20x3 | 10,149 | $119,436.36 | $11.77 |
-| PIZZA BOX 42x32x2 (2x strapped) | 2,910 | $100,273.15 | $34.46 |
-| 21" Tube | 8,482 | $65,670.09 | $7.74 |
+| Provider                  | Shipments   | Share    | Total Cost        | Avg Cost   |
+|---------------------------|-------------|----------|-------------------|------------|
+| FXEHD (Home Delivery)     | 165,565     | 29.7%    | $2,485,410.93     | $15.01     |
+| ONTRAC                    | 137,961     | 24.7%    | $1,821,035.29     | $13.20     |
+| FXESPPS (SmartPost)       | 107,197     | 19.2%    | $1,029,712.98     | $9.61      |
+| USPS                      | 106,151     | 19.0%    | $795,963.04       | $7.50      |
+| DHL ECOMMERCE AMERICA     | 40,157      | 7.2%     | $240,942.00       | $6.00      |
+| FXEGRD (Ground)           | 850         | 0.2%     | $10,849.20        | $12.76     |
+| FXE2D (2Day)              | 326         | 0.1%     | $5,616.81         | $17.23     |
+| Other FedEx               | 3           | 0.0%     | $65.47            | $21.82     |
 
 ### Breakdown by Weight
 
-| Weight Bracket | Shipments | Share | Total Cost | Avg Cost |
-|----------------|-----------|-------|------------|----------|
-| 0-1 lbs | 106,094 | 20.5% | $762,155.93 | $7.18 |
-| 1-5 lbs | 294,429 | 56.8% | $3,048,428.38 | $10.35 |
-| 5-10 lbs | 87,915 | 17.0% | $1,641,696.86 | $18.67 |
-| 10-20 lbs | 24,028 | 4.6% | $600,625.73 | $25.00 |
-| 20-30 lbs | 3,677 | 0.7% | $100,510.38 | $27.33 |
-| 30+ lbs | 1,910 | 0.4% | $65,187.63 | $34.13 |
+| Weight Bracket   | Shipments   | Share    | Total Cost        | Avg Cost   |
+|------------------|-------------|----------|-------------------|------------|
+| 0-1 lbs          | 106,094     | 19.0%    | $753,284.27       | $7.10      |
+| 1-5 lbs          | 294,429     | 52.7%    | $3,007,944.63     | $10.22     |
+| 5-10 lbs         | 87,915      | 15.7%    | $1,626,825.18     | $18.50     |
+| 10-20 lbs        | 24,028      | 4.3%     | $595,388.33       | $24.78     |
+| 20-30 lbs        | 3,677       | 0.7%     | $100,023.68       | $27.20     |
+| 30+ lbs          | 1,910       | 0.3%     | $65,187.63        | $34.13     |
 
 ### Breakdown by Production Site
 
-| Site | Shipments | Share | Total Cost | Avg Cost |
-|------|-----------|-------|------------|----------|
-| Phoenix | 269,095 | 51.9% | $3,457,382.75 | $12.85 |
-| Miami | 129,396 | 25.0% | $1,509,974.47 | $11.67 |
-| Columbus | 119,561 | 23.1% | $1,251,238.66 | $10.47 |
+| Site       | Shipments   | Share    | Total Cost        | Avg Cost   |
+|------------|-------------|----------|-------------------|------------|
+| Phoenix    | 269,095     | 48.2%    | $3,406,964.06     | $12.66     |
+| Miami      | 129,396     | 23.2%    | $1,509,974.47     | $11.67     |
+| Columbus   | 119,561     | 21.4%    | $1,231,706.16     | $10.30     |
 
 ### Comparison: 100% Single Carrier Scenarios
 
-| Scenario | Total Cost | vs Current | Diff % |
-|----------|------------|------------|--------|
-| **Current Mix** | **$6,218,604.91** | - | - |
-| 100% FedEx | $6,920,940.31 | +$702,335.40 | +11.3% |
-| 100% USPS | $8,195,287.24 | +$1,976,682.33 | +31.8% |
-| 100% OnTrac | $102,989,854.37 | +$96,771,249.46 | +1556.2% |
+| Carrier       | Serviceable   | Coverage   | Total Cost        | Avg Cost   |
+|---------------|---------------|------------|-------------------|------------|
+| **Current**   | **558,210**   | **100.0%** | **$6,389,595.72** | **$11.45** |
+| OnTrac        | 360,348       | 64.6%      | $4,058,854.37     | $11.26     |
+| USPS          | 558,210       | 100.0%     | $8,195,287.24     | $14.68     |
+| FedEx         | 558,210       | 100.0%     | $6,920,940.31     | $12.40     |
+| P2P           | 289,429       | 51.8%      | $3,103,799.20     | $10.72     |
+| Maersk        | 558,210       | 100.0%     | $6,444,524.54     | $11.54     |
 
-**Note on 100% OnTrac:** The extreme cost increase is due to OnTrac's limited geographic coverage. OnTrac only services the Western United States, and shipments to non-serviceable areas receive a $500 penalty cost in the calculation. This makes OnTrac unsuitable as a single-carrier solution for nationwide shipping.
+**Note:** OnTrac and P2P have partial geographic coverage. Costs shown are only for shipments they can service. Non-serviceable shipments have null costs.
 
 ## Key Findings
 
-- **FedEx dominates the current mix** at 49.1% of shipments, accounting for 56.8% of total cost
-- **USPS is the most cost-efficient carrier** at $7.50 average cost per shipment (42% cheaper than FedEx Home Delivery's $15.01)
-- **FedEx SmartPost vs Home Delivery**: SmartPost averages $9.61 vs Home Delivery's $15.01 - a 36% savings on comparable shipments
-- **The current mix is near-optimal for current carriers**: 100% FedEx would cost 11.3% more, 100% USPS would cost 31.8% more
-- **Large packages drive costs**: Pizza boxes 42x32x2 and 48X36X1 average $28-34 per shipment (3x the overall average)
-- **OnTrac shows regional strength**: For Phoenix-originated shipments within its service area, OnTrac is competitive at $13.71 average
-- **Weight-based pricing is significant**: Shipments 5-10 lbs cost 2.6x more than 0-1 lb shipments
-- **Phoenix is the largest cost center** at 51.9% of shipments and 55.6% of costs
+1. **Current mix baseline**: $6.39M for 558K shipments ($11.45 avg)
 
-## DHL Shipments Handling
+2. **FedEx dominates volume** at 49.1% of shipments, accounting for 55.3% of total cost
 
-DHL eCommerce America shipments (40,157 shipments, 7.2% of total) are **excluded from cost calculations** because:
-1. No DHL cost calculator exists in this analysis
-2. DHL is not being considered for 2026 tender optimization
+3. **USPS is cost-efficient** at $7.50 avg (but $14.68 if used for all shipments due to weight/size mix)
 
-These shipments ARE included in 100% single-carrier comparisons (e.g., "100% FedEx" calculates FedEx costs for all 558,210 shipments including the DHL ones).
+4. **Full-coverage carrier ranking** (can service all shipments):
+   - Maersk: $11.54 avg (cheapest)
+   - FedEx: $12.40 avg
+   - USPS: $14.68 avg
+
+5. **Partial-coverage carriers** (cannot service all shipments):
+   - OnTrac: 64.6% coverage, $11.26 avg (West region only)
+   - P2P: 51.8% coverage, $10.72 avg (limited ZIP coverage)
+
+6. **Weight-based pricing impact**: Shipments 5-10 lbs cost 2.6x more than 0-1 lb shipments
+
+7. **Phoenix is the largest cost center** at 48.2% of shipments and 53.3% of costs
+
+## Cost Imputations
+
+| Item                              | Count    | Method                              |
+|-----------------------------------|----------|-------------------------------------|
+| DHL eCommerce America             | 40,157   | $6.00/shipment flat estimate        |
+| OnTrac to non-serviceable ZIPs    | 144      | Average OnTrac cost by packagetype  |
 
 ## Files Generated
 
