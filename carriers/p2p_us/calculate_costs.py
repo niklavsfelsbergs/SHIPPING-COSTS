@@ -178,6 +178,11 @@ def _lookup_zones(df: pl.DataFrame, zones: pl.DataFrame) -> pl.DataFrame:
     # Join on 5-digit ZIP
     df = df.join(zones, left_on="_zip_5digit", right_on="zip", how="left")
 
+    # Flag whether ZIP was found in zones file (for coverage tracking)
+    df = df.with_columns(
+        pl.col("zone").is_not_null().alias("zone_covered")
+    )
+
     # Apply fallback: use mode zone if no match, then default to 5
     df = df.with_columns(
         pl.coalesce([pl.col("zone"), pl.lit(mode_zone), pl.lit(5)])

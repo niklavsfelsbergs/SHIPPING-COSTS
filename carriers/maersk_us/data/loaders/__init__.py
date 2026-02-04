@@ -12,8 +12,11 @@ from .pcs import (
     DEFAULT_START_DATE,
 )
 
+from .pcs_all_us import load_pcs_shipments_all_us
+
 __all__ = [
     "load_pcs_shipments",
+    "load_pcs_shipments_all_us",
     "DEFAULT_CARRIER",
     "DEFAULT_PRODUCTION_SITES",
     "DEFAULT_COUNTRY",

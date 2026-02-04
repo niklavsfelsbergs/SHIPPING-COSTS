@@ -16,6 +16,7 @@ from .reference.billable_weight import DIM_FACTOR, DIM_THRESHOLD, THRESHOLD_FIEL
 # Re-export loaders for convenience
 from .loaders import (
     load_pcs_shipments,
+    load_pcs_shipments_all_us,
     DEFAULT_CARRIER,
     DEFAULT_PRODUCTION_SITES,
     DEFAULT_COUNTRY,
@@ -65,6 +66,7 @@ __all__ = [
     "REFERENCE_DIR",
     # PCS data loaders
     "load_pcs_shipments",
+    "load_pcs_shipments_all_us",
     "DEFAULT_CARRIER",
     "DEFAULT_PRODUCTION_SITES",
     "DEFAULT_COUNTRY",
