@@ -51,15 +51,15 @@ The 30 lb rate jump is a critical cost driver for Maersk:
 
 | Weight Bracket   | Shipments   | % of Total   | Current Avg   | Maersk Avg   | Difference        |
 |------------------|-------------|--------------|---------------|--------------|-------------------|
-| 0-1 lbs          | 145,692     | 26.1%        | $7.10         | $6.01        | -$1.09 (-15%)     |
-| 1-2 lbs          | 113,406     | 20.3%        | $8.82         | $6.10        | -$2.72 (-31%)     |
-| 2-3 lbs          | 96,358      | 17.3%        | $10.29        | $8.11        | -$2.18 (-21%)     |
-| 3-4 lbs          | 43,915      | 7.9%         | $12.41        | $9.33        | -$3.07 (-25%)     |
-| 4-5 lbs          | 41,170      | 7.4%         | $12.52        | $12.59       | +$0.07 (+1%)      |
-| 5-10 lbs         | 87,003      | 15.6%        | $18.82        | $21.65       | +$2.83 (+15%)     |
-| 10-20 lbs        | 22,543      | 4.0%         | $25.06        | $42.31       | +$17.25 (+69%)    |
-| 20-30 lbs        | 3,229       | 0.6%         | $27.36        | $74.54       | +$47.18 (+172%)   |
-| **> 30 lbs**     | **1,853**   | **0.3%**     | **$30.40**    | **$99.85**   | **+$69.45 (+228%)**|
+| 0-1 lbs          | 145,692     | 26.1%        | $6.80         | $6.01        | -$0.79 (-12%)     |
+| 1-2 lbs          | 113,406     | 20.3%        | $8.70         | $6.10        | -$2.60 (-30%)     |
+| 2-3 lbs          | 96,358      | 17.3%        | $10.13        | $8.11        | -$2.02 (-20%)     |
+| 3-4 lbs          | 43,915      | 7.9%         | $12.23        | $9.33        | -$2.89 (-24%)     |
+| 4-5 lbs          | 41,170      | 7.4%         | $12.39        | $12.59       | +$0.20 (+2%)      |
+| 5-10 lbs         | 87,003      | 15.6%        | $18.47        | $21.65       | +$3.18 (+17%)     |
+| 10-20 lbs        | 22,543      | 4.0%         | $24.03        | $42.31       | +$18.28 (+76%)    |
+| 20-30 lbs        | 3,229       | 0.6%         | $26.43        | $74.54       | +$48.11 (+182%)   |
+| **> 30 lbs**     | **1,853**   | **0.3%**     | **$29.47**    | **$99.85**   | **+$70.38 (+239%)**|
 
 **The 30 lb Rate Jump:**
 
@@ -75,17 +75,17 @@ While only 0.3% of shipments exceed 30 lbs, they represent 2.9% of Maersk's tota
 
 | Zone   | Shipments   | % of Total   | Current Avg   | Maersk Avg   | Difference        |
 |--------|-------------|--------------|---------------|--------------|-------------------|
-| 1      | 4,324       | 0.8%         | $10.58        | $8.94        | -$1.64 (-15%)     |
-| 2      | 21,008      | 3.8%         | $9.61         | $8.56        | -$1.04 (-11%)     |
-| 3      | 57,922      | 10.4%        | $10.21        | $9.31        | -$0.90 (-9%)      |
-| 4      | 194,107     | 34.8%        | $10.90        | $10.29       | -$0.61 (-6%)      |
-| 5      | 132,065     | 23.7%        | $11.87        | $11.59       | -$0.28 (-2%)      |
-| 6      | 38,038      | 6.8%         | $12.98        | $13.01       | +$0.04 (+0%)      |
-| 7      | 35,763      | 6.4%         | $15.00        | $14.89       | -$0.10 (-1%)      |
-| 8      | 73,230      | 13.1%        | $14.68        | $14.48       | -$0.21 (-1%)      |
-| 9      | 1,753       | 0.3%         | $39.41        | $40.43       | +$1.01 (+3%)      |
+| 1      | 4,324       | 0.8%         | $9.59         | $8.94        | -$0.65 (-7%)      |
+| 2      | 21,008      | 3.8%         | $9.34         | $8.56        | -$0.78 (-8%)      |
+| 3      | 57,922      | 10.4%        | $9.89         | $9.31        | -$0.57 (-6%)      |
+| 4      | 194,107     | 34.8%        | $10.44        | $10.29       | -$0.15 (-1%)      |
+| 5      | 132,065     | 23.7%        | $11.40        | $11.59       | +$0.19 (+2%)      |
+| 6      | 38,038      | 6.8%         | $12.54        | $13.01       | +$0.48 (+4%)      |
+| 7      | 35,763      | 6.4%         | $13.84        | $14.89       | +$1.05 (+8%)      |
+| 8      | 73,230      | 13.1%        | $13.76        | $14.48       | +$0.72 (+5%)      |
+| 9      | 1,753       | 0.3%         | $38.67        | $40.43       | +$1.75 (+5%)      |
 
-Maersk is competitive or cheaper across most zones, with the largest advantage in nearby zones (1-4).
+Maersk is cheaper in nearby zones (1-4) but more expensive in farther zones (5-9). The volume-weighted effect results in Maersk being +0.9% more expensive overall.
 
 ### Surcharge Breakdown
 
@@ -127,7 +127,7 @@ Maersk is competitive or cheaper across most zones, with the largest advantage i
 
 4. **Surcharges are significant**: 34.3% of total cost comes from surcharges (NSL1/NSL2/NSD/Pickup), with the $18 NSD surcharge being the largest individual contributor.
 
-5. **Zone pricing is competitive**: Maersk matches or beats current carriers across most zones, with the biggest advantage in zones 1-4 (closer destinations).
+5. **Zone pricing varies**: Maersk is cheaper in nearby zones (1-4) but more expensive in farther zones (5-9). The volume in zones 5-9 (50% of shipments) drives the overall cost increase.
 
 6. **No fuel surcharge advantage**: Unlike competitors, Maersk has no separate fuel surcharge - this is built into base rates.
 

@@ -40,9 +40,6 @@ PARQUET_OUTPUT_DIR = Path(__file__).parent / "output" / "all_us"
 # Maersk US weight limit
 MAX_WEIGHT_LBS = 70
 
-# Penalty cost for overweight shipments (ensures they're never optimal)
-OVERWEIGHT_PENALTY_COST = 200.0
-
 # Columns to upload (matches DDL order)
 UPLOAD_COLUMNS = [
     # Identification (7)
@@ -183,28 +180,25 @@ def run_pipeline(
         print(f"  Filtered {filtered_count:,} shipments with missing dimensions/weight")
 
     # Mark overweight shipments (Maersk US max 70 lbs)
+    # For overweight shipments, we use 70 lb rates as the best estimate
     overweight_count = df.filter(pl.col("weight_lbs") > MAX_WEIGHT_LBS).height
     if overweight_count > 0:
-        print(f"  Marked {overweight_count:,} shipments over {MAX_WEIGHT_LBS} lbs (will set cost to ${OVERWEIGHT_PENALTY_COST:.0f})")
-
-    df = df.with_columns(
-        (pl.col("weight_lbs") > MAX_WEIGHT_LBS).alias("_is_overweight")
-    )
+        print(f"  {overweight_count:,} shipments over {MAX_WEIGHT_LBS} lbs (will use {MAX_WEIGHT_LBS} lb rates)")
 
     print(f"  {len(df):,} shipments to process")
 
     if len(df) == 0:
         return pl.DataFrame()
 
-    # For overweight shipments, cap weight at max for calculation to avoid errors
+    # For overweight shipments, cap weight at max for calculation
+    # This uses the 70 lb rate as the best available estimate
+    original_weight = df["weight_lbs"]
     df = df.with_columns(
-        pl.when(pl.col("_is_overweight"))
+        pl.when(pl.col("weight_lbs") > MAX_WEIGHT_LBS)
         .then(pl.lit(MAX_WEIGHT_LBS))
         .otherwise(pl.col("weight_lbs"))
-        .alias("weight_lbs_calc")
+        .alias("weight_lbs")
     )
-    original_weight = df["weight_lbs"]
-    df = df.with_columns(pl.col("weight_lbs_calc").alias("weight_lbs"))
 
     # Calculate costs
     print("  Calculating costs...")
@@ -212,38 +206,6 @@ def run_pipeline(
 
     # Restore original weight
     df = df.with_columns(original_weight.alias("weight_lbs"))
-
-    # Set overweight shipments to penalty cost
-    df = df.with_columns([
-        pl.when(pl.col("_is_overweight"))
-        .then(pl.lit(OVERWEIGHT_PENALTY_COST))
-        .otherwise(pl.col("cost_base"))
-        .alias("cost_base"),
-        pl.when(pl.col("_is_overweight"))
-        .then(pl.lit(0.0))
-        .otherwise(pl.col("cost_nsl1"))
-        .alias("cost_nsl1"),
-        pl.when(pl.col("_is_overweight"))
-        .then(pl.lit(0.0))
-        .otherwise(pl.col("cost_nsl2"))
-        .alias("cost_nsl2"),
-        pl.when(pl.col("_is_overweight"))
-        .then(pl.lit(0.0))
-        .otherwise(pl.col("cost_nsd"))
-        .alias("cost_nsd"),
-        pl.when(pl.col("_is_overweight"))
-        .then(pl.lit(0.0))
-        .otherwise(pl.col("cost_pickup"))
-        .alias("cost_pickup"),
-        pl.when(pl.col("_is_overweight"))
-        .then(pl.lit(OVERWEIGHT_PENALTY_COST))
-        .otherwise(pl.col("cost_subtotal"))
-        .alias("cost_subtotal"),
-        pl.when(pl.col("_is_overweight"))
-        .then(pl.lit(OVERWEIGHT_PENALTY_COST))
-        .otherwise(pl.col("cost_total"))
-        .alias("cost_total"),
-    ])
 
     # Calculate multishipment cost (cost_total * trackingnumber_count)
     # For orders with multiple tracking numbers, this gives total expected cost

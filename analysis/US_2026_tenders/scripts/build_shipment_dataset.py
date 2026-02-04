@@ -135,17 +135,58 @@ def load_maersk() -> pl.DataFrame:
 
 
 def determine_current_carrier_cost(df: pl.DataFrame) -> pl.DataFrame:
-    """Add cost_current_carrier based on pcs_shipping_provider mapping."""
-    return df.with_columns(
+    """Add cost_current_carrier based on pcs_shipping_provider mapping.
+
+    Imputation:
+    - DHL: $6.00/shipment (estimated based on typical DHL eCommerce rates)
+    - OnTrac nulls (non-serviceable ZIPs that were actually shipped): packagetype average
+    """
+    DHL_ESTIMATED_COST = 6.00
+
+    # Initial assignment
+    df = df.with_columns(
         pl.when(pl.col("pcs_shipping_provider") == "ONTRAC")
         .then(pl.col("ontrac_cost_total"))
         .when(pl.col("pcs_shipping_provider") == "USPS")
         .then(pl.col("usps_cost_total"))
         .when(pl.col("pcs_shipping_provider").str.contains("FX"))
         .then(pl.col("fedex_cost_total"))
+        .when(pl.col("pcs_shipping_provider") == "DHL ECOMMERCE AMERICA")
+        .then(pl.lit(DHL_ESTIMATED_COST))
         .otherwise(None)
         .alias("cost_current_carrier")
     )
+
+    # Impute OnTrac null costs (shipments to non-serviceable ZIPs that were actually shipped)
+    # Use average OnTrac cost by packagetype
+    ontrac_null_count = df.filter(
+        (pl.col("pcs_shipping_provider") == "ONTRAC") &
+        (pl.col("cost_current_carrier").is_null())
+    ).height
+
+    if ontrac_null_count > 0:
+        print(f"    Imputing {ontrac_null_count:,} OnTrac null costs with packagetype average...")
+        # Calculate average OnTrac cost by packagetype (excluding nulls)
+        ontrac_avg_by_pkg = df.filter(
+            (pl.col("pcs_shipping_provider") == "ONTRAC") &
+            (pl.col("cost_current_carrier").is_not_null())
+        ).group_by("packagetype").agg(
+            pl.col("cost_current_carrier").mean().alias("_ontrac_avg_cost")
+        )
+
+        # Join and fill nulls
+        df = df.join(ontrac_avg_by_pkg, on="packagetype", how="left")
+        df = df.with_columns(
+            pl.when(
+                (pl.col("pcs_shipping_provider") == "ONTRAC") &
+                (pl.col("cost_current_carrier").is_null())
+            )
+            .then(pl.col("_ontrac_avg_cost"))
+            .otherwise(pl.col("cost_current_carrier"))
+            .alias("cost_current_carrier")
+        ).drop("_ontrac_avg_cost")
+
+    return df
 
 
 def main():
