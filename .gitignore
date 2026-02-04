@@ -55,5 +55,4 @@ carriers/ontrac/dashboard/data/
 carriers/usps/dashboard/data/
 
 # Analysis parquet files (large, generated)
-analysis/US_2026_tenders/carrier_datasets/*.parquet
-analysis/US_2026_tenders/combined_datasets/*.parquet
+analysis/US_2026_tenders/**/*.parquet

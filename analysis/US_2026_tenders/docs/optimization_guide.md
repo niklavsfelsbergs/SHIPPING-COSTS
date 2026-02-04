@@ -143,7 +143,7 @@ Columns per group:
 
 | Carrier   | Minimum Volume      | Calculation                        |
 |-----------|---------------------|------------------------------------|
-| USPS      | 375,000 shipments   | 93,750/quarter × 4 (rolling avg)   |
+| USPS      | 140,000 shipments   | 35,000/quarter × 4 (Tier 1)        |
 | OnTrac    | 279,080 shipments   | 5,365/week × 52                    |
 | FedEx     | No minimum          | But Earned Discount tiers apply    |
 
