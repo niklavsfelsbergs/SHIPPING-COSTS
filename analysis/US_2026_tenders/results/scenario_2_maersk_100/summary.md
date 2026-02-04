@@ -47,22 +47,24 @@ Where:
 
 ### Cost by Weight Bracket
 
-The 30 lb rate jump is a critical cost driver for Maersk:
+The 30 lb rate jump is a critical cost driver for Maersk. The table below shows the breakdown between base rate and surcharges:
 
-| Weight Bracket   | Shipments   | % of Total   | Current Avg   | Maersk Avg   | Difference        |
-|------------------|-------------|--------------|---------------|--------------|-------------------|
-| 0-1 lbs          | 145,692     | 26.1%        | $6.80         | $6.01        | -$0.79 (-12%)     |
-| 1-2 lbs          | 113,406     | 20.3%        | $8.70         | $6.10        | -$2.60 (-30%)     |
-| 2-3 lbs          | 96,358      | 17.3%        | $10.13        | $8.11        | -$2.02 (-20%)     |
-| 3-4 lbs          | 43,915      | 7.9%         | $12.23        | $9.33        | -$2.89 (-24%)     |
-| 4-5 lbs          | 41,170      | 7.4%         | $12.39        | $12.59       | +$0.20 (+2%)      |
-| 5-10 lbs         | 88,003      | 15.8%        | $18.49        | $20.62       | +$2.13 (+12%)     |
-| 10-20 lbs        | 24,071      | 4.3%         | $24.75        | $36.93       | +$12.19 (+49%)    |
-| 20-30 lbs        | 3,684       | 0.7%         | $27.16        | $72.22       | +$45.05 (+166%)   |
-| 30-70 lbs        | 1,853       | 0.3%         | $33.36        | $99.86       | +$66.50 (+199%)   |
-| **>70 lbs**      | **58**      | **0.0%**     | **$58.29**    | **$126.12**  | **+$67.83 (+116%)**|
+| Weight Bracket   | Shipments   | Current Avg   | Maersk Avg   | Base Rate   | Surcharges   | Diff %    |
+|------------------|-------------|---------------|--------------|-------------|--------------|-----------|
+| 0-1 lbs          | 145,692     | $6.80         | $6.01        | $5.47       | $0.54        | -12%      |
+| 1-2 lbs          | 113,406     | $8.70         | $6.10        | $5.82       | $0.28        | -30%      |
+| 2-3 lbs          | 96,358      | $10.13        | $8.11        | $6.11       | $2.00        | -20%      |
+| 3-4 lbs          | 43,915      | $12.23        | $9.33        | $6.69       | $2.64        | -24%      |
+| 4-5 lbs          | 41,170      | $12.39        | $12.59       | $7.67       | $4.92        | +2%       |
+| 5-10 lbs         | 88,003      | $18.49        | $20.62       | $9.25       | $11.37       | +12%      |
+| 10-20 lbs        | 24,071      | $24.75        | $36.93       | $17.88      | $19.05       | +49%      |
+| 20-30 lbs        | 3,684       | $27.16        | $72.22       | $49.29      | $22.92       | +166%     |
+| 30-70 lbs        | 1,853       | $33.36        | $99.86       | $75.61      | $24.25       | +199%     |
+| **>70 lbs**      | **58**      | **$58.29**    | **$126.12**  | **$101.32** | **$24.80**   | **+116%** |
 
 *Note: Shipments >70 lbs exceed Maersk's weight limit and are priced at the 70 lb rate (maximum available).*
+
+**Key insight:** Surcharges stay relatively flat ($20-24) for heavier packages, while the **base rate** is the primary cost driver - jumping from $49 (20-30 lbs) to $76 (30-70 lbs) due to Maersk's 30 lb rate jump.
 
 **The 30 lb Rate Jump:**
 

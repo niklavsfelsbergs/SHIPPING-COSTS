@@ -71,10 +71,12 @@ def analyze_weight_brackets(df_unified):
     print("COST BY WEIGHT BRACKET")
     print("=" * 60)
 
-    # Add weight bracket column
-    df = df_unified.with_columns(
-        pl.col("weight_lbs").ceil().cast(pl.Int32).alias("weight_bracket")
-    )
+    # Add weight bracket column and calculate surcharge total
+    df = df_unified.with_columns([
+        pl.col("weight_lbs").ceil().cast(pl.Int32).alias("weight_bracket"),
+        (pl.col("maersk_cost_nsl1") + pl.col("maersk_cost_nsl2") +
+         pl.col("maersk_cost_nsd") + pl.col("maersk_cost_pickup")).alias("maersk_surcharge_total"),
+    ])
 
     # Group by weight bracket
     weight_analysis = (
@@ -87,6 +89,7 @@ def analyze_weight_brackets(df_unified):
             pl.col("cost_current_carrier").mean().alias("current_avg"),
             pl.col("maersk_cost_total").mean().alias("maersk_avg"),
             pl.col("maersk_cost_base").mean().alias("maersk_base_avg"),
+            pl.col("maersk_surcharge_total").mean().alias("maersk_surcharge_avg"),
         ])
         .sort("weight_bracket")
         .filter(pl.col("weight_bracket") <= 70)  # Max Maersk weight
@@ -98,15 +101,15 @@ def analyze_weight_brackets(df_unified):
         ((pl.col("maersk_total") - pl.col("current_total")) / pl.col("current_total") * 100).alias("diff_pct"),
     ])
 
-    # Print summary table
+    # Print summary table with base rate and surcharge breakdown
     print("\nWeight bracket analysis (1 lb increments):")
-    print(f"{'Bracket':<10} {'Shipments':>12} {'Current Avg':>12} {'Maersk Avg':>12} {'Diff':>10} {'Diff %':>10}")
-    print("-" * 68)
+    print(f"{'Bracket':<10} {'Shipments':>10} {'Current':>10} {'Maersk':>10} {'Base':>10} {'Surchg':>10} {'Diff %':>8}")
+    print("-" * 72)
 
     for row in weight_analysis.iter_rows(named=True):
         if row["shipment_count"] >= 100:  # Only show brackets with significant volume
             bracket = f"{row['weight_bracket']-1}-{row['weight_bracket']} lbs" if row["weight_bracket"] > 1 else "0-1 lbs"
-            print(f"{bracket:<10} {row['shipment_count']:>12,} ${row['current_avg']:>10.2f} ${row['maersk_avg']:>10.2f} ${row['maersk_avg'] - row['current_avg']:>8.2f} {row['diff_pct']:>9.1f}%")
+            print(f"{bracket:<10} {row['shipment_count']:>10,} ${row['current_avg']:>8.2f} ${row['maersk_avg']:>8.2f} ${row['maersk_base_avg']:>8.2f} ${row['maersk_surcharge_avg']:>8.2f} {row['diff_pct']:>7.1f}%")
 
     # Highlight the 30 lb rate jump
     print("\n*** 30 lb Rate Jump Analysis ***")
