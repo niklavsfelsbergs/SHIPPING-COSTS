@@ -284,10 +284,12 @@ class TestCostCalculations:
         assert df["cost_res"][0] == pytest.approx(expected)
 
     def test_ahs_cost(self, base_shipment):
-        """AHS cost should be list_price * (1 - discount)."""
+        """AHS cost should be zone-based list_price * (1 - discount)."""
         shipment = base_shipment.with_columns(pl.lit(55.0).alias("weight_lbs"))
         df = run_pipeline(shipment)
-        expected = AHS.cost()  # 32.00 * 0.30 = 9.60
+        zone = df["shipping_zone"][0]
+        zone_price = AHS.ZONE_PRICES.get(zone, 36.00)
+        expected = zone_price * (1 - AHS.discount)
         assert df["cost_ahs"][0] == pytest.approx(expected)
 
     def test_no_surcharge_zero_cost(self, base_shipment):

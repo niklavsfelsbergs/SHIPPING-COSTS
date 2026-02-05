@@ -15,8 +15,10 @@ class AHS(Surcharge):
     name = "AHS"
 
     # Pricing (70% discount per Third Amendment)
-    list_price = 36.00
+    # Zone-based list prices (ontrac.com/surcharges, eff. March 7, 2026)
+    list_price = 36.00  # Zone 2-4 default, see cost() for zone-based pricing
     discount = 0.70
+    ZONE_PRICES = {2: 36.00, 3: 36.00, 4: 36.00, 5: 40.00, 6: 40.00, 7: 42.00, 8: 42.00}
 
     # Exclusivity (dimensional: OML > LPS > AHS)
     exclusivity_group = "dimensional"
@@ -48,12 +50,28 @@ class AHS(Surcharge):
     @classmethod
     def cost(cls) -> pl.Expr:
         """
-        Return surcharge cost, with 50% allocation for borderline cases.
+        Return surcharge cost with zone-based pricing and borderline allocation.
+
+        Zone pricing (eff. March 7, 2026):
+        - Zone 2-4: $36.00
+        - Zone 5-6: $40.00
+        - Zone 7-8: $42.00
 
         Borderline: second_longest is in (30.0, 30.5] AND no other trigger.
         OnTrac charges these inconsistently (~50%), so we allocate 50% of cost.
         """
-        base_cost = cls.list_price * (1 - cls.discount)
+        # Zone-based list price
+        zone_list_price = (
+            pl.when(pl.col("shipping_zone").is_in([2, 3, 4]))
+            .then(36.00)
+            .when(pl.col("shipping_zone").is_in([5, 6]))
+            .then(40.00)
+            .when(pl.col("shipping_zone").is_in([7, 8]))
+            .then(42.00)
+            .otherwise(36.00)  # fallback for unknown zones
+        )
+
+        base_cost = zone_list_price * (1 - cls.discount)
 
         # Check if ONLY triggered by borderline second_longest
         borderline_only = (
@@ -68,6 +86,6 @@ class AHS(Surcharge):
 
         return (
             pl.when(borderline_only)
-            .then(pl.lit(base_cost * cls.BORDERLINE_ALLOCATION))
-            .otherwise(pl.lit(base_cost))
+            .then(base_cost * cls.BORDERLINE_ALLOCATION)
+            .otherwise(base_cost)
         )

@@ -16,7 +16,7 @@ class DEM_AHS(Surcharge):
 
     # Pricing (0% discount per Fourth Amendment)
     list_price = 11.00
-    discount = 0.00
+    discount = 0.50
 
     # Dependencies
     depends_on = "AHS"
