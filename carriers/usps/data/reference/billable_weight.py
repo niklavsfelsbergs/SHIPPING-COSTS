@@ -11,3 +11,6 @@ DIM_THRESHOLD = 1728          # Min value to apply dimensional weight (1 cubic f
 # Fields used in calculation
 THRESHOLD_FIELD = "cubic_in"  # Compare this field against DIM_THRESHOLD
 FACTOR_FIELD = "cubic_in"     # Divide this field by DIM_FACTOR for dim weight
+
+# Oversize threshold: packages with length + girth > 108" use flat oversize rates
+OVERSIZE_GIRTH_THRESHOLD = 108

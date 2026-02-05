@@ -40,10 +40,12 @@ from .version import VERSION
 from .data import (
     load_rates,
     load_zones,
+    load_oversize_rates,
     DIM_FACTOR,
     DIM_THRESHOLD,
     THRESHOLD_FIELD,
     FACTOR_FIELD,
+    OVERSIZE_GIRTH_THRESHOLD,
 )
 from .surcharges import (
     ALL,
@@ -293,6 +295,9 @@ def calculate(df: pl.DataFrame) -> pl.DataFrame:
     # Phase 3: Look up base shipping rate
     df = _lookup_base_rate(df)
 
+    # Phase 3b: Apply oversize rate override (replaces base rate if girth > 108")
+    df = _apply_oversize_rate(df)
+
     # Phase 4: Apply peak season surcharge (requires billable_weight_lbs and rate_zone)
     df = _apply_peak_surcharge(df)
 
@@ -402,6 +407,51 @@ def _lookup_base_rate(df: pl.DataFrame) -> pl.DataFrame:
 
     df = df.drop(["weight_lbs_lower", "weight_lbs_upper"])
     df = df.sort("_row_id").drop("_row_id")
+
+    return df
+
+
+def _apply_oversize_rate(df: pl.DataFrame) -> pl.DataFrame:
+    """
+    Apply oversize rate for packages exceeding girth threshold.
+
+    When length + girth > 108", the normal weight-based rate is replaced
+    with a flat zone-based oversize rate.
+
+    Adds column:
+        - surcharge_oversize: Boolean flag if oversize rate applies
+    Modifies column:
+        - cost_base: Replaced with oversize_rate when surcharge_oversize is True
+    """
+    oversize_rates = load_oversize_rates()
+
+    # Add oversize flag
+    df = df.with_columns(
+        (pl.col("length_plus_girth") > OVERSIZE_GIRTH_THRESHOLD).alias("surcharge_oversize")
+    )
+
+    # Join oversize rates by zone
+    # For now using latest rates (could filter by ship_date if needed)
+    latest_rates = (
+        oversize_rates
+        .sort("date_from", descending=True)
+        .group_by("zone")
+        .first()
+        .select(["zone", "oversize_rate"])
+    )
+
+    df = df.join(latest_rates, left_on="rate_zone", right_on="zone", how="left")
+
+    # Replace cost_base with oversize_rate when applicable
+    df = df.with_columns(
+        pl.when(pl.col("surcharge_oversize"))
+        .then(pl.col("oversize_rate"))
+        .otherwise(pl.col("cost_base"))
+        .alias("cost_base")
+    )
+
+    # Drop the temporary oversize_rate column
+    df = df.drop("oversize_rate")
 
     return df
 

@@ -11,7 +11,13 @@ Structure:
 import polars as pl
 from pathlib import Path
 
-from .reference.billable_weight import DIM_FACTOR, DIM_THRESHOLD, THRESHOLD_FIELD, FACTOR_FIELD
+from .reference.billable_weight import (
+    DIM_FACTOR,
+    DIM_THRESHOLD,
+    THRESHOLD_FIELD,
+    FACTOR_FIELD,
+    OVERSIZE_GIRTH_THRESHOLD,
+)
 
 # Re-export loaders for convenience
 from .loaders import (
@@ -77,10 +83,34 @@ def load_zones() -> pl.DataFrame:
     )
 
 
+def load_oversize_rates() -> pl.DataFrame:
+    """
+    Load oversize rates by zone.
+
+    Oversize rates apply when length + girth > 108 inches.
+    These flat rates replace the normal weight-based base rate.
+
+    Returns:
+        DataFrame with columns:
+            - date_from: Effective date for rates
+            - zone: Shipping zone (1-9)
+            - oversize_rate: Flat rate for oversize packages
+    """
+    return pl.read_csv(
+        REFERENCE_DIR / "oversize_rates.csv",
+        schema_overrides={
+            "date_from": pl.Date,
+            "zone": pl.Int64,
+            "oversize_rate": pl.Float64,
+        }
+    )
+
+
 __all__ = [
     # Reference data loaders
     "load_rates",
     "load_zones",
+    "load_oversize_rates",
     "REFERENCE_DIR",
     # PCS data loaders
     "load_pcs_shipments",
@@ -93,4 +123,5 @@ __all__ = [
     "DIM_THRESHOLD",
     "THRESHOLD_FIELD",
     "FACTOR_FIELD",
+    "OVERSIZE_GIRTH_THRESHOLD",
 ]
