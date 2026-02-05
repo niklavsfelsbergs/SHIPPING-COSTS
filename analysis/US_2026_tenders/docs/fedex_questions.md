@@ -19,6 +19,11 @@ This appears to mean surcharge discounts (fuel -30%, residential -65%, DAS -65%,
 - Do surcharge discounts continue in Term 2?
 - If not, can we negotiate to extend them?
 
+Answer:
+
+Travis will clarify
+None of the surcharges are being replaced or removed. 
+
 ---
 
 ## 2. $5M Minimum Revenue Calculation
@@ -34,6 +39,10 @@ Please confirm:
 - Is it a rolling calculation or fixed quarterly periods?
 - What specific charges count toward "Net Revenue"?
 - When exactly are the quarterly check dates?
+
+Answer:
+Also includes surcharges
+Only requirement: Have to meet at the end of the year of 5M for the rate cap of 4% to be applicable.
 
 ---
 
@@ -52,6 +61,15 @@ The methodology is not defined in this document. Please confirm:
 - What charges count toward "Annualized Transportation Charges"?
 
 ---
+
+Answer:
+52 week rolling average
+Keep in mind - we manipulated the tiers, they are reduced by 500k.
+Combined gross transportation spend. BEFORE DISCOUNT.
+BASED ON THE PUBLISHED RATE. Gross transporation charge. Includes surcharges.
+Travis will send me the list price list.
+
+the net rates already include the 18% discount. I can revert it so i can calculate gross spend.
 
 ## 4. Volume & Pricing Commitments
 
@@ -92,6 +110,8 @@ Please confirm:
 - Can we negotiate a rate cap for Term 2?
 - What is FedEx's typical annual rate increase?
 
+This stays for our contract term of 2 years actually.
+
 ---
 
 ## 6. Exit Strategy / Termination
@@ -124,6 +144,8 @@ Please confirm:
 - Does the DIM divisor of 250/225/194 continue in Term 2?
 - Or does it revert to the published 139?
 
+Wont be decreased
+
 ---
 
 ## 8. DIM Divisor Long-Term
@@ -155,6 +177,12 @@ Please confirm:
 - Is "Performance Pricing" the same as the base rate discounts in our agreement?
 - Or is Performance Pricing something different/additional?
 - Where in the calculation do Earned and Grace discounts apply?
+
+if ground - performance
+express - earned
+home - performance
+
+home and ground is both ground services.
 
 ---
 
@@ -189,6 +217,8 @@ To calculate our discounted surcharge costs, we need the official list prices fo
 | Print Return Label                | -100%        | ?           |
 | Email Return Label                | -100%        | ?           |
 | Fuel Surcharge                    | -30%         | ?           |
+
+Travis will send me 
 
 **Ground Economy Surcharges:**
 
@@ -228,6 +258,8 @@ Please confirm:
 - How often is it updated (weekly/monthly)?
 - Is the fuel surcharge applied to (base rate + surcharges) or just the base rate?
 - Does our fuel discount (-30%) reduce the fuel surcharge percentage, or the fuel charge amount?
+
+best way to lookup on fedex.com, go out to www.fedex.com/us that will bring you to the fedex portal.. In search type fuel. 
 
 ---
 
@@ -273,6 +305,10 @@ Please confirm:
 - Are Performance Pricing and Earned Discount both calculated on the list rate (additive)?
 - Or is Earned Discount applied to the rate after Performance Pricing (multiplicative)?
 
+Answer:
+Sum of the two
+Fuel surcharge is calculated after the discounts are applied.
+
 ---
 
 ## 14. Demand/Peak Surcharge Periods
@@ -286,6 +322,11 @@ Please confirm:
 - What are the exact start and end dates for demand surcharge periods in 2026?
 - How much advance notice do we receive before peak periods?
 - Are demand surcharges applied in addition to regular surcharges, or do they replace them?
+
+Answer:
+Can use 2025 as baseline
+End of October
+Recent change from peak to demand
 
 ---
 
@@ -312,6 +353,13 @@ Please confirm:
 - What is the process for submitting a dispute?
 - What documentation is required?
 
+
+
 ---
 
 *Last updated: February 2026*
+
+
+Actions:
+send surcharge list
+template

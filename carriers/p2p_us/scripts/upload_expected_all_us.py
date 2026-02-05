@@ -1,8 +1,12 @@
 """
-Upload Expected Costs to Database
-=================================
+Upload Expected Costs for ALL US Shipments
+===========================================
 
-Calculates expected P2P US shipping costs and uploads them to the database.
+Calculates hypothetical P2P US shipping costs for ALL US shipments
+and uploads them to the database.
+
+This enables carrier cost optimization analysis by comparing what shipments
+would cost with P2P US vs what they actually cost with their real carrier.
 
 Modes:
     --full          Full calculation since 2025-01-01, delete existing and reupload
@@ -14,6 +18,11 @@ Usage:
     python -m carriers.p2p_us.scripts.upload_expected_all_us --incremental
     python -m carriers.p2p_us.scripts.upload_expected_all_us --days 7
     python -m carriers.p2p_us.scripts.upload_expected_all_us --full --dry-run
+    python -m carriers.p2p_us.scripts.upload_expected_all_us --full --parquet --start-date 2025-01-01 --end-date 2025-12-31
+
+    # Load from pre-exported parquet instead of database (faster iteration):
+    python -m shared.scripts.export_pcs_shipments --start-date 2025-01-01 --end-date 2025-12-31
+    python -m carriers.p2p_us.scripts.upload_expected_all_us --full --parquet-data shared/data/pcs_shipments_all_us_2025-01-01_2025-12-31.parquet --start-date 2025-01-01 --end-date 2025-12-31
 """
 
 import argparse
@@ -157,18 +166,28 @@ def delete_from_date(start_date: str, dry_run: bool = False) -> int:
 def run_pipeline(
     start_date: str,
     end_date: str | None = None,
+    parquet_data: str | None = None,
 ) -> pl.DataFrame:
     """
     Run the full calculation pipeline for a date range.
 
     Returns DataFrame ready for upload with UPLOAD_COLUMNS.
     """
-    # Load ALL US shipments (all production sites, US domestic carriers only)
-    print(f"  Loading ALL US shipments from {start_date} to {end_date or 'today'}...")
-    df = load_pcs_shipments_all_us(
-        start_date=start_date,
-        end_date=end_date,
-    )
+    # Load ALL US shipments (from parquet or database)
+    if parquet_data:
+        print(f"  Loading ALL US shipments from parquet: {parquet_data}...")
+        df = pl.read_parquet(parquet_data)
+        # Filter by date range
+        if start_date:
+            df = df.filter(pl.col("pcs_created").cast(pl.Date) >= pl.lit(start_date).str.to_date("%Y-%m-%d"))
+        if end_date:
+            df = df.filter(pl.col("pcs_created").cast(pl.Date) <= pl.lit(end_date).str.to_date("%Y-%m-%d"))
+    else:
+        print(f"  Loading ALL US shipments from {start_date} to {end_date or 'today'}...")
+        df = load_pcs_shipments_all_us(
+            start_date=start_date,
+            end_date=end_date,
+        )
     print(f"  Loaded {len(df):,} shipments")
 
     if len(df) == 0:
@@ -304,6 +323,7 @@ def _run_calculation_and_upload(
     show_net_change: bool = False,
     calc_step_num: int = 2,
     upload_step_num: int = 3,
+    parquet_data: str | None = None,
 ) -> int:
     """
     Common logic for calculating costs and uploading results.
@@ -318,6 +338,7 @@ def _run_calculation_and_upload(
         show_net_change: If True, show net change in summary
         calc_step_num: Step number for calculation step
         upload_step_num: Step number for upload step
+        parquet_data: Path to parquet file with PCS data, optional
 
     Returns:
         Number of rows uploaded (or would be uploaded if dry_run)
@@ -326,6 +347,7 @@ def _run_calculation_and_upload(
     df = run_pipeline(
         start_date=start_date,
         end_date=end_date,
+        parquet_data=parquet_data,
     )
 
     if len(df) == 0:
@@ -360,6 +382,7 @@ def run_full_mode(
     dry_run: bool,
     start_date: str | None = None,
     end_date: str | None = None,
+    parquet_data: str | None = None,
 ) -> int:
     """Full mode: Delete all, recalculate from start_date (default 2025-01-01)."""
     start = start_date or DEFAULT_START_DATE
@@ -370,6 +393,8 @@ def run_full_mode(
 
     if end_date:
         print(f"Date range: {start} to {end_date}")
+    if parquet_data:
+        print(f"Data source: {parquet_data}")
 
     print("\nStep 1: Deleting all existing rows...")
     deleted = delete_all(dry_run=dry_run)
@@ -380,6 +405,7 @@ def run_full_mode(
         rows_deleted=deleted,
         batch_size=batch_size,
         dry_run=dry_run,
+        parquet_data=parquet_data,
     )
 
 
@@ -446,6 +472,7 @@ def run_days_mode(
 def run_parquet_mode(
     start_date: str | None = None,
     end_date: str | None = None,
+    parquet_data: str | None = None,
 ) -> int:
     """Parquet mode: Calculate costs and save to parquet file instead of database."""
     start = start_date or DEFAULT_START_DATE
@@ -454,11 +481,14 @@ def run_parquet_mode(
     print("PARQUET MODE - P2P US EXPECTED COSTS (ALL US)")
     print("=" * 60)
     print(f"Date range: {start} to {end_date or 'today'}")
+    if parquet_data:
+        print(f"Data source: {parquet_data}")
 
     print("\nStep 1: Calculating expected costs...")
     df = run_pipeline(
         start_date=start,
         end_date=end_date,
+        parquet_data=parquet_data,
     )
 
     if len(df) == 0:
@@ -557,6 +587,12 @@ Examples:
         action="store_true",
         help="Save to parquet file instead of uploading to database"
     )
+    parser.add_argument(
+        "--parquet-data",
+        type=str,
+        metavar="PATH",
+        help="Load PCS shipments from parquet file instead of database"
+    )
 
     args = parser.parse_args()
 
@@ -567,6 +603,7 @@ Examples:
             rows = run_parquet_mode(
                 start_date=args.start_date,
                 end_date=args.end_date,
+                parquet_data=args.parquet_data,
             )
             print("\n" + "=" * 60)
             print(f"Successfully saved {rows:,} rows to parquet")
@@ -577,6 +614,7 @@ Examples:
                 dry_run=args.dry_run,
                 start_date=args.start_date,
                 end_date=args.end_date,
+                parquet_data=args.parquet_data,
             )
             print("\n" + "=" * 60)
             if args.dry_run:

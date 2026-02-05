@@ -98,7 +98,9 @@ FedEx shipments are classified into two service types for rate calculation:
 | Home Delivery | FedEx Home Delivery   | 150 lbs    | 250        |
 | Ground Economy| FedEx Ground Economy  | 71 lbs     | 139        |
 
-### 3.2 PCS Service Code Mapping
+### 3.2 PCS Service Code Mapping (Historical)
+
+When processing historical shipments for comparison against invoices, the service type is determined from the PCS shipping provider code:
 
 | PCS Code      | Rate Service   |
 |---------------|----------------|
@@ -121,6 +123,48 @@ FedEx shipments are classified into two service types for rate calculation:
 | (unknown)     | Home Delivery  |
 
 Unknown service codes default to Home Delivery.
+
+### 3.3 Optimal Service Selection (All-US Analysis)
+
+For optimization scenarios comparing FedEx against other carriers, we calculate costs for **both** Home Delivery and Ground Economy (SmartPost) and select the cheaper option for each shipment.
+
+**Selection Logic:**
+
+```
+FOR each shipment:
+    1. Calculate Home Delivery cost (fedex_hd_cost_total)
+    2. Calculate SmartPost cost (fedex_sp_cost_total)
+
+    IF weight_lbs <= 70 AND fedex_sp_cost_total < fedex_hd_cost_total:
+        fedex_service_selected = "FXSP" (SmartPost)
+        fedex_cost_total = fedex_sp_cost_total
+    ELSE:
+        fedex_service_selected = "FXEHD" (Home Delivery)
+        fedex_cost_total = fedex_hd_cost_total
+```
+
+**Constraints:**
+- **SmartPost eligibility:** Only shipments ≤ 70 lbs can use SmartPost (max weight is 71 lbs, but we use 70 lb cutoff for safety margin)
+- **Shipments > 70 lbs:** Must use Home Delivery
+
+**When SmartPost typically wins:**
+- Smaller, lighter packages (lower base rates)
+- No residential surcharge ($2.08 savings)
+- No AHS-Dimensions surcharge for oversized packages
+- No base demand surcharge during peak season
+
+**When Home Delivery typically wins:**
+- Heavier packages where the DIM factor difference (250 vs 139) matters
+- Packages where SmartPost's lower DIM factor inflates the billable weight significantly
+
+**Output Columns (All-US):**
+
+| Column                  | Description                                      |
+|-------------------------|--------------------------------------------------|
+| `fedex_service_selected`| "FXEHD" (Home Delivery) or "FXSP" (SmartPost)   |
+| `fedex_hd_cost_total`   | Cost if sent via Home Delivery                   |
+| `fedex_sp_cost_total`   | Cost if sent via SmartPost                       |
+| `fedex_cost_total`      | Actual cost (based on selected service)          |
 
 ---
 

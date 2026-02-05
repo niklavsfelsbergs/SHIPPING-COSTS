@@ -66,6 +66,7 @@ def load_fedex() -> pl.DataFrame:
         "pcs_orderid",
         pl.col("shipping_zone").alias("fedex_shipping_zone"),
         pl.col("billable_weight_lbs").alias("fedex_billable_weight"),
+        pl.col("fedex_service_selected").alias("fedex_service_selected"),
         pl.col("fedex_cost_base_rate").alias("fedex_cost_base_rate"),
         pl.col("fedex_cost_performance_pricing").alias("fedex_cost_performance_pricing"),
         pl.col("fedex_cost_earned_discount").alias("fedex_cost_earned_discount"),
@@ -80,6 +81,8 @@ def load_fedex() -> pl.DataFrame:
         pl.col("fedex_cost_dem_oversize").alias("fedex_cost_dem_oversize"),
         pl.col("fedex_cost_fuel").alias("fedex_cost_fuel"),
         pl.col("fedex_cost_total").alias("fedex_cost_total"),
+        pl.col("fedex_hd_cost_total").alias("fedex_hd_cost_total"),
+        pl.col("fedex_sp_cost_total").alias("fedex_sp_cost_total"),
     ])
 
 

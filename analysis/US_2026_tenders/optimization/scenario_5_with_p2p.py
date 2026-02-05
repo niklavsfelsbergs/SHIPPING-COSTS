@@ -346,6 +346,20 @@ def main():
     print(f"    Rate: {discount_rate*100:.1f}%")
     print(f"    Amount: ${discount_amount:,.2f}")
 
+    # FedEx Service Breakdown
+    fedex_groups = df_adjusted.filter(pl.col("assigned_carrier") == "FEDEX")
+    if fedex_groups.height > 0:
+        fedex_hd_count = int(fedex_groups["fedex_hd_shipment_count"].sum())
+        fedex_sp_count = int(fedex_groups["fedex_sp_shipment_count"].sum())
+        fedex_total = fedex_hd_count + fedex_sp_count
+        fedex_hd_cost = float(fedex_groups["fedex_hd_cost_total"].sum())
+        fedex_sp_cost = float(fedex_groups["fedex_sp_cost_total"].sum())
+
+        print(f"\n### FedEx Service Breakdown")
+        print(f"    Home Delivery: {fedex_hd_count:,} shipments ({fedex_hd_count/fedex_total*100:.1f}%) - ${fedex_hd_cost:,.2f}")
+        print(f"    SmartPost:     {fedex_sp_count:,} shipments ({fedex_sp_count/fedex_total*100:.1f}%) - ${fedex_sp_cost:,.2f}")
+        print(f"    (Selected based on cheaper option per shipment)")
+
     # Comparison to Scenario 4 (run it for comparison)
     print("\n### Comparison to Scenario 4 (without P2P)")
 

@@ -74,6 +74,33 @@ def main():
     print(f"  Shipments:  {total_shipments:,}")
     print(f"  Avg cost:   ${baseline_cost/total_shipments:.2f}")
 
+    # FedEx Service Selection Breakdown (HD vs SmartPost)
+    print("\n" + "-" * 70)
+    print("FedEx Service Selection (Home Delivery vs SmartPost)")
+    print("-" * 70)
+
+    hd_shipments = df.filter(pl.col("fedex_service_selected") == "FXEHD").height
+    sp_shipments = df.filter(pl.col("fedex_service_selected") == "FXSP").height
+    hd_cost = df.filter(pl.col("fedex_service_selected") == "FXEHD")["fedex_cost_total"].sum()
+    sp_cost = df.filter(pl.col("fedex_service_selected") == "FXSP")["fedex_cost_total"].sum()
+
+    print(f"\n  By Shipment Count:")
+    print(f"    Home Delivery (FXEHD): {hd_shipments:>12,} ({hd_shipments/total_shipments*100:>5.1f}%)")
+    print(f"    SmartPost (FXSP):      {sp_shipments:>12,} ({sp_shipments/total_shipments*100:>5.1f}%)")
+
+    print(f"\n  By Cost:")
+    print(f"    Home Delivery (FXEHD): ${hd_cost:>14,.2f} ({hd_cost/(hd_cost+sp_cost)*100:>5.1f}%)")
+    print(f"    SmartPost (FXSP):      ${sp_cost:>14,.2f} ({sp_cost/(hd_cost+sp_cost)*100:>5.1f}%)")
+
+    # Show what it would cost if we only used one service
+    hd_only_cost = df["fedex_hd_cost_total"].sum()
+    sp_only_cost = df["fedex_sp_cost_total"].sum()
+    print(f"\n  Comparison (if using single service for all):")
+    print(f"    100% Home Delivery:    ${hd_only_cost:>14,.2f}")
+    print(f"    100% SmartPost:        ${sp_only_cost:>14,.2f}")
+    print(f"    Optimal (best of each):${hd_cost+sp_cost:>14,.2f}")
+    print(f"    Savings vs HD-only:    ${hd_only_cost - (hd_cost+sp_cost):>14,.2f}")
+
     # Calculate FedEx cost components
     print("\n" + "-" * 70)
     print("FedEx Cost Component Breakdown (Before Earned Discount)")

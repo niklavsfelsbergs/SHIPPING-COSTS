@@ -15,7 +15,7 @@ Maersk US shipping cost is calculated as follows:
 
 1. **Determine the zone** based on the first 3 digits of the destination ZIP code. Zones range from 1-9, with higher zones being further away and more expensive. Maersk US operates from a single origin (Columbus).
 
-2. **Calculate billable weight** as the greater of actual weight or dimensional weight. Dimensional weight is **always** calculated (no threshold), using cubic inches / 166.
+2. **Calculate billable weight** as the greater of actual weight or dimensional weight. Dimensional weight only applies for packages larger than 1 cubic foot (1,728 cu in), calculated as cubic inches / 166.
 
 3. **Look up the base rate** from the Maersk US rate card using the zone and billable weight. Rates range from ~$3.11 (light, Zone 1) to ~$175.85 (heavy, Zone 9). Note: There is a significant rate jump at 30 lbs across all zones.
 
@@ -136,17 +136,22 @@ Unlike USPS, Maersk US does not use asterisk zones. All zones are simple integer
 | Parameter       | Value                      |
 |-----------------|----------------------------|
 | DIM Factor      | 166 cubic inches per pound |
-| DIM Threshold   | 0 (always compare)         |
+| DIM Threshold   | 1,728 cu in (1 cubic foot) |
 
 ### 5.2 Calculation Logic
 
 ```
-dim_weight_lbs = cubic_in / 166
-uses_dim_weight = (dim_weight_lbs > weight_lbs)
-billable_weight_lbs = MAX(weight_lbs, dim_weight_lbs)
+IF cubic_in > 1,728:
+    dim_weight_lbs = cubic_in / 166
+    uses_dim_weight = (dim_weight_lbs > weight_lbs)
+    billable_weight_lbs = MAX(weight_lbs, dim_weight_lbs)
+ELSE:
+    dim_weight_lbs = cubic_in / 166
+    uses_dim_weight = False
+    billable_weight_lbs = weight_lbs
 ```
 
-**Key difference from other carriers:** Maersk US has **no DIM threshold**. Dimensional weight is always compared against actual weight, regardless of package size.
+**Note:** Same DIM threshold as OnTrac (1 cubic foot). Packages under 1,728 cu in always use actual weight.
 
 **Example:** 20" x 20" x 10" package, 5 lbs actual
 
@@ -465,7 +470,7 @@ cost_total = cost_subtotal
 |-------------------------|----------------------------------------|
 | Max weight              | 70 lbs                                 |
 | DIM factor              | 166 (standard industry factor)         |
-| DIM threshold           | 0 (always compare actual vs DIM)       |
+| DIM threshold           | 1,728 cu in (1 cubic foot)             |
 | Zone lookup             | 3-digit ZIP prefix (single origin)     |
 | Surcharge boundaries    | Use `>` not `>=` for all thresholds    |
 | Fuel surcharge          | None                                   |

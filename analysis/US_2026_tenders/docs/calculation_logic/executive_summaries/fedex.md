@@ -83,11 +83,30 @@ During the holiday peak period (late September through mid-January):
 | Feature | Home Delivery | Ground Economy (SmartPost) |
 |---------|---------------|---------------------------|
 | Max weight | 150 lbs | 71 lbs |
+| DIM factor | 250 | 139 |
 | Residential surcharge | Yes ($2.08) | No |
 | AHS Dimensions | Yes ($8.60) | No |
 | Oversize | Yes ($115.00) | No |
 | Base demand surcharge | Yes | No |
 | DAS rates | Higher | Lower |
+
+---
+
+## Optimal Service Selection (All-US Analysis)
+
+For optimization scenarios, we calculate costs for **both** services and pick the cheaper option:
+
+1. Calculate Home Delivery cost
+2. Calculate SmartPost cost
+3. If weight ≤ 70 lbs AND SmartPost is cheaper → use SmartPost
+4. Otherwise → use Home Delivery
+
+**SmartPost typically wins** for smaller, lighter packages due to:
+- No residential surcharge ($2.08 savings)
+- No AHS-Dimensions surcharge
+- No base demand surcharge during peak
+
+**Home Delivery typically wins** for larger packages where SmartPost's lower DIM factor (139 vs 250) would significantly inflate the billable weight.
 
 ---
 

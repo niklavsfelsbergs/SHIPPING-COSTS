@@ -76,6 +76,19 @@ elif pcs_shippingprovider contains 'FX':
 
 **Note:** This is NOT invoice/actual cost. All costs are calculated/expected costs from the respective carrier calculators.
 
+**FedEx Service Selection:**
+
+For optimization scenarios, FedEx costs are calculated for **both** Home Delivery and SmartPost, and the cheaper option is selected:
+
+| Column                    | Description                                              |
+|---------------------------|----------------------------------------------------------|
+| `fedex_service_selected`  | `FXEHD` (Home Delivery) or `FXSP` (SmartPost)           |
+| `fedex_hd_cost_total`     | Cost if shipped via Home Delivery                        |
+| `fedex_sp_cost_total`     | Cost if shipped via SmartPost                            |
+| `fedex_cost_total`        | Actual cost (based on selected service)                  |
+
+SmartPost is only eligible for shipments ≤ 70 lbs (max weight is 71 lbs).
+
 **Output:** `shipments_unified.parquet`
 
 ### 2.3 Aggregated Dataset
@@ -88,6 +101,10 @@ Columns per group:
 - `shipment_count`
 - Per carrier: `cost_{carrier}_total`, `cost_{carrier}_avg`
 - `cost_current_carrier_total`, `cost_current_carrier_avg`
+- FedEx HD/SP breakdown:
+  - `fedex_hd_cost_total`, `fedex_hd_cost_avg`
+  - `fedex_sp_cost_total`, `fedex_sp_cost_avg`
+  - `fedex_hd_shipment_count`, `fedex_sp_shipment_count`
 
 **Output:** `shipments_aggregated.parquet`
 
@@ -126,10 +143,18 @@ Columns per group:
 **Question:** What would it cost if all volume went to FedEx? What Earned Discount tier would we achieve?
 
 **Approach:**
-1. Calculate total transportation charges (base rates)
-2. Determine Earned Discount tier (see Section 4)
-3. Apply Earned Discount to all shipments
-4. Analyze cost drivers
+1. Calculate both Home Delivery and SmartPost costs for each shipment
+2. Select the cheaper service (SmartPost only if ≤ 70 lbs)
+3. Calculate total transportation charges (base rates)
+4. Determine Earned Discount tier (see Section 4)
+5. Apply Earned Discount to all shipments
+6. Analyze cost drivers including HD vs SP breakdown
+
+**Output includes:**
+- Total cost with optimal service selection (HD vs SP per shipment)
+- Service breakdown: how many shipments use HD vs SP
+- Cost breakdown: HD cost vs SP cost contributions
+- Comparison of 100% HD vs 100% SP vs optimal mix
 
 **TODO:** Clarify in FedEx meeting how Earned Discount interacts with Performance Pricing.
 
@@ -153,6 +178,7 @@ Columns per group:
 Step 1: Initial Assignment
     For each (packagetype, zip, weight_bracket) group:
         Assign to cheapest carrier among {OnTrac, FedEx, USPS}
+        (FedEx cost = optimal of HD vs SP per shipment)
 
 Step 2: Check Constraints
     Calculate total volume per carrier
@@ -168,6 +194,9 @@ Step 4: Recalculate FedEx Earned Discount
     Based on final FedEx volume, determine tier
     Apply Earned Discount to FedEx shipments
     Recalculate total cost
+
+Step 5: Report FedEx Service Breakdown
+    For FedEx-assigned shipments, report HD vs SP split
 ```
 
 ---
@@ -184,6 +213,8 @@ Same as Scenario 4, but include P2P as fourth carrier option.
 - No volume commitments
 - Geographic constraints handled via penalty costs (makes non-serviceable routes expensive)
 - No service level considerations
+
+**FedEx breakdown:** Reports HD vs SP split for FedEx-assigned shipments.
 
 ---
 

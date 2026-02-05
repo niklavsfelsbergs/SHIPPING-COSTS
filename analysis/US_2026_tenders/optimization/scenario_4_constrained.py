@@ -546,6 +546,18 @@ def main():
     print(f"  Discount rate: {fedex_discount_ontrac_only['rate']*100:.1f}%")
     print(f"  Discount amount: ${fedex_discount_ontrac_only['discount_amount']:,.2f}")
 
+    # FedEx Service Breakdown (HD vs SmartPost)
+    fedex_groups = df_ontrac_only.filter(pl.col("assigned_carrier") == "FEDEX")
+    if fedex_groups.height > 0:
+        fedex_hd_count = fedex_groups["fedex_hd_shipment_count"].sum()
+        fedex_sp_count = fedex_groups["fedex_sp_shipment_count"].sum()
+        fedex_total_assigned = fedex_hd_count + fedex_sp_count
+
+        print("\n### FedEx Service Breakdown (HD vs SmartPost)")
+        print("-" * 60)
+        print(f"  Home Delivery: {fedex_hd_count:>12,} ({fedex_hd_count/fedex_total_assigned*100:.1f}%)")
+        print(f"  SmartPost:     {fedex_sp_count:>12,} ({fedex_sp_count/fedex_total_assigned*100:.1f}%)")
+
     # Groups shifted
     print("\n### Groups Shifted to Meet OnTrac Minimum")
     print("-" * 60)

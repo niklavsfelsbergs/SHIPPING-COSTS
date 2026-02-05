@@ -15,11 +15,17 @@ Modes:
     --incremental   Find max date, delete that day's data, recalculate from there
     --days N        Delete and recalculate last N days (by pcs_created)
 
+Options:
+    --parquet       Save output to parquet file instead of uploading to database
+    --parquet-data  Load PCS shipments from parquet file instead of querying database
+
 Usage:
     python -m carriers.ontrac.scripts.upload_expected_all_us --full
-    python -m carriers.ontrac.scripts.upload_expected_all_us --incremental
-    python -m carriers.ontrac.scripts.upload_expected_all_us --days 7
-    python -m carriers.ontrac.scripts.upload_expected_all_us --full --dry-run
+    python -m carriers.ontrac.scripts.upload_expected_all_us --full --parquet --start-date 2025-01-01 --end-date 2025-12-31
+
+    # Using pre-exported PCS data (faster iteration):
+    python -m shared.scripts.export_pcs_shipments --start-date 2025-01-01 --end-date 2025-12-31
+    python -m carriers.ontrac.scripts.upload_expected_all_us --full --parquet --parquet-data shared/data/pcs_shipments_all_us_2025-01-01_2025-12-31.parquet --start-date 2025-01-01 --end-date 2025-12-31
 """
 
 import argparse
@@ -179,12 +185,13 @@ def run_pipeline(
     start_date: str,
     end_date: str | None = None,
     limit: int | None = None,
+    parquet_data: str | None = None,
 ) -> pl.DataFrame:
     """
     Run the full calculation pipeline for a date range.
 
     Pipeline:
-    1. Load ALL US shipments (no carrier filter)
+    1. Load ALL US shipments (from parquet or database)
     2. Filter out shipments with null dimensions/weight
     3. Load serviceable zips and mark non-serviceable shipments
     4. Override production_site to Columbus (CMH zones)
@@ -194,13 +201,24 @@ def run_pipeline(
 
     Returns DataFrame ready for upload with UPLOAD_COLUMNS.
     """
-    # 1. Load ALL US shipments (no carrier filter)
-    print(f"  Loading ALL US shipments from {start_date} to {end_date or 'today'}...")
-    df = load_pcs_shipments_all_us(
-        start_date=start_date,
-        end_date=end_date,
-        limit=limit,
-    )
+    # 1. Load ALL US shipments (from parquet or database)
+    if parquet_data:
+        print(f"  Loading ALL US shipments from parquet: {parquet_data}...")
+        df = pl.read_parquet(parquet_data)
+        # Filter by date range
+        if start_date:
+            df = df.filter(pl.col("pcs_created").cast(pl.Date) >= pl.lit(start_date).str.to_date("%Y-%m-%d"))
+        if end_date:
+            df = df.filter(pl.col("pcs_created").cast(pl.Date) <= pl.lit(end_date).str.to_date("%Y-%m-%d"))
+        if limit:
+            df = df.head(limit)
+    else:
+        print(f"  Loading ALL US shipments from {start_date} to {end_date or 'today'}...")
+        df = load_pcs_shipments_all_us(
+            start_date=start_date,
+            end_date=end_date,
+            limit=limit,
+        )
     print(f"  Loaded {len(df):,} shipments")
 
     if len(df) == 0:
@@ -336,6 +354,7 @@ def _run_calculation_and_upload(
     show_net_change: bool = False,
     calc_step_num: int = 2,
     upload_step_num: int = 3,
+    parquet_data: str | None = None,
 ) -> int:
     """
     Common logic for calculating costs and uploading results.
@@ -351,6 +370,7 @@ def _run_calculation_and_upload(
         show_net_change: If True, show net change in summary
         calc_step_num: Step number for calculation step
         upload_step_num: Step number for upload step
+        parquet_data: Path to parquet file with PCS data, optional
 
     Returns:
         Number of rows uploaded (or would be uploaded if dry_run)
@@ -360,6 +380,7 @@ def _run_calculation_and_upload(
         start_date=start_date,
         end_date=end_date,
         limit=limit,
+        parquet_data=parquet_data,
     )
 
     if len(df) == 0:
@@ -395,6 +416,7 @@ def run_full_mode(
     start_date: str | None = None,
     end_date: str | None = None,
     limit: int | None = None,
+    parquet_data: str | None = None,
 ) -> int:
     """Full mode: Delete all, recalculate from start_date (default 2025-01-01)."""
     start = start_date or DEFAULT_START_DATE
@@ -407,6 +429,8 @@ def run_full_mode(
         print(f"Date range: {start} to {end_date}")
     if limit:
         print(f"Row limit: {limit:,}")
+    if parquet_data:
+        print(f"Data source: {parquet_data}")
 
     print("\nStep 1: Deleting all existing rows...")
     deleted = delete_all(dry_run=dry_run)
@@ -418,6 +442,7 @@ def run_full_mode(
         rows_deleted=deleted,
         batch_size=batch_size,
         dry_run=dry_run,
+        parquet_data=parquet_data,
     )
 
 
@@ -485,6 +510,7 @@ def run_parquet_mode(
     start_date: str | None = None,
     end_date: str | None = None,
     limit: int | None = None,
+    parquet_data: str | None = None,
 ) -> int:
     """Parquet mode: Calculate costs and save to parquet file instead of database."""
     start = start_date or DEFAULT_START_DATE
@@ -495,12 +521,15 @@ def run_parquet_mode(
     print(f"Date range: {start} to {end_date or 'today'}")
     if limit:
         print(f"Row limit: {limit:,}")
+    if parquet_data:
+        print(f"Data source: {parquet_data}")
 
     print("\nStep 1: Calculating expected costs...")
     df = run_pipeline(
         start_date=start,
         end_date=end_date,
         limit=limit,
+        parquet_data=parquet_data,
     )
 
     if len(df) == 0:
@@ -604,6 +633,12 @@ Examples:
         action="store_true",
         help="Save to parquet file instead of uploading to database"
     )
+    parser.add_argument(
+        "--parquet-data",
+        type=str,
+        metavar="PATH",
+        help="Load PCS shipments from parquet file instead of database"
+    )
 
     args = parser.parse_args()
 
@@ -615,6 +650,7 @@ Examples:
                 start_date=args.start_date,
                 end_date=args.end_date,
                 limit=args.limit,
+                parquet_data=args.parquet_data,
             )
             print("\n" + "=" * 60)
             print(f"Successfully saved {rows:,} rows to parquet")
@@ -626,6 +662,7 @@ Examples:
                 start_date=args.start_date,
                 end_date=args.end_date,
                 limit=args.limit,
+                parquet_data=args.parquet_data,
             )
             print("\n" + "=" * 60)
             if args.dry_run:

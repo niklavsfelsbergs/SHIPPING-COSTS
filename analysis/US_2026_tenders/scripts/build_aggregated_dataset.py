@@ -46,9 +46,17 @@ def main():
         pl.col("usps_cost_total").sum().alias("usps_cost_total"),
         pl.col("usps_cost_total").mean().alias("usps_cost_avg"),
 
-        # FedEx
+        # FedEx (best of HD vs SP)
         pl.col("fedex_cost_total").sum().alias("fedex_cost_total"),
         pl.col("fedex_cost_total").mean().alias("fedex_cost_avg"),
+
+        # FedEx HD vs SP breakdown
+        pl.col("fedex_hd_cost_total").sum().alias("fedex_hd_cost_total"),
+        pl.col("fedex_hd_cost_total").mean().alias("fedex_hd_cost_avg"),
+        pl.col("fedex_sp_cost_total").sum().alias("fedex_sp_cost_total"),
+        pl.col("fedex_sp_cost_total").mean().alias("fedex_sp_cost_avg"),
+        (pl.col("fedex_service_selected") == "FXSP").sum().alias("fedex_sp_shipment_count"),
+        (pl.col("fedex_service_selected") == "FXEHD").sum().alias("fedex_hd_shipment_count"),
 
         # P2P
         pl.col("p2p_cost_total").sum().alias("p2p_cost_total"),
@@ -115,6 +123,13 @@ def main():
         total = df_agg[col].sum()
         diff_pct = (total - current_total) / current_total * 100
         print(f"    100% {carrier.upper():8}: ${total:,.2f} ({diff_pct:+.1f}%)")
+
+    # FedEx HD vs SP breakdown
+    fedex_hd_count = df_agg["fedex_hd_shipment_count"].sum()
+    fedex_sp_count = df_agg["fedex_sp_shipment_count"].sum()
+    print(f"\n  FedEx service breakdown:")
+    print(f"    Home Delivery: {fedex_hd_count:,} ({fedex_hd_count/total_shipments*100:.1f}%)")
+    print(f"    SmartPost:     {fedex_sp_count:,} ({fedex_sp_count/total_shipments*100:.1f}%)")
 
     # Optimal (cheapest current carrier per group)
     optimal_cost = (

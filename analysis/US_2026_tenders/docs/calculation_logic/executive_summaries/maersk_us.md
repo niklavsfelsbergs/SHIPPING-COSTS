@@ -23,7 +23,7 @@
 ### Weight Determination
 - Billable weight is the greater of actual weight or dimensional weight
 - Dimensional weight = package volume / 166
-- Unlike some carriers, dimensional weight is **always** compared (no minimum size threshold)
+- DIM weight only applies to packages over **1 cubic foot (1,728 cu in)** - smaller packages use actual weight
 
 ### Pickup Fee
 - **$0.04 per billable pound** (rounded up)
