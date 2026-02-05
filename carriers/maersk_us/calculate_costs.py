@@ -185,18 +185,26 @@ def _add_billable_weight(df: pl.DataFrame) -> pl.DataFrame:
     """
     Calculate dimensional weight and billable weight.
 
-    Maersk US always compares actual vs dimensional weight (no threshold).
-    Billable weight is the greater of the two.
+    Maersk US billable weight rules:
+    - If cubic_in <= 1728 (1 cubic foot): use actual scale weight
+    - If cubic_in > 1728: use max(actual weight, dimensional weight)
     """
     # Calculate dimensional weight
     df = df.with_columns(
         (pl.col(FACTOR_FIELD) / DIM_FACTOR).alias("dim_weight_lbs")
     )
 
-    # Always compare actual vs dim weight (threshold is 0)
+    # Apply threshold: only compare DIM vs actual when cubic_in > 1728
     df = df.with_columns([
-        (pl.col("dim_weight_lbs") > pl.col("weight_lbs")).alias("uses_dim_weight"),
-        pl.max_horizontal("weight_lbs", "dim_weight_lbs").alias("billable_weight_lbs"),
+        pl.when(pl.col(THRESHOLD_FIELD) > DIM_THRESHOLD)
+        .then(pl.col("dim_weight_lbs") > pl.col("weight_lbs"))
+        .otherwise(False)
+        .alias("uses_dim_weight"),
+
+        pl.when(pl.col(THRESHOLD_FIELD) > DIM_THRESHOLD)
+        .then(pl.max_horizontal("weight_lbs", "dim_weight_lbs"))
+        .otherwise(pl.col("weight_lbs"))
+        .alias("billable_weight_lbs"),
     ])
 
     return df
