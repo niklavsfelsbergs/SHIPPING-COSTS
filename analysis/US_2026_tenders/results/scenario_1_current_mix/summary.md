@@ -82,6 +82,31 @@ This scenario establishes the baseline shipping cost using the current carrier r
 | Miami      | 129,396     | 23.2%    | $1,509,974.47     | $11.67     |
 | Columbus   | 119,561     | 21.4%    | $1,231,706.16     | $10.30     |
 
+### Monthly Breakdown (by order created date)
+
+|         | Carrier Share (%)                 | Carrier Avg Cost ($)                  |           |              |        |
+| Month   | DHL    | FedEx  | USPS   | OnTrac | DHL   | FedEx  | USPS   | OnTrac | Total   | Total Cost   | Avg    |
+|---------|--------|--------|--------|--------|-------|--------|--------|--------|---------|--------------|--------|
+| 2025-01 | 16.1%  | 83.9%  | 0.0%   | 0.0%   | $6.00 | $13.02 | -      | -      | 45,019  | $535,072     | $11.89 |
+| 2025-02 | 12.8%  | 87.2%  | 0.0%   | 0.0%   | $6.00 | $12.39 | -      | -      | 41,368  | $478,909     | $11.58 |
+| 2025-03 | 16.0%  | 84.0%  | 0.0%   | 0.0%   | $6.00 | $12.66 | -      | -      | 33,249  | $385,462     | $11.59 |
+| 2025-04 | 14.6%  | 85.4%  | 0.0%   | 0.0%   | $6.00 | $12.32 | -      | -      | 37,322  | $425,369     | $11.40 |
+| 2025-05 | 12.6%  | 87.4%  | 0.0%   | 0.0%   | $6.00 | $12.07 | -      | -      | 48,154  | $544,291     | $11.30 |
+| 2025-06 | 15.1%  | 84.9%  | 0.0%   | 0.0%   | $6.00 | $12.33 | -      | -      | 37,955  | $431,804     | $11.38 |
+| 2025-07 | 11.5%  | 72.5%  | 2.1%   | 13.9%  | $6.00 | $12.13 | $8.08  | $13.08 | 36,245  | $415,715     | $11.47 |
+| 2025-08 | 2.7%   | 44.9%  | 16.1%  | 36.4%  | $6.00 | $12.82 | $8.92  | $11.25 | 33,706  | $385,692     | $11.44 |
+| 2025-09 | 0.0%   | 12.4%  | 37.0%  | 50.6%  | -     | $16.55 | $7.76  | $12.99 | 30,425  | $349,774     | $11.50 |
+| 2025-10 | 0.0%   | 14.3%  | 38.7%  | 47.0%  | -     | $16.19 | $7.49  | $15.30 | 35,439  | $439,554     | $12.40 |
+| 2025-11 | 0.0%   | 16.3%  | 33.9%  | 49.7%  | -     | $15.25 | $7.67  | $14.19 | 58,061  | $705,624     | $12.15 |
+| 2025-12 | 0.0%   | 5.1%   | 45.6%  | 49.3%  | -     | $22.37 | $7.24  | $12.60 | 121,267 | $1,292,331   | $10.66 |
+
+**Key observations:**
+- Jan-Jun 2025: DHL (~15%) + FedEx (~85%) only
+- Jul 2025: USPS and OnTrac start ramping up
+- Sep 2025 onwards: OnTrac becomes dominant (~50%), USPS grows to ~37%, FedEx drops to ~12-16%
+- Dec 2025: Peak volume (121K) with lowest avg cost ($10.66) - FedEx avg spikes to $22 (heavier packages remaining)
+- USPS consistently cheapest at $7-8 avg; FedEx avg increases as lighter packages shift to other carriers
+
 ### Comparison: 100% Single Carrier Scenarios
 
 | Carrier       | Serviceable   | Coverage   | Total Cost        | Avg Cost   |
@@ -130,6 +155,7 @@ This scenario establishes the baseline shipping cost using the current carrier r
 - `breakdown_by_packagetype.csv` - Full package type breakdown
 - `breakdown_by_weight.csv` - Weight bracket analysis
 - `breakdown_by_site.csv` - Production site summary
+- `breakdown_by_month.csv` - Monthly carrier split with costs
 - `comparison_single_carrier.csv` - Single carrier scenario costs
 
 ---

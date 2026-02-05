@@ -110,6 +110,7 @@ def load_maersk() -> pl.DataFrame:
         "pcs_ordernumber",
         "packagetype",
         "pcs_shipping_provider",
+        "pcs_created",
         "ship_date",
         "production_site",
         "shipping_zip_code",

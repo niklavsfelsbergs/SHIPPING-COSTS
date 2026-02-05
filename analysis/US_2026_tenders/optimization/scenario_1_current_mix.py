@@ -360,6 +360,107 @@ def main():
         ))
 
     # =================================================================
+    # MONTHLY BREAKDOWN
+    # =================================================================
+    print("\n" + "-" * 60)
+    print("MONTHLY BREAKDOWN")
+    print("-" * 60)
+
+    # Add month column (based on pcs_created - when order was created)
+    df = df.with_columns(
+        pl.col("pcs_created").dt.strftime("%Y-%m").alias("month")
+    )
+
+    # Calculate monthly carrier split with counts and avg costs
+    monthly_carrier = df.group_by(["month", "carrier"]).agg([
+        pl.len().alias("shipment_count"),
+        pl.col("cost_current_carrier").mean().alias("avg_cost"),
+    ]).sort(["month", "carrier"])
+
+    # Pivot counts
+    monthly_counts = monthly_carrier.pivot(
+        index="month",
+        on="carrier",
+        values="shipment_count",
+    ).fill_null(0).sort("month")
+
+    # Pivot avg costs
+    monthly_avgs = monthly_carrier.pivot(
+        index="month",
+        on="carrier",
+        values="avg_cost",
+    ).sort("month")
+
+    # Rename avg columns to avoid collision
+    carrier_cols = [c for c in monthly_counts.columns if c != "month"]
+    monthly_avgs = monthly_avgs.rename({c: f"{c}_avg" for c in carrier_cols})
+
+    # Calculate monthly totals
+    monthly_totals = df.group_by("month").agg([
+        pl.len().alias("total_shipments"),
+        pl.col("cost_current_carrier").sum().alias("total_cost"),
+        pl.col("cost_current_carrier").mean().alias("avg_cost_total"),
+    ]).sort("month")
+
+    # Join all together
+    monthly_summary = monthly_counts.join(monthly_avgs, on="month").join(monthly_totals, on="month")
+
+    print("\n  Monthly Carrier Split:")
+    # Header row 1: section labels
+    header1 = "  {:8}  {:^32}  {:^36}  {:>10} {:>13} {:>8}".format(
+        "", "--- Carrier Share ---", "--- Carrier Avg Cost ---", "", "", ""
+    )
+    print(header1)
+
+    # Header row 2: column labels
+    header2 = "  {:8}".format("Month")
+    for carrier in carrier_cols:
+        header2 += " {:>7}".format(carrier[:7])
+    header2 += " "
+    for carrier in carrier_cols:
+        header2 += " {:>8}".format(carrier[:8])
+    header2 += " {:>10} {:>13} {:>8}".format("Total", "Total Cost", "Avg")
+    print(header2)
+    print("  " + "-" * 120)
+
+    monthly_data = []
+    for row in monthly_summary.iter_rows(named=True):
+        month = row["month"]
+        total_ship = row["total_shipments"]
+        line = "  {:8}".format(month)
+
+        row_data = {"month": month}
+
+        # First: all shares
+        for carrier in carrier_cols:
+            count = row[carrier]
+            pct = (count / total_ship * 100) if total_ship > 0 else 0
+            row_data[f"{carrier}_pct"] = pct
+            line += " {:>6.1f}%".format(pct)
+
+        line += " "
+
+        # Then: all avg costs
+        for carrier in carrier_cols:
+            count = row[carrier]
+            carrier_avg = row[f"{carrier}_avg"]
+            row_data[f"{carrier}_avg"] = carrier_avg if carrier_avg else 0
+            if count > 0 and carrier_avg:
+                line += " ${:>7.2f}".format(carrier_avg)
+            else:
+                line += " {:>8}".format("-")
+
+        total_cost = row["total_cost"]
+        avg_cost = row["avg_cost_total"]
+        row_data["total_shipments"] = total_ship
+        row_data["total_cost"] = total_cost
+        row_data["avg_cost"] = avg_cost
+
+        line += " {:>10,} ${:>12,.0f} ${:>7,.2f}".format(total_ship, total_cost, avg_cost)
+        print(line)
+        monthly_data.append(row_data)
+
+    # =================================================================
     # COMPARISON WITH SINGLE-CARRIER SCENARIOS
     # =================================================================
     print("\n" + "-" * 60)
@@ -458,6 +559,11 @@ def main():
     site_df = pl.DataFrame(site_data)
     site_df.write_csv(RESULTS_DIR / "breakdown_by_site.csv")
     print(f"  Saved: breakdown_by_site.csv")
+
+    # Save monthly summary
+    monthly_df = pl.DataFrame(monthly_data)
+    monthly_df.write_csv(RESULTS_DIR / "breakdown_by_month.csv")
+    print(f"  Saved: breakdown_by_month.csv")
 
     # Save comparison summary
     comparison_df = pl.DataFrame(comparison_data)
