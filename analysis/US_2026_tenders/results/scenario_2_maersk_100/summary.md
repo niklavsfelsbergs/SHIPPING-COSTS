@@ -12,7 +12,7 @@ Maersk US shipping costs are calculated as:
 
 Where:
 - **Base Rate**: Determined by zone (1-9) and billable weight. Rates range from $3.11 (light, Zone 1) to $175.85 (heavy, Zone 9). A significant rate jump occurs at 30 lbs.
-- **Billable Weight**: MAX(actual weight, dimensional weight), where DIM weight = cubic inches / 166. No threshold - DIM always compared.
+- **Billable Weight**: MAX(actual weight, dimensional weight), where DIM weight = cubic inches / 166. DIM only applies to packages over 1,728 cu in (1 cubic foot).
 - **Surcharges**:
   - NSL1: $4.00 for packages with longest side > 21" (mutually exclusive with NSL2)
   - NSL2: $4.00 for packages with longest side > 30"
@@ -51,18 +51,15 @@ The 30 lb rate jump is a critical cost driver for Maersk. The table below shows 
 
 | Weight Bracket   | Shipments   | Current Avg   | Maersk Avg   | Base Rate   | Surcharges   | Diff %    |
 |------------------|-------------|---------------|--------------|-------------|--------------|-----------|
-| 0-1 lbs          | 145,692     | $6.80         | $6.01        | $5.47       | $0.54        | -12%      |
-| 1-2 lbs          | 113,406     | $8.70         | $6.10        | $5.82       | $0.28        | -30%      |
-| 2-3 lbs          | 96,358      | $10.13        | $8.11        | $6.11       | $2.00        | -20%      |
-| 3-4 lbs          | 43,915      | $12.23        | $9.33        | $6.69       | $2.64        | -24%      |
-| 4-5 lbs          | 41,170      | $12.39        | $12.59       | $7.67       | $4.92        | +2%       |
-| 5-10 lbs         | 88,003      | $18.49        | $20.62       | $9.25       | $11.37       | +12%      |
-| 10-20 lbs        | 24,071      | $24.75        | $36.93       | $17.88      | $19.05       | +49%      |
-| 20-30 lbs        | 3,684       | $27.16        | $72.22       | $49.29      | $22.92       | +166%     |
-| 30-70 lbs        | 1,853       | $33.36        | $99.86       | $75.61      | $24.25       | +199%     |
-| **>70 lbs**      | **58**      | **$58.29**    | **$126.12**  | **$101.32** | **$24.80**   | **+116%** |
-
-*Note: Shipments >70 lbs exceed Maersk's weight limit and are priced at the 70 lb rate (maximum available).*
+| 0-1 lbs          | 145,692     | $7.06         | $4.62        | $4.15       | $0.47        | -35%      |
+| 1-2 lbs          | 113,406     | $9.13         | $5.37        | $5.17       | $0.21        | -41%      |
+| 2-3 lbs          | 96,358      | $10.29        | $7.47        | $5.56       | $1.91        | -27%      |
+| 3-4 lbs          | 43,915      | $12.16        | $8.87        | $6.35       | $2.52        | -27%      |
+| 4-5 lbs          | 41,170      | $12.38        | $12.28       | $7.43       | $4.85        | -1%       |
+| 5-10 lbs         | 88,003      | $18.49        | $21.12       | $9.35       | $11.77       | +14%      |
+| 10-20 lbs        | 24,071      | $24.17        | $37.06       | $17.44      | $19.62       | +53%      |
+| 20-30 lbs        | 3,684       | $26.46        | $72.31       | $49.38      | $22.93       | +173%     |
+| 30+ lbs          | 1,910       | $33.14        | $99.95       | $75.71      | $24.24       | +202%     |
 
 **Key insight:** Surcharges stay relatively flat ($20-24) for heavier packages, while the **base rate** is the primary cost driver - jumping from $49 (20-30 lbs) to $76 (30-70 lbs) due to Maersk's 30 lb rate jump.
 
@@ -80,27 +77,27 @@ While only 0.3% of shipments exceed 30 lbs, they represent 2.9% of Maersk's tota
 
 | Zone   | Shipments   | % of Total   | Current Avg   | Maersk Avg   | Difference        |
 |--------|-------------|--------------|---------------|--------------|-------------------|
-| 1      | 4,324       | 0.8%         | $9.59         | $8.94        | -$0.65 (-7%)      |
-| 2      | 21,008      | 3.8%         | $9.34         | $8.56        | -$0.78 (-8%)      |
-| 3      | 57,922      | 10.4%        | $9.89         | $9.31        | -$0.57 (-6%)      |
-| 4      | 194,107     | 34.8%        | $10.44        | $10.29       | -$0.15 (-1%)      |
-| 5      | 132,065     | 23.7%        | $11.40        | $11.59       | +$0.19 (+2%)      |
-| 6      | 38,038      | 6.8%         | $12.54        | $13.01       | +$0.48 (+4%)      |
-| 7      | 35,763      | 6.4%         | $13.84        | $14.89       | +$1.05 (+8%)      |
-| 8      | 73,230      | 13.1%        | $13.76        | $14.48       | +$0.72 (+5%)      |
-| 9      | 1,753       | 0.3%         | $38.67        | $40.43       | +$1.75 (+5%)      |
+| 1      | 4,324       | 0.8%         | $9.62         | $8.51        | -$1.11 (-12%)     |
+| 2      | 21,008      | 3.8%         | $9.43         | $8.13        | -$1.30 (-14%)     |
+| 3      | 57,922      | 10.4%        | $9.98         | $8.81        | -$1.17 (-12%)     |
+| 4      | 194,107     | 34.8%        | $10.53        | $9.61        | -$0.92 (-9%)      |
+| 5      | 132,065     | 23.7%        | $11.51        | $10.83       | -$0.67 (-6%)      |
+| 6      | 38,038      | 6.8%         | $12.63        | $12.32       | -$0.30 (-2%)      |
+| 7      | 35,763      | 6.4%         | $13.85        | $14.10       | +$0.25 (+2%)      |
+| 8      | 73,230      | 13.1%        | $13.73        | $13.56       | -$0.17 (-1%)      |
+| 9      | 1,753       | 0.3%         | $41.30        | $37.69       | -$3.61 (-9%)      |
 
-Maersk is cheaper in nearby zones (1-4) but more expensive in farther zones (5-9). The volume-weighted effect results in Maersk being +0.9% more expensive overall.
+Maersk is cheaper in zones 1-6 and 8-9, with only zone 7 being slightly more expensive (+2%).
 
 ### Surcharge Breakdown
 
 | Component         | Total Cost     | % of Total   | Shipments Affected   |
 |-------------------|----------------|--------------|----------------------|
-| Base Rate         | $4,233,509     | 65.7%        | 100%                 |
-| NSL2 (>30")       | $516,260       | 8.0%         | 129,065 (23.1%)      |
-| NSL1 (>21")       | $417,944       | 6.5%         | 104,486 (18.7%)      |
-| NSD (>2 cu ft)    | $1,093,104     | 17.0%        | 60,728 (10.9%)       |
-| Pickup Fee        | $183,707       | 2.9%         | 100%                 |
+| Base Rate         | $3,872,840     | 64.0%        | 558,210 (100%)       |
+| NSD (>2 cu ft)    | $1,094,148     | 18.1%        | 60,786 (10.9%)       |
+| NSL2 (>30")       | $516,492       | 8.5%         | 129,123 (23.1%)      |
+| NSL1 (>21")       | $417,944       | 6.9%         | 104,486 (18.7%)      |
+| Pickup Fee        | $145,590       | 2.4%         | 558,210 (100%)       |
 
 **Key Insight:** 41.8% of shipments trigger length surcharges (NSL1 or NSL2), and 10.9% trigger the volume surcharge (NSD). Surcharge overlap (NSL + NSD) affects 10.9% of shipments, adding $22 per package.
 
@@ -110,29 +107,31 @@ Maersk is cheaper in nearby zones (1-4) but more expensive in farther zones (5-9
 
 | Package Type                    | Shipments   | Avg Weight   | Current Avg   | Maersk Avg   | Diff    |
 |---------------------------------|-------------|--------------|---------------|--------------|---------|
-| PIZZA BOX 42x32x2 (2x str)      | 2,914       | 22.4 lbs     | $34.30        | $92.26       | +169%   |
-| PIZZA BOX 42x32x2               | 24,864      | 8.9 lbs      | $28.35        | $32.65       | +15%    |
+| PIZZA BOX 42x32x2 (2x str)      | 2,914       | 22.4 lbs     | $32.95        | $92.26       | +180%   |
+| PIZZA BOX 42x32x2               | 24,864      | 8.9 lbs      | $27.51        | $32.65       | +19%    |
+| PIZZA BOX 48X36X1               | 19,809      | 8.0 lbs      | $32.06        | $35.61       | +11%    |
 
 **Package types where Maersk is CHEAP:**
 
 | Package Type                    | Shipments   | Avg Weight   | Current Avg   | Maersk Avg   | Diff    |
 |---------------------------------|-------------|--------------|---------------|--------------|---------|
-| PIZZA BOX 40x30x1               | 21,026      | 3.3 lbs      | $20.82        | $11.19       | -46%    |
-| PIZZA BOX 20x16x2               | 36,319      | 3.2 lbs      | $9.43         | $6.30        | -33%    |
-| PIZZA BOX 16x12x2               | 43,675      | 2.2 lbs      | $8.64         | $6.10        | -29%    |
-| PIZZA BOX 20x16x1               | 117,217     | 1.3 lbs      | $8.56         | $6.10        | -29%    |
+| PIZZA BOX 40x30x1               | 21,026      | 3.3 lbs      | $19.74        | $9.99        | -49%    |
+| PIZZA BOX 20x16x1               | 117,217     | 1.3 lbs      | $9.01         | $4.98        | -45%    |
+| MIXPIX BOX                      | 3,239       | 1.3 lbs      | $8.46         | $4.89        | -42%    |
+| PIZZA BOX 20x16x2               | 36,319      | 3.2 lbs      | $9.70         | $5.91        | -39%    |
+| PIZZA BOX 16x12x2               | 43,675      | 2.2 lbs      | $9.01         | $5.48        | -39%    |
 
 ## Key Findings
 
 1. **Maersk is slightly more expensive than current mix** (+0.8%, +$51K) for full volume.
 
-2. **Maersk is competitive for lightweight packages (1-4 lbs)**: These represent 72% of shipments and show 15-31% cost savings vs current mix.
+2. **Maersk is competitive for lightweight packages (0-4 lbs)**: These represent 72% of shipments and show 27-41% cost savings vs current mix.
 
 3. **The 30 lb rate jump is devastating**: Base rates nearly triple at the 30 lb threshold across all zones. Fortunately, only 0.3% of shipments exceed this weight.
 
 4. **Surcharges are significant**: 34.3% of total cost comes from surcharges (NSL1/NSL2/NSD/Pickup), with the $18 NSD surcharge being the largest individual contributor.
 
-5. **Zone pricing varies**: Maersk is cheaper in nearby zones (1-4) but more expensive in farther zones (5-9). The volume in zones 5-9 (50% of shipments) drives the overall cost increase.
+5. **Zone pricing is favorable**: Maersk is cheaper in 8 of 9 zones (all except zone 7). The overall cost increase is driven by heavy package surcharges, not zone pricing.
 
 6. **No fuel surcharge advantage**: Unlike competitors, Maersk has no separate fuel surcharge - this is built into base rates.
 
@@ -141,9 +140,9 @@ Maersk is cheaper in nearby zones (1-4) but more expensive in farther zones (5-9
 **Maersk is not recommended as a 100% volume carrier** at +0.8% vs current mix.
 
 However, Maersk could be valuable in a **selective routing strategy** for:
-- Lightweight packages (1-4 lbs) - saves 15-31% vs current mix
+- Lightweight packages (0-4 lbs) - saves 27-41% vs current mix
 - Packages under 21" longest dimension (avoids NSL surcharges)
-- Nearby destinations (Zones 1-4) where Maersk has the best rates
+- Any zone (Maersk is cheaper in 8 of 9 zones)
 
 **Avoid routing to Maersk:**
 - Packages over 10 lbs (rates become uncompetitive)

@@ -2,10 +2,13 @@
 Build unified shipment dataset by joining all carrier parquet files.
 
 Joins on pcs_orderid and creates a single dataset with costs from all carriers.
+Also pulls actual invoice costs from Redshift for comparison.
 """
 
 import polars as pl
 from pathlib import Path
+
+from shared.database import pull_data
 
 # Paths
 PROJECT_ROOT = Path(__file__).parent.parent.parent.parent
@@ -138,6 +141,74 @@ def load_maersk() -> pl.DataFrame:
     return df.select(base_cols + maersk_cols)
 
 
+def load_actuals() -> pl.DataFrame:
+    """Load actual invoice costs from Redshift.
+
+    Only loads single-shipment orders (pcs_orderid with exactly 1 row)
+    to ensure clean 1:1 join with expected costs.
+
+    Returns DataFrame with columns: pcs_orderid, cost_actual, actual_carrier
+    """
+    print("  Loading actuals from Redshift...")
+
+    # OnTrac actuals - only single-shipment orders
+    ontrac_sql = """
+        SELECT pcs_orderid, actual_total as cost_actual, 'ONTRAC' as actual_carrier
+        FROM shipping_costs.actual_shipping_costs_ontrac
+        WHERE pcs_orderid IN (
+            SELECT pcs_orderid
+            FROM shipping_costs.actual_shipping_costs_ontrac
+            GROUP BY pcs_orderid
+            HAVING COUNT(*) = 1
+        )
+    """
+
+    # USPS actuals - only single-shipment orders
+    usps_sql = """
+        SELECT pcs_orderid, "actual_Total" as cost_actual, 'USPS' as actual_carrier
+        FROM shipping_costs.actual_shipping_costs_usps
+        WHERE pcs_orderid IN (
+            SELECT pcs_orderid
+            FROM shipping_costs.actual_shipping_costs_usps
+            GROUP BY pcs_orderid
+            HAVING COUNT(*) = 1
+        )
+    """
+
+    # FedEx actuals - only single-shipment orders
+    fedex_sql = """
+        SELECT pcs_orderid, actual_net_charge as cost_actual, 'FEDEX' as actual_carrier
+        FROM shipping_costs.actual_shipping_costs_fedex
+        WHERE pcs_orderid IN (
+            SELECT pcs_orderid
+            FROM shipping_costs.actual_shipping_costs_fedex
+            GROUP BY pcs_orderid
+            HAVING COUNT(*) = 1
+        )
+    """
+
+    # Pull from Redshift
+    print("    Pulling OnTrac actuals...")
+    df_ontrac = pull_data(ontrac_sql)
+    print(f"      {df_ontrac.shape[0]:,} single-shipment orders")
+
+    print("    Pulling USPS actuals...")
+    df_usps = pull_data(usps_sql)
+    print(f"      {df_usps.shape[0]:,} single-shipment orders")
+
+    print("    Pulling FedEx actuals...")
+    df_fedex = pull_data(fedex_sql)
+    print(f"      {df_fedex.shape[0]:,} single-shipment orders")
+
+    # Combine all actuals
+    df_actuals = pl.concat([df_ontrac, df_usps, df_fedex])
+    # Cast cost_actual to Float64 (Redshift returns Decimal)
+    df_actuals = df_actuals.with_columns(pl.col("cost_actual").cast(pl.Float64))
+    print(f"    Total actuals: {df_actuals.shape[0]:,}")
+
+    return df_actuals
+
+
 def determine_current_carrier_cost(df: pl.DataFrame) -> pl.DataFrame:
     """Add cost_current_carrier based on pcs_shipping_provider mapping.
 
@@ -220,6 +291,19 @@ def main():
     print("  Calculating cost_current_carrier...")
     df = determine_current_carrier_cost(df)
 
+    # Load and join actuals
+    DHL_ESTIMATED_COST = 6.00
+    df_actuals = load_actuals()
+    df = df.join(df_actuals, on="pcs_orderid", how="left")
+
+    # For DHL shipments, set cost_actual to estimated cost
+    df = df.with_columns(
+        pl.when(pl.col("pcs_shipping_provider") == "DHL ECOMMERCE AMERICA")
+        .then(pl.lit(DHL_ESTIMATED_COST))
+        .otherwise(pl.col("cost_actual"))
+        .alias("cost_actual")
+    )
+
     # Summary stats
     print("\nDataset summary:")
     print(f"  Total rows: {df.shape[0]:,}")
@@ -244,6 +328,36 @@ def main():
         total = df[col].sum()
         diff_pct = (total - current_total) / current_total * 100
         print(f"    {carrier.upper():8}: ${total:,.2f} ({diff_pct:+.1f}%)")
+
+    # Actuals matching stats
+    print("\n  Actuals matching:")
+    total_shipments = df.shape[0]
+    has_actual = df.filter(pl.col("cost_actual").is_not_null()).shape[0]
+    no_actual = total_shipments - has_actual
+    print(f"    With actuals:    {has_actual:,} ({has_actual/total_shipments*100:.1f}%)")
+    print(f"    Without actuals: {no_actual:,} ({no_actual/total_shipments*100:.1f}%)")
+
+    # Actuals by carrier
+    print("\n  Actuals by carrier:")
+    for carrier in ["ONTRAC", "USPS", "FEDEX", "DHL ECOMMERCE AMERICA"]:
+        carrier_df = df.filter(pl.col("pcs_shipping_provider") == carrier)
+        carrier_total = carrier_df.shape[0]
+        carrier_has_actual = carrier_df.filter(pl.col("cost_actual").is_not_null()).shape[0]
+        if carrier_total > 0:
+            match_pct = carrier_has_actual / carrier_total * 100
+            print(f"    {carrier:25}: {carrier_has_actual:,} / {carrier_total:,} ({match_pct:.1f}%)")
+
+    # Cost comparison (actuals vs calculated)
+    df_matched = df.filter(pl.col("cost_actual").is_not_null())
+    if df_matched.shape[0] > 0:
+        actual_total = df_matched["cost_actual"].sum()
+        calculated_total = df_matched["cost_current_carrier"].sum()
+        diff = calculated_total - actual_total
+        diff_pct = diff / actual_total * 100
+        print("\n  Actuals vs Calculated (matched shipments only):")
+        print(f"    2025 Actual total:     ${actual_total:,.2f}")
+        print(f"    2026 Calculated total: ${calculated_total:,.2f}")
+        print(f"    Difference:            ${diff:+,.2f} ({diff_pct:+.1f}%)")
 
     # Save
     output_path = OUTPUT_DIR / "shipments_unified.parquet"

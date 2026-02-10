@@ -450,13 +450,13 @@ def main():
             else:
                 line += " {:>8}".format("-")
 
-        total_cost = row["total_cost"]
-        avg_cost = row["avg_cost_total"]
+        month_cost = row["total_cost"]
+        month_avg = row["avg_cost_total"]
         row_data["total_shipments"] = total_ship
-        row_data["total_cost"] = total_cost
-        row_data["avg_cost"] = avg_cost
+        row_data["total_cost"] = month_cost
+        row_data["avg_cost"] = month_avg
 
-        line += " {:>10,} ${:>12,.0f} ${:>7,.2f}".format(total_ship, total_cost, avg_cost)
+        line += " {:>10,} ${:>12,.0f} ${:>7,.2f}".format(total_ship, month_cost, month_avg)
         print(line)
         monthly_data.append(row_data)
 
@@ -503,6 +503,85 @@ def main():
         )
 
     print("\n  Note: OnTrac and P2P have partial coverage (nulls for non-serviceable areas)")
+
+    # =================================================================
+    # COMPARISON: 2025 ACTUALS vs 2026 CALCULATED RATES
+    # =================================================================
+    print("\n" + "-" * 60)
+    print("COMPARISON: 2025 Actuals vs 2026 Calculated Rates")
+    print("-" * 60)
+
+    # Check if cost_actual column exists (requires running build_shipment_dataset.py with actuals)
+    if "cost_actual" in df.columns:
+        # Filter to shipments with actuals
+        df_matched = df.filter(pl.col("cost_actual").is_not_null())
+        matched_count = df_matched.shape[0]
+        unmatched_count = total_shipments - matched_count
+
+        print(f"\n  Matching summary by carrier:")
+        print("  {:25} {:>12} {:>12} {:>10}".format(
+            "Carrier", "Total", "Matched", "Match %"
+        ))
+        print("  " + "-" * 61)
+
+        for carrier_name in ["OnTrac", "USPS", "FedEx", "DHL (unmapped)"]:
+            carrier_total = df.filter(pl.col("carrier") == carrier_name).shape[0]
+            carrier_matched = df_matched.filter(pl.col("carrier") == carrier_name).shape[0]
+            match_pct = carrier_matched / carrier_total * 100 if carrier_total > 0 else 0
+            print("  {:25} {:>12,} {:>12,} {:>9.1f}%".format(
+                carrier_name, carrier_total, carrier_matched, match_pct
+            ))
+
+        print("  " + "-" * 61)
+        print("  {:25} {:>12,} {:>12,} {:>9.1f}%".format(
+            "TOTAL", total_shipments, matched_count, matched_count/total_shipments*100
+        ))
+
+        if matched_count > 0:
+            actual_total = df_matched["cost_actual"].sum()
+            calculated_total = df_matched["cost_current_carrier"].sum()
+            diff = calculated_total - actual_total
+            diff_pct = diff / actual_total * 100 if actual_total > 0 else 0
+
+            print(f"\n  Cost comparison (matched shipments only):")
+            print(f"    2025 Actual total:     ${actual_total:>15,.2f}")
+            print(f"    2026 Calculated total: ${calculated_total:>15,.2f}")
+            print(f"    Difference:            ${diff:>+15,.2f} ({diff_pct:+.1f}%)")
+
+            # Breakdown by carrier
+            print(f"\n  By carrier (matched shipments):")
+            print("  {:25} {:>10} {:>15} {:>15} {:>12}".format(
+                "Carrier", "Matched", "2025 Actual", "2026 Calc", "Diff %"
+            ))
+            print("  " + "-" * 79)
+
+            actuals_by_carrier = []
+            for carrier_name in ["OnTrac", "USPS", "FedEx", "DHL (unmapped)"]:
+                df_carrier = df_matched.filter(pl.col("carrier") == carrier_name)
+                if df_carrier.shape[0] > 0:
+                    carrier_actual = df_carrier["cost_actual"].sum()
+                    carrier_calc = df_carrier["cost_current_carrier"].sum()
+                    carrier_diff_pct = (carrier_calc - carrier_actual) / carrier_actual * 100 if carrier_actual > 0 else 0
+
+                    actuals_by_carrier.append({
+                        "carrier": carrier_name,
+                        "matched_count": df_carrier.shape[0],
+                        "actual_total": carrier_actual,
+                        "calculated_total": carrier_calc,
+                        "diff_pct": carrier_diff_pct
+                    })
+
+                    print("  {:25} {:>10,} ${:>14,.2f} ${:>14,.2f} {:>+11.1f}%".format(
+                        carrier_name, df_carrier.shape[0], carrier_actual, carrier_calc, carrier_diff_pct
+                    ))
+
+            # Save actuals comparison
+            actuals_df = pl.DataFrame(actuals_by_carrier)
+            actuals_df.write_csv(RESULTS_DIR / "comparison_actuals_vs_calculated.csv")
+            print(f"\n  Saved: comparison_actuals_vs_calculated.csv")
+    else:
+        print("\n  cost_actual column not found in dataset.")
+        print("  Run build_shipment_dataset.py to include actuals from Redshift.")
 
     # =================================================================
     # COST IMPUTATION NOTES

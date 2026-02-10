@@ -54,5 +54,8 @@ REFACTOR_PLAN.md
 carriers/ontrac/dashboard/data/
 carriers/usps/dashboard/data/
 
+# Dash dashboard (experimental, not production)
+carriers/usps/dashboard_v_dash/
+
 # Analysis parquet files (large, generated)
 analysis/US_2026_tenders/**/*.parquet
