@@ -24,7 +24,10 @@ class AHS(Surcharge):
     exclusivity_group = "dimensional"
     priority = 3
 
-    # Side effects (negotiated down from OnTrac standard of 40)
+    # Side effects
+    # OnTrac does not show 30 in the billed weight field on invoices, but they DO
+    # charge the base rate at the 30 lb bracket. Verified on 2026 invoices: 100% of
+    # lightweight AHS shipments (bw < 15) have base rates mapping to the (29-30] bracket.
     min_billable_weight = 30
 
     # Thresholds
