@@ -145,9 +145,9 @@ python -m carriers.maersk_us.scripts.upload_expected_all_us
 # 2. Copy to analysis folder
 python -m analysis.US_2026_tenders.scripts.copy_carrier_datasets
 
-# 3. Build combined datasets
+# 3. Build combined datasets (both are required)
 python -m analysis.US_2026_tenders.scripts.build_shipment_dataset
-python -m analysis.US_2026_tenders.scripts.build_aggregated_dataset
+python -m analysis.US_2026_tenders.scripts.build_aggregated_dataset  # Required for scenarios 4 & 5
 
 # 4. Run scenarios
 python -m analysis.US_2026_tenders.optimization.scenario_1_current_mix

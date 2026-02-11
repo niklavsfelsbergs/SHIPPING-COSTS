@@ -16,25 +16,21 @@ FedEx shipping cost is calculated as follows:
 
 2. **Determine the zone** based on the 5-digit destination ZIP code and the origin facility (Phoenix or Columbus). Zones range from 2-9, plus special zones (14, 17, 22, 23, 25, 92, 96 for Home Delivery; 10, 17, 26, 99 for SmartPost).
 
-3. **Calculate billable weight** as the greater of actual weight or dimensional weight. DIM weight is always calculated (no threshold) using service-specific divisors: 250 for Home Delivery, 139 for Ground Economy.
+3. **Calculate billable weight** as the greater of actual weight or dimensional weight. DIM weight is always calculated (no threshold) using service-specific divisors: 250 for Home Delivery, 225 for Ground Economy.
 
-4. **Look up the 4-part rate structure** from service-specific rate cards:
-   - Undiscounted Rate (positive base price)
-   - Performance Pricing discount (negative)
-   - Earned Discount ($0.00 currently)
-   - Grace Discount ($0.00 currently)
+4. **Look up the base rate** from service-specific rate cards. The rates in the CSV files already include performance pricing and earned discount baked in (post-discount net rates). The performance_pricing, earned_discount, and grace_discount CSVs are zeroed out because those discounts are already reflected in the base rate.
 
 5. **Apply surcharges** for non-standard packages:
-   - Residential Surcharge - all Home Delivery shipments ($2.08)
-   - Delivery Area Surcharge (DAS) - remote/extended areas ($2.17 - $43.00)
-   - Additional Handling Surcharge - oversized dimensions ($8.60)
-   - Additional Handling Surcharge - heavy packages > 50 lbs ($26.38)
-   - Oversize Surcharge - very large packages ($115.00)
+   - Residential Surcharge - all Home Delivery shipments (list $6.45, 65% off = $2.26)
+   - Delivery Area Surcharge (DAS) - remote/extended areas (list $6.60-$16.75, 65% off for HD)
+   - Additional Handling Surcharge - oversized dimensions (list $32.75, 75% off = $8.19)
+   - Additional Handling Surcharge - heavy packages > 50 lbs (list $50.25, 50% off = $25.13)
+   - Oversize Surcharge - very large packages (list $275.00, 75% off = $68.75)
    - Demand surcharges during peak season (Sep 29 - Jan 18)
 
-6. **Apply fuel surcharge** as 10% of (undiscounted rate + surcharges), excluding discounts.
+6. **Apply fuel surcharge** as 14% of (base rate + surcharges), excluding discounts. The 14% effective rate comes from 20% published list rate with 30% contractual discount.
 
-**Final cost = Undiscounted Rate + Performance Pricing + Earned Discount + Grace Discount + Surcharges + Fuel**
+**Final cost = Base Rate + Surcharges + Fuel**
 
 ---
 
@@ -96,7 +92,7 @@ FedEx shipments are classified into two service types for rate calculation:
 | Service       | Invoice Name          | Max Weight | DIM Factor |
 |---------------|-----------------------|------------|------------|
 | Home Delivery | FedEx Home Delivery   | 150 lbs    | 250        |
-| Ground Economy| FedEx Ground Economy  | 71 lbs     | 139        |
+| Ground Economy| FedEx Ground Economy  | 71 lbs     | 225        |
 
 ### 3.2 PCS Service Code Mapping (Historical)
 
@@ -108,7 +104,7 @@ When processing historical shipments for comparison against invoices, the servic
 | FXEGRD        | Ground Economy |
 | FXESPPSL      | Ground Economy |
 | FXE2D         | Home Delivery  |
-| FXE2DXLBOR    | Home Delivery  |
+| FXE2DXLBOR   | Home Delivery  |
 | FXE2DTBOR     | Home Delivery  |
 | FXESTDO       | Home Delivery  |
 | FXEINTECON    | Home Delivery  |
@@ -144,17 +140,17 @@ FOR each shipment:
 ```
 
 **Constraints:**
-- **SmartPost eligibility:** Only shipments ≤ 70 lbs can use SmartPost (max weight is 71 lbs, but we use 70 lb cutoff for safety margin)
+- **SmartPost eligibility:** Only shipments <= 70 lbs can use SmartPost (max weight is 71 lbs, but we use 70 lb cutoff for safety margin)
 - **Shipments > 70 lbs:** Must use Home Delivery
 
 **When SmartPost typically wins:**
 - Smaller, lighter packages (lower base rates)
-- No residential surcharge ($2.08 savings)
+- No residential surcharge ($2.26 savings)
 - No AHS-Dimensions surcharge for oversized packages
 - No base demand surcharge during peak season
 
 **When Home Delivery typically wins:**
-- Heavier packages where the DIM factor difference (250 vs 139) matters
+- Heavier packages where the DIM factor difference (250 vs 225) matters
 - Packages where SmartPost's lower DIM factor inflates the billable weight significantly
 
 **Output Columns (All-US):**
@@ -235,7 +231,7 @@ Letter zones (A, H, M, P) are mapped to zone 9 (Hawaii rate).
 
 | Parameter       | Home Delivery             | Ground Economy           |
 |-----------------|---------------------------|--------------------------|
-| DIM Factor      | 250 cubic inches per lb   | 139 cubic inches per lb  |
+| DIM Factor      | 250 cubic inches per lb   | 225 cubic inches per lb  |
 | DIM Threshold   | 0 (always applies)        | 0 (always applies)       |
 | Max Weight      | 150 lbs                   | 71 lbs                   |
 
@@ -269,10 +265,10 @@ weight_bracket = CEILING(billable_weight_lbs, 1)
 | Calculation          | Value               |
 |----------------------|---------------------|
 | `cubic_in`           | 4,000               |
-| `dim_weight_lbs`     | 4,000 / 139 = 28.8  |
-| `uses_dim_weight`    | True (28.8 > 5)     |
-| `billable_weight_lbs`| 28.8                |
-| `weight_bracket`     | 29 (for rate lookup)|
+| `dim_weight_lbs`     | 4,000 / 225 = 17.8  |
+| `uses_dim_weight`    | True (17.8 > 5)     |
+| `billable_weight_lbs`| 17.8                |
+| `weight_bracket`     | 18 (for rate lookup)|
 
 ---
 
@@ -280,26 +276,30 @@ weight_bracket = CEILING(billable_weight_lbs, 1)
 
 ### 7.1 Surcharge Summary
 
-| Surcharge     | Condition                           | Cost           | Exclusivity           | Service      |
-|---------------|-------------------------------------|----------------|-----------------------|--------------|
-| Residential   | All Home Delivery shipments         | $2.08          | None                  | HD only      |
-| DAS           | ZIP in DAS zone                     | $2.17 - $43.00 | None                  | HD & GE      |
-| AHS           | Dimensions exceed thresholds        | $8.60          | "dimensional" (pri 3) | HD only      |
-| AHS_Weight    | weight > 50 lbs                     | $26.38         | "dimensional" (pri 2) | HD & GE      |
-| Oversize      | Extreme dimensions/weight           | $115.00        | "dimensional" (pri 1) | HD only      |
-| DEM_Base      | Home Delivery in demand period      | $0.40 - $0.65  | None                  | HD only      |
-| DEM_AHS       | AHS/AHS_Weight in demand period     | $4.13 - $5.45  | None                  | HD & GE      |
-| DEM_Oversize  | Oversize in demand period           | $45.00 - $54.25| None                  | HD only      |
+All surcharges store list price and contractual discount separately. Net price = list_price x (1 - discount).
+
+| Surcharge     | List Price | Discount | Net Price | Condition                     | Exclusivity           | Service      |
+|---------------|-----------|----------|-----------|-------------------------------|-----------------------|--------------|
+| Residential   | $6.45     | 65%      | $2.26     | All Home Delivery shipments   | None                  | HD only      |
+| DAS           | varies    | 65% (HD) | varies    | ZIP in DAS zone               | None                  | HD & GE      |
+| AHS           | $32.75    | 75%      | $8.19     | Dimensions exceed thresholds  | "dimensional" (pri 3) | HD only      |
+| AHS_Weight    | $50.25    | 50%      | $25.13    | weight > 50 lbs               | "dimensional" (pri 2) | HD & GE      |
+| Oversize      | $275.00   | 75%      | $68.75    | Extreme dimensions/weight     | "dimensional" (pri 1) | HD only      |
+| DEM_Base      | -         | -        | $0.40-$0.65 | Home Delivery in demand period | None               | HD only      |
+| DEM_AHS       | -         | -        | $4.13-$5.45 | AHS/AHS_Weight in demand period | None              | HD & GE      |
+| DEM_Oversize  | -         | -        | $45.00-$54.25 | Oversize in demand period   | None                  | HD only      |
 
 ### 7.2 Residential Surcharge
 
 | Attribute         | Value                              |
 |-------------------|------------------------------------|
+| **List Price**    | $6.45                              |
+| **Discount**      | 65%                                |
+| **Net Price**     | $2.26                              |
 | **Condition**     | `rate_service == "Home Delivery"`  |
-| **Cost**          | $2.08                              |
 | **Exclusivity**   | None (always applies to HD)        |
 
-FedEx Home Delivery is inherently a residential service, so every shipment receives this surcharge (100% deterministic).
+FedEx Home Delivery is inherently a residential service, so every HD shipment receives this surcharge (100% deterministic). Ground Economy (SmartPost) is exempt.
 
 ### 7.3 Delivery Area Surcharge (DAS)
 
@@ -315,32 +315,38 @@ DAS zones are determined by destination ZIP code only (not origin-dependent).
 
 **Home Delivery DAS Tiers:**
 
-| Tier          | Cost    |
-|---------------|---------|
-| DAS           | $2.17   |
-| DAS_EXTENDED  | $2.91   |
-| DAS_REMOTE    | $5.43   |
-| DAS_ALASKA    | $43.00  |
-| DAS_HAWAII    | $14.50  |
+| Tier          | List Price | Discount | Net Price |
+|---------------|-----------|----------|-----------|
+| DAS           | $6.60     | 65%      | $2.31     |
+| DAS_EXTENDED  | $8.80     | 65%      | $3.08     |
+| DAS_REMOTE    | $16.75    | 65%      | $5.86     |
+| DAS_ALASKA    | -         | -        | $43.00    |
+| DAS_HAWAII    | -         | -        | $14.50    |
+
+Note: Alaska and Hawaii list prices are unknown. The net values ($43.00 and $14.50) are stored directly.
 
 **Ground Economy (SmartPost) DAS Tiers:**
 
-| Tier          | Cost    |
-|---------------|---------|
-| DAS           | $3.10   |
-| DAS_EXTENDED  | $4.15   |
-| DAS_ALASKA    | $8.30   |
-| DAS_HAWAII    | $8.30   |
+| Tier          | List Price | Discount | Net Price |
+|---------------|-----------|----------|-----------|
+| DAS           | $6.60     | 0%       | $6.60     |
+| DAS_EXTENDED  | $8.80     | 0%       | $8.80     |
+| DAS_ALASKA    | $8.80     | 0%       | $8.80     |
+| DAS_HAWAII    | $8.80     | 0%       | $8.80     |
+
+Note: No proposed discount information available for Ground Economy DAS.
 
 ### 7.4 Additional Handling Surcharge - Dimensions (AHS)
 
 | Attribute         | Value                              |
 |-------------------|------------------------------------|
+| **List Price**    | $32.75                             |
+| **Discount**      | 75%                                |
+| **Net Price**     | $8.19                              |
 | **Condition**     | Home Delivery AND any of:          |
 |                   | - longest_side > 48"               |
 |                   | - second_longest > 30.3"           |
 |                   | - length_plus_girth > 106"         |
-| **Cost**          | $8.60                              |
 | **Exclusivity**   | "dimensional" group, priority 3    |
 | **Side Effect**   | Minimum billable weight = 40 lbs   |
 
@@ -350,30 +356,36 @@ DAS zones are determined by destination ZIP code only (not origin-dependent).
 - At 30.3" second longest: Does NOT trigger (condition is `>`, not `>=`)
 - At 106.0" girth: Does NOT trigger (condition is `>`, not `>=`)
 - AHS loses to AHS_Weight (priority 2) and Oversize (priority 1)
+- When triggered, minimum billable weight of 40 lbs is enforced - if the package's billable weight is below 40 lbs, it is raised to 40 lbs for rate lookup purposes
 
 ### 7.5 Additional Handling Surcharge - Weight (AHS_Weight)
 
 | Attribute         | Value                              |
 |-------------------|------------------------------------|
+| **List Price**    | $50.25                             |
+| **Discount**      | 50%                                |
+| **Net Price**     | $25.13                             |
 | **Condition**     | `weight_lbs > 50`                  |
-| **Cost**          | $26.38                             |
 | **Exclusivity**   | "dimensional" group, priority 2    |
 
 - At 50.0 lbs: Does NOT trigger (condition is `>`, not `>=`)
 - At 50.1 lbs: Triggers
 - AHS_Weight wins over AHS (priority 3)
 - AHS_Weight loses to Oversize (priority 1)
+- Note: AHS_Weight applies to both Home Delivery and Ground Economy (no service restriction in the conditions)
 
 ### 7.6 Oversize Surcharge
 
 | Attribute         | Value                              |
 |-------------------|------------------------------------|
+| **List Price**    | $275.00                            |
+| **Discount**      | 75%                                |
+| **Net Price**     | $68.75                             |
 | **Condition**     | Home Delivery AND any of:          |
 |                   | - longest_side > 96"               |
 |                   | - length_plus_girth > 130"         |
 |                   | - cubic_in > 17,280                |
 |                   | - weight_lbs > 110                 |
-| **Cost**          | $115.00                            |
 | **Exclusivity**   | "dimensional" group, priority 1    |
 
 **Notes:**
@@ -395,7 +407,7 @@ Surcharges in the "dimensional" exclusivity group compete - only the **highest p
 
 | Surcharge  | Check                        | Result       | Cost     |
 |------------|------------------------------|--------------|----------|
-| Oversize   | 100 > 96?                    | True         | $115.00  |
+| Oversize   | 100 > 96?                    | True         | $68.75   |
 | AHS_Weight | Skipped (Oversize matched)   | False        | $0.00    |
 | AHS        | Skipped (Oversize matched)   | False        | $0.00    |
 
@@ -423,6 +435,8 @@ Demand surcharges apply during peak season and have two pricing phases.
 | **Phase 1 Cost**  | $4.13 (Sep 29 - Nov 23)            |
 | **Phase 2 Cost**  | $5.45 (Nov 24 - Jan 18)            |
 
+Note: Starts earlier (Sep 29) than base demand (Oct 27). Triggers when either AHS-Dimensions or AHS-Weight is active.
+
 #### 7.8.3 DEM_Oversize (Demand Oversize Surcharge)
 
 | Attribute         | Value                              |
@@ -442,20 +456,20 @@ Demand surcharges apply during peak season and have two pricing phases.
 
 ---
 
-## 8. Base Rate Lookup (4-Part Structure)
+## 8. Base Rate Lookup
 
-### 8.1 Rate Components
+### 8.1 Rate Structure
 
-FedEx invoice charges decompose into four components:
+The calculator uses a 4-part rate structure with separate CSV files per component. However, **the current undiscounted_rates.csv already contains net post-discount rates** (with performance pricing and earned discount baked in). The other three CSVs (performance_pricing, earned_discount, grace_discount) are all zeroed out.
 
-| Component              | Description                    | Typical Value | Sign     |
-|------------------------|--------------------------------|---------------|----------|
-| **Undiscounted Rate**  | Published base rate            | $6.13 - $200+ | Positive |
-| **Performance Pricing**| Volume-based discount          | -$0.00 to -$X | Negative |
-| **Earned Discount**    | Additional negotiated discount | $0.00         | Negative |
-| **Grace Discount**     | Promotional discount           | $0.00         | Negative |
+| Component              | CSV File                  | Current State                        | Sign     |
+|------------------------|---------------------------|--------------------------------------|----------|
+| **Undiscounted Rate**  | undiscounted_rates.csv    | Contains net rates (discounts baked in) | Positive |
+| **Performance Pricing**| performance_pricing.csv   | All zeros (baked into base rate)     | Zero     |
+| **Earned Discount**    | earned_discount.csv       | All zeros (baked into base rate)     | Zero     |
+| **Grace Discount**     | grace_discount.csv        | All zeros                            | Zero     |
 
-**Note:** Earned and Grace discounts are currently $0.00 across all weight/zone combinations. These discounts were lost due to decreased shipping volume.
+**Why it works this way:** The rates we have from FedEx are already post-negotiation net rates. Rather than storing the published retail rate and calculating each discount separately (which would require decomposing bundled surcharges from retail rates), we store the final net rate directly in undiscounted_rates.csv. The name is a legacy of the 4-part structure.
 
 ### 8.2 Rate Table Structure
 
@@ -476,6 +490,8 @@ weight_lbs,zone_2,zone_3,zone_4,zone_5,zone_6,zone_7,zone_8,zone_9,zone_10,zone_
 2,6.87,6.87,6.87,6.87,6.87,6.90,7.02,20.22,20.22,20.22,20.22,20.22
 ...
 ```
+
+**Note:** SmartPost undiscounted_rates.csv and performance_pricing.csv are currently zeroed out (no 2026 rates populated), so all shipments default to Home Delivery in the optimal service selection.
 
 ### 8.3 SmartPost 10+ lb Rate Anomaly
 
@@ -507,9 +523,9 @@ ELSE:
 
 -- Look up all four components
 cost_base_rate = undiscounted_rates[weight_bracket, rate_zone]
-cost_performance_pricing = performance_pricing[weight_bracket, rate_zone]
-cost_earned_discount = earned_discount[weight_bracket, rate_zone]
-cost_grace_discount = grace_discount[weight_bracket, rate_zone]
+cost_performance_pricing = performance_pricing[weight_bracket, rate_zone]   -- currently $0
+cost_earned_discount = earned_discount[weight_bracket, rate_zone]           -- currently $0
+cost_grace_discount = grace_discount[weight_bracket, rate_zone]             -- currently $0
 ```
 
 **Example (Home Delivery):** 2 lbs to Zone 4
@@ -530,22 +546,28 @@ cost_grace_discount = grace_discount[weight_bracket, rate_zone]
 
 | Parameter       | Value                              |
 |-----------------|------------------------------------|
-| List Rate       | 10%                                |
-| Discount        | 0%                                 |
-| Net Rate        | 10%                                |
-| Application     | Base rate + surcharges (excl. discounts) |
+| List Rate       | 20% (FedEx published rate)         |
+| Discount        | 30% (2026 proposed contract)       |
+| Effective Rate  | 14% (20% x 70%)                   |
+| Application     | Base rate + surcharges (excl. performance pricing, earned/grace discounts) |
+
+Source: `carriers/fedex/data/reference/fuel.py`
 
 ### 9.2 Calculation
 
 ```
-fuel_base = cost_base_rate + cost_das + cost_residential + cost_ahs +
+fuel_base = cost_base_rate + cost_residential + cost_das + cost_ahs +
             cost_ahs_weight + cost_oversize + cost_dem_base +
             cost_dem_ahs + cost_dem_oversize
 
-cost_fuel = fuel_base * 0.10
+cost_fuel = fuel_base * 0.14
 ```
 
-**Note:** Fuel is calculated on undiscounted base rate + surcharges. Performance pricing, earned, and grace discounts are **not** included in the fuel base.
+**Important:** Fuel is calculated on undiscounted base rate + surcharges. Performance pricing, earned, and grace discounts are **not** included in the fuel base. Since our current base rate already has discounts baked in, and performance_pricing/earned/grace are zero, the fuel base is effectively: base_rate + all surcharges.
+
+### 9.3 Fuel Surcharge Context
+
+The 20% list rate is close to the current FedEx published Ground fuel surcharge rate (~19.75% as of mid-2025). FedEx adjusts the published rate weekly based on the U.S. DOE national average diesel price. Our 30% contractual discount reduces this to a 14% effective rate.
 
 ---
 
@@ -555,9 +577,9 @@ cost_fuel = fuel_base * 0.10
 
 ```
 cost_subtotal = cost_base_rate
-              + cost_performance_pricing    -- (negative)
-              + cost_earned_discount        -- (negative, currently $0)
-              + cost_grace_discount         -- (negative, currently $0)
+              + cost_performance_pricing    -- ($0 - baked into base rate)
+              + cost_earned_discount        -- ($0 - baked into base rate)
+              + cost_grace_discount         -- ($0)
               + cost_residential
               + cost_das
               + cost_ahs
@@ -570,7 +592,70 @@ cost_subtotal = cost_base_rate
 cost_total = cost_subtotal + cost_fuel
 ```
 
-### 10.2 Complete Example (Home Delivery)
+In practice, since the three discount components are zero:
+
+```
+cost_total = base_rate + surcharges + fuel
+```
+
+### 10.2 Complete Example: Standard Home Delivery Shipment
+
+**Package:** 15" x 10" x 5", 3 lbs, Phoenix to ZIP 60601 (Chicago), Feb 15, 2026
+
+**Stage 1: Supplement**
+
+| Calculation          | Value              |
+|----------------------|--------------------|
+| `rate_service`       | Home Delivery      |
+| `cubic_in`           | 750                |
+| `longest_side_in`    | 15.0               |
+| `second_longest_in`  | 10.0               |
+| `length_plus_girth`  | 45.0               |
+| `shipping_zone`      | 5 (Phoenix -> 606) |
+| `das_zone`           | null (not in DAS)  |
+| `dim_weight_lbs`     | 750 / 250 = 3.0    |
+| `billable_weight_lbs`| 3.0 (tied, actual used) |
+| `weight_bracket`     | 3                  |
+
+**Stage 2: Surcharges**
+
+| Surcharge      | Condition                    | Result | Cost    |
+|----------------|------------------------------|--------|---------|
+| Residential    | HD service                   | True   | $2.26   |
+| DAS            | das_zone is null             | False  | $0.00   |
+| Oversize       | No conditions met            | False  | $0.00   |
+| AHS_Weight     | 3 > 50? No                   | False  | $0.00   |
+| AHS            | 15 > 48? No                  | False  | $0.00   |
+| DEM_Base       | Feb 15 not in Oct 27-Jan 18  | False  | $0.00   |
+| DEM_AHS        | AHS false                    | False  | $0.00   |
+| DEM_Oversize   | Oversize false               | False  | $0.00   |
+
+**Stage 3: Base Rate**
+
+| Lookup               | Value                  |
+|----------------------|------------------------|
+| Weight bracket       | 3 lbs                  |
+| Zone                 | 5                      |
+| `cost_base_rate`     | $6.13                  |
+
+**Stage 4: Fuel**
+
+| Calculation          | Value                                |
+|----------------------|--------------------------------------|
+| Fuel base            | $6.13 + $2.26 = $8.39               |
+| `cost_fuel`          | $8.39 x 0.14 = $1.17                |
+
+**Stage 5: Totals**
+
+| Component                 | Amount    |
+|---------------------------|-----------|
+| `cost_base_rate`          | $6.13     |
+| `cost_residential`        | $2.26     |
+| `cost_subtotal`           | $8.39     |
+| `cost_fuel`               | $1.17     |
+| **cost_total**            | **$9.56** |
+
+### 10.3 Complete Example: AHS-Triggered Shipment During Peak
 
 **Package:** 50" x 12" x 10", 45 lbs, Phoenix to ZIP 90210, Nov 25, 2025
 
@@ -593,11 +678,11 @@ cost_total = cost_subtotal + cost_fuel
 
 | Surcharge      | Condition                    | Result | Cost    |
 |----------------|------------------------------|--------|---------|
-| Residential    | HD service                   | True   | $2.08   |
+| Residential    | HD service                   | True   | $2.26   |
 | DAS            | das_zone is null             | False  | $0.00   |
 | Oversize       | 50 > 96? No                  | False  | $0.00   |
 | AHS_Weight     | 45 > 50? No                  | False  | $0.00   |
-| AHS            | 50 > 48? Yes                 | True   | $8.60   |
+| AHS            | 50 > 48? Yes                 | True   | $8.19   |
 | DEM_Base       | HD + Nov 25 in period (Ph2)  | True   | $0.65   |
 | DEM_AHS        | AHS + Nov 25 in period (Ph2) | True   | $5.45   |
 | DEM_Oversize   | Oversize false               | False  | $0.00   |
@@ -611,87 +696,82 @@ cost_total = cost_subtotal + cost_fuel
 | Weight bracket       | 45 lbs                 |
 | Zone                 | 4                      |
 | `cost_base_rate`     | $10.05                 |
-| `cost_performance_pricing` | $0.00            |
-| `cost_earned_discount` | $0.00                |
-| `cost_grace_discount` | $0.00                 |
 
 **Stage 4: Fuel**
 
 | Calculation          | Value                                          |
 |----------------------|------------------------------------------------|
-| Fuel base            | $10.05 + $2.08 + $8.60 + $0.65 + $5.45 = $26.83|
-| `cost_fuel`          | $26.83 x 0.10 = $2.68                          |
-
-**Stage 5: Totals**
-
-| Component                 | Amount    |
-|---------------------------|-----------|
-| `cost_base_rate`          | $10.05    |
-| `cost_performance_pricing`| $0.00     |
-| `cost_earned_discount`    | $0.00     |
-| `cost_grace_discount`     | $0.00     |
-| `cost_residential`        | $2.08     |
-| `cost_ahs`                | $8.60     |
-| `cost_dem_base`           | $0.65     |
-| `cost_dem_ahs`            | $5.45     |
-| `cost_subtotal`           | $26.83    |
-| `cost_fuel`               | $2.68     |
-| **cost_total**            | **$29.51**|
-
-### 10.3 Complete Example (Ground Economy)
-
-**Package:** 12" x 10" x 8", 15 lbs, Columbus to ZIP 10001, Feb 15, 2026
-
-**Stage 1: Supplement**
-
-| Calculation          | Value              |
-|----------------------|--------------------|
-| `rate_service`       | Ground Economy     |
-| `cubic_in`           | 960                |
-| `longest_side_in`    | 12.0               |
-| `shipping_zone`      | 5 (Columbus -> 100)|
-| `das_zone`           | null               |
-| `dim_weight_lbs`     | 960 / 139 = 6.9    |
-| `billable_weight_lbs`| 15.0 (actual > DIM)|
-| `weight_bracket`     | 15                 |
-
-**Stage 2: Surcharges**
-
-| Surcharge      | Condition                    | Result | Cost    |
-|----------------|------------------------------|--------|---------|
-| Residential    | Not HD                       | False  | $0.00   |
-| DAS            | das_zone is null             | False  | $0.00   |
-| Oversize       | Not HD                       | False  | $0.00   |
-| AHS_Weight     | 15 > 50? No                  | False  | $0.00   |
-| AHS            | Not HD                       | False  | $0.00   |
-| DEM_Base       | Not HD                       | False  | $0.00   |
-| DEM_AHS        | AHS/AHS_Weight false         | False  | $0.00   |
-| DEM_Oversize   | Oversize false               | False  | $0.00   |
-
-**Stage 3: Base Rate (10+ lbs SmartPost)**
-
-| Lookup               | Value                  |
-|----------------------|------------------------|
-| Weight bracket       | 15 lbs                 |
-| Zone                 | 5                      |
-| `cost_base_rate`     | $11.46                 |
-| `cost_performance_pricing` | $0.00            |
-
-**Stage 4: Fuel**
-
-| Calculation          | Value                  |
-|----------------------|------------------------|
-| Fuel base            | $11.46                 |
-| `cost_fuel`          | $11.46 x 0.10 = $1.15  |
+| Fuel base            | $10.05 + $2.26 + $8.19 + $0.65 + $5.45 = $26.60 |
+| `cost_fuel`          | $26.60 x 0.14 = $3.72                         |
 
 **Stage 5: Totals**
 
 | Component                 | Amount     |
 |---------------------------|------------|
-| `cost_base_rate`          | $11.46     |
-| `cost_subtotal`           | $11.46     |
-| `cost_fuel`               | $1.15      |
-| **cost_total**            | **$12.61** |
+| `cost_base_rate`          | $10.05     |
+| `cost_residential`        | $2.26      |
+| `cost_ahs`                | $8.19      |
+| `cost_dem_base`           | $0.65      |
+| `cost_dem_ahs`            | $5.45      |
+| `cost_subtotal`           | $26.60     |
+| `cost_fuel`               | $3.72      |
+| **cost_total**            | **$30.32** |
+
+### 10.4 Complete Example: DAS + Heavy Shipment
+
+**Package:** 43" x 34" x 7", 58 lbs, Phoenix to DAS zone ZIP, Zone 8
+
+**Stage 1: Supplement**
+
+| Calculation          | Value              |
+|----------------------|--------------------|
+| `rate_service`       | Home Delivery      |
+| `cubic_in`           | 10,234             |
+| `longest_side_in`    | 43.0               |
+| `second_longest_in`  | 34.0               |
+| `length_plus_girth`  | 125.0              |
+| `shipping_zone`      | 8                  |
+| `das_zone`           | DAS                |
+| `dim_weight_lbs`     | 10,234 / 250 = 40.9 |
+| `billable_weight_lbs`| 58.0 (actual > DIM)|
+| `weight_bracket`     | 58                 |
+
+**Stage 2: Surcharges**
+
+| Surcharge      | Condition                    | Result | Cost     |
+|----------------|------------------------------|--------|----------|
+| Residential    | HD service                   | True   | $2.26    |
+| DAS            | DAS zone set                 | True   | $2.31    |
+| Oversize       | No conditions met            | False  | $0.00    |
+| AHS_Weight     | 58 > 50? Yes                 | True   | $25.13   |
+| AHS            | Skipped (AHS_Weight won)     | False  | $0.00    |
+
+**Stage 3: Base Rate**
+
+| Lookup               | Value                  |
+|----------------------|------------------------|
+| Weight bracket       | 58 lbs                 |
+| Zone                 | 8                      |
+| `cost_base_rate`     | $24.47                 |
+
+**Stage 4: Fuel**
+
+| Calculation          | Value                                          |
+|----------------------|------------------------------------------------|
+| Fuel base            | $24.47 + $2.26 + $2.31 + $25.13 = $54.17      |
+| `cost_fuel`          | $54.17 x 0.14 = $7.58                         |
+
+**Stage 5: Totals**
+
+| Component                 | Amount     |
+|---------------------------|------------|
+| `cost_base_rate`          | $24.47     |
+| `cost_residential`        | $2.26      |
+| `cost_das`                | $2.31      |
+| `cost_ahs_weight`         | $25.13     |
+| `cost_subtotal`           | $54.17     |
+| `cost_fuel`               | $7.58      |
+| **cost_total**            | **$61.75** |
 
 ---
 
@@ -744,20 +824,20 @@ cost_total = cost_subtotal + cost_fuel
 
 | Column                    | Type  | Description                          |
 |---------------------------|-------|--------------------------------------|
-| `cost_base_rate`          | float | Undiscounted rate (positive)         |
-| `cost_performance_pricing`| float | PP discount (negative or $0)         |
-| `cost_earned_discount`    | float | Earned discount ($0 currently)       |
-| `cost_grace_discount`     | float | Grace discount ($0 currently)        |
-| `cost_residential`        | float | Residential surcharge                |
+| `cost_base_rate`          | float | Base rate (net, discounts baked in)  |
+| `cost_performance_pricing`| float | $0 (baked into base rate)            |
+| `cost_earned_discount`    | float | $0 (baked into base rate)            |
+| `cost_grace_discount`     | float | $0                                   |
+| `cost_residential`        | float | Residential surcharge ($0 or $2.26)  |
 | `cost_das`                | float | DAS surcharge ($0 - $43.00)          |
-| `cost_ahs`                | float | AHS - Dimensions ($0 or $8.60)       |
-| `cost_ahs_weight`         | float | AHS - Weight ($0 or $26.38)          |
-| `cost_oversize`           | float | Oversize ($0 or $115.00)             |
-| `cost_dem_base`           | float | Base demand ($0, $0.40, or $0.65)    |
+| `cost_ahs`                | float | AHS - Dimensions ($0 or $8.19)       |
+| `cost_ahs_weight`         | float | AHS - Weight ($0 or $25.13)          |
+| `cost_oversize`           | float | Oversize ($0 or $68.75)              |
+| `cost_dem_base`            | float | Base demand ($0, $0.40, or $0.65)    |
 | `cost_dem_ahs`            | float | Demand AHS ($0, $4.13, or $5.45)     |
 | `cost_dem_oversize`       | float | Demand Oversize ($0, $45, or $54.25) |
-| `cost_subtotal`           | float | Sum of rates + surcharges            |
-| `cost_fuel`               | float | 10% of (base + surcharges)           |
+| `cost_subtotal`           | float | Sum of all above components          |
+| `cost_fuel`               | float | 14% of (base rate + surcharges)      |
 | `cost_total`              | float | Subtotal + fuel                      |
 
 ### 11.7 Metadata
@@ -774,25 +854,25 @@ cost_total = cost_subtotal + cost_fuel
 |-----------------------------------------------------------|---------------------------------|
 | `carriers/fedex/data/reference/zones.csv`                 | 5-digit ZIP to zone mapping     |
 | `carriers/fedex/data/reference/das_zones.csv`             | 5-digit ZIP to DAS tier mapping |
-| `carriers/fedex/data/reference/home_delivery/undiscounted_rates.csv` | HD base rates         |
-| `carriers/fedex/data/reference/home_delivery/performance_pricing.csv`| HD PP discounts       |
-| `carriers/fedex/data/reference/home_delivery/earned_discount.csv`    | HD earned ($0)        |
+| `carriers/fedex/data/reference/home_delivery/undiscounted_rates.csv` | HD base rates (net, discounts baked in) |
+| `carriers/fedex/data/reference/home_delivery/performance_pricing.csv`| HD PP ($0 - baked into base) |
+| `carriers/fedex/data/reference/home_delivery/earned_discount.csv`    | HD earned ($0 - baked into base) |
 | `carriers/fedex/data/reference/home_delivery/grace_discount.csv`     | HD grace ($0)         |
-| `carriers/fedex/data/reference/smartpost/undiscounted_rates.csv`     | GE base rates         |
-| `carriers/fedex/data/reference/smartpost/performance_pricing.csv`    | GE PP discounts       |
+| `carriers/fedex/data/reference/smartpost/undiscounted_rates.csv`     | GE base rates (zeroed out - no 2026 rates) |
+| `carriers/fedex/data/reference/smartpost/performance_pricing.csv`    | GE PP ($0)            |
 | `carriers/fedex/data/reference/smartpost/earned_discount.csv`        | GE earned ($0)        |
 | `carriers/fedex/data/reference/smartpost/grace_discount.csv`         | GE grace ($0)         |
-| `carriers/fedex/data/reference/billable_weight.py`        | DIM factor config               |
-| `carriers/fedex/data/reference/fuel.py`                   | Fuel surcharge rate             |
+| `carriers/fedex/data/reference/billable_weight.py`        | DIM factor config (HD: 250, GE: 225) |
+| `carriers/fedex/data/reference/fuel.py`                   | Fuel surcharge rate (20% list, 30% discount = 14%) |
 | `carriers/fedex/data/reference/service_mapping.py`        | PCS code to service mapping     |
-| `carriers/fedex/surcharges/residential.py`                | Residential surcharge class     |
-| `carriers/fedex/surcharges/das.py`                        | DAS surcharge class             |
-| `carriers/fedex/surcharges/additional_handling.py`        | AHS - Dimensions class          |
-| `carriers/fedex/surcharges/additional_handling_weight.py` | AHS - Weight class              |
-| `carriers/fedex/surcharges/oversize.py`                   | Oversize surcharge class        |
-| `carriers/fedex/surcharges/demand_base.py`                | Base demand surcharge class     |
-| `carriers/fedex/surcharges/demand_ahs.py`                 | Demand AHS class                |
-| `carriers/fedex/surcharges/demand_oversize.py`            | Demand Oversize class           |
+| `carriers/fedex/surcharges/residential.py`                | Residential: list $6.45, 65% off |
+| `carriers/fedex/surcharges/das.py`                        | DAS: list $6.60-$16.75, 65% off (HD) |
+| `carriers/fedex/surcharges/additional_handling.py`        | AHS-Dimensions: list $32.75, 75% off |
+| `carriers/fedex/surcharges/additional_handling_weight.py` | AHS-Weight: list $50.25, 50% off |
+| `carriers/fedex/surcharges/oversize.py`                   | Oversize: list $275.00, 75% off |
+| `carriers/fedex/surcharges/demand_base.py`                | Base demand: $0.40-$0.65 |
+| `carriers/fedex/surcharges/demand_ahs.py`                 | Demand AHS: $4.13-$5.45 |
+| `carriers/fedex/surcharges/demand_oversize.py`            | Demand Oversize: $45.00-$54.25 |
 
 ---
 
@@ -803,14 +883,17 @@ cost_total = cost_subtotal + cost_fuel
 | Max weight (HD)         | 150 lbs                                    |
 | Max weight (GE)         | 71 lbs                                     |
 | DIM factor (HD)         | 250 cubic inches per lb                    |
-| DIM factor (GE)         | 139 cubic inches per lb                    |
+| DIM factor (GE)         | 225 cubic inches per lb                    |
 | DIM threshold           | 0 (always applies)                         |
 | Zone lookup             | 5-digit ZIP (not 3-digit prefix)           |
 | Rate table lookup       | Ceiling to integer lb                      |
 | Surcharge boundaries    | Use `>` not `>=` for all thresholds        |
-| Performance pricing     | Currently $0 for all weight/zone combos    |
-| Earned/Grace discounts  | Currently $0 (lost due to volume decrease) |
-| Fuel application        | Base + surcharges (excludes discounts)     |
+| Performance pricing     | $0 (baked into undiscounted_rates.csv)     |
+| Earned/Grace discounts  | $0 (baked into undiscounted_rates.csv)     |
+| Fuel application        | 14% of (base rate + surcharges)            |
+| Fuel list rate          | 20% (FedEx published)                     |
+| Fuel discount           | 30% (contractual)                          |
+| SmartPost rates         | Not populated for 2026 (all zero)          |
 
 ---
 

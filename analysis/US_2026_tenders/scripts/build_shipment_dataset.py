@@ -151,7 +151,7 @@ def load_actuals() -> pl.DataFrame:
     """
     print("  Loading actuals from Redshift...")
 
-    # OnTrac actuals - only single-shipment orders
+    # OnTrac actuals - only single-shipment orders, exclude OML/LPS outliers
     ontrac_sql = """
         SELECT pcs_orderid, actual_total as cost_actual, 'ONTRAC' as actual_carrier
         FROM shipping_costs.actual_shipping_costs_ontrac
@@ -161,6 +161,10 @@ def load_actuals() -> pl.DataFrame:
             GROUP BY pcs_orderid
             HAVING COUNT(*) = 1
         )
+        AND COALESCE(actual_oml, 0) = 0
+        AND COALESCE(actual_lps, 0) = 0
+        AND COALESCE(actual_dem_oml, 0) = 0
+        AND COALESCE(actual_dem_lps, 0) = 0
     """
 
     # USPS actuals - only single-shipment orders
@@ -303,6 +307,27 @@ def main():
         .otherwise(pl.col("cost_actual"))
         .alias("cost_actual")
     )
+
+    # Exclude OnTrac OML/LPS shipments from entire dataset
+    # These are outlier shipments with over-max-limits or large package surcharges
+    # that we cannot predict (expected cost is always 0 for these)
+    print("\n  Excluding OnTrac OML/LPS shipments...")
+    oml_lps_orderids = pull_data("""
+        SELECT DISTINCT pcs_orderid
+        FROM shipping_costs.actual_shipping_costs_ontrac
+        WHERE COALESCE(actual_oml, 0) > 0
+           OR COALESCE(actual_lps, 0) > 0
+           OR COALESCE(actual_dem_oml, 0) > 0
+           OR COALESCE(actual_dem_lps, 0) > 0
+    """)
+    if len(oml_lps_orderids) > 0:
+        exclude_ids = oml_lps_orderids["pcs_orderid"].to_list()
+        before = df.shape[0]
+        df = df.filter(~pl.col("pcs_orderid").is_in(exclude_ids))
+        excluded = before - df.shape[0]
+        print(f"    Excluded {excluded:,} shipments with OML/LPS surcharges")
+    else:
+        print("    No OML/LPS shipments found")
 
     # Summary stats
     print("\nDataset summary:")
