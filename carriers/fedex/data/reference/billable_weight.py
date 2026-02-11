@@ -15,8 +15,8 @@ Reference: FedEx Service Guide, verified against invoice data (Dec 2025)
 
 # Dimensional weight divisors (cubic inches per pound)
 # Different services use different divisors based on invoice analysis
-DIM_FACTOR_HOME_DELIVERY = 250
-DIM_FACTOR_GROUND_ECONOMY = 139  # Standard FedEx Ground divisor
+DIM_FACTOR_HOME_DELIVERY = 250   # Ground / Home Delivery
+DIM_FACTOR_GROUND_ECONOMY = 225  # Ground Economy
 
 # Legacy single factor (kept for backwards compatibility)
-DIM_FACTOR = 139
+DIM_FACTOR = 250

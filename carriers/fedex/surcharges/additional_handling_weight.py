@@ -26,10 +26,10 @@ class AHS_Weight(Surcharge):
     name = "AHS_Weight"
 
     # -------------------------------------------------------------------------
-    # PRICING (inferred from Q4 2025 invoice data - most common: $26.38)
+    # PRICING (2026 proposed contract)
     # -------------------------------------------------------------------------
-    list_price = 26.38
-    discount = 0.0
+    list_price = 50.25
+    discount = 0.50  # 50% off
 
     # -------------------------------------------------------------------------
     # EXCLUSIVITY

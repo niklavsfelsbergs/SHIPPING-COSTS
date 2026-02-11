@@ -25,21 +25,13 @@ class Residential(Surcharge):
     name = "Residential"
 
     # -------------------------------------------------------------------------
-    # PRICING (2025)
+    # PRICING (2026 proposed contract)
     # -------------------------------------------------------------------------
-
-    HD_RESIDENTIAL = 2.08  # Home Delivery residential rate (from Feb 2025)
-
-    # Base class requirements
-    list_price = HD_RESIDENTIAL
-    discount = 0.0
+    list_price = 6.45
+    discount = 0.65  # 65% off
 
     @classmethod
     def conditions(cls) -> pl.Expr:
         """Triggers for all Home Delivery shipments."""
         return pl.col("rate_service") == "Home Delivery"
 
-    @classmethod
-    def cost(cls) -> float:
-        """Flat rate for all Home Delivery."""
-        return cls.list_price

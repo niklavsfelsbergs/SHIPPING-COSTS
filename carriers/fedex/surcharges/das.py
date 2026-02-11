@@ -29,21 +29,34 @@ class DAS(Surcharge):
     name = "DAS"
 
     # -------------------------------------------------------------------------
-    # PRICING BY TIER AND SERVICE (Q4 2025)
+    # PRICING (2026 proposed contract)
     # -------------------------------------------------------------------------
 
-    # Home Delivery
-    HD_DAS = 2.17
-    HD_DAS_EXTENDED = 2.91
-    HD_DAS_REMOTE = 5.43
-    HD_DAS_ALASKA = 43.00
-    HD_DAS_HAWAII = 14.50
+    # Home Delivery - list prices and discount
+    HD_DISCOUNT = 0.65  # 65% off all HD DAS tiers
 
-    # Ground Economy (SmartPost)
-    SP_DAS = 3.10
-    SP_DAS_EXTENDED = 4.15
-    SP_DAS_ALASKA = 8.30
-    SP_DAS_HAWAII = 8.30
+    HD_DAS_LIST = 6.60
+    HD_DAS_EXTENDED_LIST = 8.80
+    HD_DAS_REMOTE_LIST = 16.75
+    HD_DAS_ALASKA = 43.00      # TODO: list price unknown, storing net
+    HD_DAS_HAWAII = 14.50      # TODO: list price unknown, storing net
+
+    HD_DAS = round(HD_DAS_LIST * (1 - HD_DISCOUNT), 2)              # 2.31
+    HD_DAS_EXTENDED = round(HD_DAS_EXTENDED_LIST * (1 - HD_DISCOUNT), 2)  # 3.08
+    HD_DAS_REMOTE = round(HD_DAS_REMOTE_LIST * (1 - HD_DISCOUNT), 2)     # 5.86
+
+    # Ground Economy (SmartPost) - list prices and discount
+    SP_DISCOUNT = 0.50  # 50% off DAS and DAS Extended only
+
+    SP_DAS_LIST = 6.60
+    SP_DAS_EXTENDED_LIST = 8.80
+    SP_DAS_ALASKA_LIST = 8.80
+    SP_DAS_HAWAII_LIST = 8.80
+
+    SP_DAS = round(SP_DAS_LIST * (1 - SP_DISCOUNT), 2)              # 3.30
+    SP_DAS_EXTENDED = round(SP_DAS_EXTENDED_LIST * (1 - SP_DISCOUNT), 2)  # 4.40
+    SP_DAS_ALASKA = round(SP_DAS_ALASKA_LIST, 2)                         # 8.80 (no discount)
+    SP_DAS_HAWAII = round(SP_DAS_HAWAII_LIST, 2)                         # 8.80 (no discount)
 
     # Base class requirements (not used - cost() handles pricing dynamically)
     list_price = 0.0

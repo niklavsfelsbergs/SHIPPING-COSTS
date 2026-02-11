@@ -221,33 +221,38 @@ def delete_for_orderids(orderids: list[int], dry_run: bool = False) -> int:
 # INVOICE DATA PROCESSING
 # =============================================================================
 
-def load_invoice_data(tracking_numbers: list[str], start_date: str | None = None) -> pl.DataFrame:
-    """Load invoice data for given tracking numbers."""
-    if not tracking_numbers:
-        return pl.DataFrame()
-
+def load_all_invoice_data(min_date: str | None = None) -> pl.DataFrame:
+    """Load all invoice data in a single query, optionally filtered by date."""
     sql_template = (SQL_DIR / "get_invoice_actuals.sql").read_text()
 
-    # Build date filter
     date_filter = ""
-    if start_date:
-        date_filter = f"AND invoice_date::date >= '{start_date}'::date"
+    if min_date:
+        date_filter = f"AND invoice_date::date >= '{min_date}'::date"
+
+    query = sql_template.format(
+        date_filter=date_filter,
+        custref_filter="",
+        tracking_numbers_filter="",
+    )
+
+    return pull_data(query)
+
+
+def get_order_references(orderids: list[int]) -> pl.DataFrame:
+    """Get ordernumber and shopreferencenumber1 for given orderids from PCS."""
+    if not orderids:
+        return pl.DataFrame()
 
     all_results = []
     batch_size = 5000
-
-    for i in range(0, len(tracking_numbers), batch_size):
-        batch = tracking_numbers[i:i + batch_size]
-        # Escape single quotes in tracking numbers
-        escaped = [str(tn).replace("'", "''") for tn in batch]
-        tracking_list = ", ".join(f"'{tn}'" for tn in escaped)
-        tracking_filter = f"AND trackingnumber IN ({tracking_list})"
-
-        query = sql_template.format(
-            date_filter=date_filter,
-            tracking_numbers_filter=tracking_filter,
-        )
-
+    for i in range(0, len(orderids), batch_size):
+        batch = orderids[i:i + batch_size]
+        ids_str = ", ".join(str(oid) for oid in batch)
+        query = f"""
+            SELECT id AS pcs_orderid, ordernumber, shopreferencenumber1
+            FROM bi_stage_dev_dbo.pcsu_orders
+            WHERE id IN ({ids_str})
+        """
         result = pull_data(query)
         if len(result) > 0:
             all_results.append(result)
@@ -255,7 +260,69 @@ def load_invoice_data(tracking_numbers: list[str], start_date: str | None = None
     if not all_results:
         return pl.DataFrame()
 
-    return pl.concat(all_results)
+    df = pl.concat(all_results)
+
+    # Clean shopreferencenumber1: strip ':XX' suffix for matching
+    df = df.with_columns(
+        pl.col("shopreferencenumber1").str.split(":").list.first().alias("shopref1_clean")
+    )
+
+    return df
+
+
+def join_smartpost_with_pcs(
+    invoice_df: pl.DataFrame,
+    refs_df: pl.DataFrame,
+    ship_dates_df: pl.DataFrame,
+) -> pl.DataFrame:
+    """
+    Join SmartPost invoice data with PCS via original_customer_reference.
+
+    Two-step join: first try ordernumber, then shopreferencenumber1 for remainder.
+    """
+    if len(invoice_df) == 0 or len(refs_df) == 0:
+        return pl.DataFrame()
+
+    # Step 1: Join via ordernumber
+    match_ordernumber = invoice_df.join(
+        refs_df.select("pcs_orderid", "ordernumber"),
+        left_on="original_customer_reference",
+        right_on="ordernumber",
+        how="inner",
+    )
+
+    # Step 2: Remaining via shopref1_clean
+    remaining = invoice_df.join(
+        match_ordernumber.select("original_customer_reference"),
+        on="original_customer_reference",
+        how="anti",
+    )
+    match_shopref = remaining.join(
+        refs_df.select("pcs_orderid", "shopref1_clean").unique(subset=["shopref1_clean"]),
+        left_on="original_customer_reference",
+        right_on="shopref1_clean",
+        how="inner",
+    )
+
+    # Combine
+    joined = pl.concat([match_ordernumber, match_shopref], how="diagonal")
+
+    if len(joined) == 0:
+        return pl.DataFrame()
+
+    # Join ship dates for date window validation
+    joined = joined.join(ship_dates_df, on="pcs_orderid", how="left")
+
+    # Filter by date window
+    joined = joined.filter(
+        (pl.col("invoice_date") >= pl.col("ship_date")) &
+        (pl.col("invoice_date") <= pl.col("ship_date") + pl.duration(days=DATE_WINDOW_DAYS))
+    )
+
+    # Drop columns used only for filtering/joining
+    joined = joined.drop("ship_date", "original_customer_reference")
+
+    return joined
 
 
 def map_and_pivot_charges(invoice_df: pl.DataFrame) -> pl.DataFrame:
@@ -277,7 +344,8 @@ def map_and_pivot_charges(invoice_df: pl.DataFrame) -> pl.DataFrame:
 
     # Group by tracking number and shipment info, pivot charges to columns
     group_cols = [
-        "trackingnumber", "invoice_number", "invoice_date", "shipment_date",
+        "trackingnumber", "original_customer_reference",
+        "invoice_number", "invoice_date", "shipment_date",
         "service_type", "ground_service", "shipping_zone",
         "actual_weight", "actual_weight_units", "rated_weight", "rated_weight_units",
         "net_charge_usd", "transportation_charge_usd",
@@ -369,8 +437,8 @@ def join_with_pcs(
         (pl.col("invoice_date") <= pl.col("ship_date") + pl.duration(days=DATE_WINDOW_DAYS))
     )
 
-    # Drop ship_date (used only for filtering)
-    joined = joined.drop("ship_date")
+    # Drop columns used only for filtering/joining
+    joined = joined.drop("ship_date", "original_customer_reference")
 
     return joined
 
@@ -386,33 +454,39 @@ def run_pipeline(
     """
     Run the full actuals pipeline for given orderids.
 
+    Loads all invoice data in a single query, then matches in Python:
+    1. Home Delivery etc. matched via tracking number
+    2. SmartPost matched via original_customer_reference (ordernumber / shopreferencenumber1)
+
     Returns DataFrame ready for upload with UPLOAD_COLUMNS.
     """
     if not orderids:
         return pl.DataFrame()
 
-    # Step 1: Get tracking numbers
+    # Step 1: Get tracking numbers and order references from PCS
     print(f"  Getting tracking numbers for {len(orderids):,} orders...")
     tracking_df = get_tracking_numbers(orderids)
-    if len(tracking_df) == 0:
-        print("  No tracking numbers found")
-        return pl.DataFrame()
     print(f"  Found {len(tracking_df):,} tracking numbers")
+
+    print("  Getting order references (ordernumber + shopref1) for SmartPost matching...")
+    refs_df = get_order_references(orderids)
+    print(f"  Found {len(refs_df):,} order references")
 
     # Step 2: Get ship dates for date window validation
     print("  Getting ship dates...")
     ship_dates_df = get_ship_dates(orderids)
 
-    # Step 3: Load invoice data
-    tracking_numbers = tracking_df["trackingnumber"].unique().to_list()
-    print(f"  Loading invoice data for {len(tracking_numbers):,} tracking numbers...")
-    invoice_df = load_invoice_data(tracking_numbers, start_date)
+    # Step 3: Load ALL invoice data in a single query
+    min_ship = ship_dates_df["ship_date"].min() if len(ship_dates_df) > 0 else None
+    invoice_start = (min_ship - timedelta(days=30)).strftime("%Y-%m-%d") if min_ship else start_date
+    print(f"  Loading all invoice data from {invoice_start} (single query)...")
+    invoice_df = load_all_invoice_data(invoice_start)
     if len(invoice_df) == 0:
         print("  No invoice data found")
         return pl.DataFrame()
     print(f"  Found {len(invoice_df):,} charge records")
 
-    # Step 4: Map charges and pivot
+    # Step 4: Map charges and pivot to one row per shipment
     print("  Mapping charges and pivoting...")
     pivoted_df = map_and_pivot_charges(invoice_df)
     if len(pivoted_df) == 0:
@@ -420,15 +494,40 @@ def run_pipeline(
         return pl.DataFrame()
     print(f"  Pivoted to {len(pivoted_df):,} shipment records")
 
-    # Step 5: Join with PCS
-    print("  Joining with PCS data...")
-    joined_df = join_with_pcs(pivoted_df, tracking_df, ship_dates_df)
-    if len(joined_df) == 0:
-        print("  No data after join")
-        return pl.DataFrame()
-    print(f"  Matched {len(joined_df):,} shipments")
+    # Step 5: Match via tracking number (Home Delivery, Ground, 2Day, etc.)
+    print("  Matching via tracking number...")
+    joined_df = pl.DataFrame()
+    if len(tracking_df) > 0:
+        joined_df = join_with_pcs(pivoted_df, tracking_df, ship_dates_df)
+    print(f"  Matched {len(joined_df):,} shipments via tracking number")
 
-    # Step 6: Add timestamp and select columns
+    # Step 6: Match SmartPost via original_customer_reference
+    matched_orderids = set(joined_df["pcs_orderid"].to_list()) if len(joined_df) > 0 else set()
+    unmatched_refs = refs_df.filter(~pl.col("pcs_orderid").is_in(matched_orderids))
+
+    if len(unmatched_refs) > 0:
+        print(f"  Matching {len(unmatched_refs):,} remaining orders via customer reference (SmartPost)...")
+        smartpost_pivoted = pivoted_df.filter(pl.col("service_type") == "SmartPost")
+
+        if len(smartpost_pivoted) > 0:
+            smartpost_joined = join_smartpost_with_pcs(
+                smartpost_pivoted, unmatched_refs, ship_dates_df
+            )
+            print(f"  Matched {len(smartpost_joined):,} SmartPost shipments")
+
+            if len(smartpost_joined) > 0:
+                if len(joined_df) > 0:
+                    joined_df = pl.concat([joined_df, smartpost_joined], how="diagonal")
+                else:
+                    joined_df = smartpost_joined
+
+    if len(joined_df) == 0:
+        print("  No data after matching")
+        return pl.DataFrame()
+
+    print(f"  Total matched: {len(joined_df):,} shipments")
+
+    # Step 7: Add timestamp and select columns
     joined_df = joined_df.with_columns(
         pl.lit(datetime.now()).alias("dw_timestamp")
     )

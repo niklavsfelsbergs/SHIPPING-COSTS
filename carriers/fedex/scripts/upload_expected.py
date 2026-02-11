@@ -174,9 +174,25 @@ def run_pipeline(
     if len(df) == 0:
         return pl.DataFrame()
 
+    # Remap Miami -> Columbus for zone lookup (no Miami-specific zones available)
+    miami_count = df.filter(pl.col("production_site") == "Miami").height
+    if miami_count > 0:
+        print(f"  Remapping {miami_count:,} Miami shipments to Columbus zones")
+        original_sites = df["production_site"]
+        df = df.with_columns(
+            pl.when(pl.col("production_site") == "Miami")
+            .then(pl.lit("Columbus"))
+            .otherwise(pl.col("production_site"))
+            .alias("production_site")
+        )
+
     # Calculate costs
     print("  Calculating costs...")
     df = calculate_costs(df)
+
+    # Restore original production_site (so Miami is stored in DB, not Columbus)
+    if miami_count > 0:
+        df = df.with_columns(original_sites.alias("production_site"))
 
     # Calculate multishipment cost (cost_total * trackingnumber_count)
     df = df.with_columns(

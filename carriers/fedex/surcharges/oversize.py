@@ -32,11 +32,10 @@ class Oversize(Surcharge):
     name = "Oversize"
 
     # -------------------------------------------------------------------------
-    # PRICING
+    # PRICING (2026 proposed contract)
     # -------------------------------------------------------------------------
-    # TODO: Get actual Oversize price from contract
-    list_price = 115.00  # Placeholder based on invoice data (~$131 before discount)
-    discount = 0.0
+    list_price = 275.00
+    discount = 0.75  # 75% off
 
     # -------------------------------------------------------------------------
     # EXCLUSIVITY

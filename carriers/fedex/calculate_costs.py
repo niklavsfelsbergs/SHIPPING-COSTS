@@ -629,22 +629,12 @@ def _calculate_subtotal(df: pl.DataFrame) -> pl.DataFrame:
 
 
 def _apply_fuel(df: pl.DataFrame) -> pl.DataFrame:
-    """Apply fuel surcharge as percentage of (base + surcharges).
+    """Apply fuel surcharge as percentage of base rate after discounts.
 
-    Fuel is calculated on base charge + surcharges, NOT including discounts.
     Rate configured in data/reference/fuel.py.
     """
-    # Fuel is calculated on base + surcharges (excluding discounts)
-    # cost_base_rate is positive, surcharges are positive
-    # Discounts (performance_pricing, earned, grace) are NOT included
-    surcharge_cols = [f"cost_{s.name.lower()}" for s in ALL]
-    existing_surcharge_cols = [c for c in surcharge_cols if c in df.columns]
-
-    fuel_base_cols = ["cost_base_rate"] + existing_surcharge_cols
-    existing_fuel_base_cols = [c for c in fuel_base_cols if c in df.columns]
-
     return df.with_columns(
-        (pl.sum_horizontal(existing_fuel_base_cols) * pl.lit(FUEL_RATE)).round(2).alias("cost_fuel")
+        (pl.col("cost_base_rate") * pl.lit(FUEL_RATE)).round(2).alias("cost_fuel")
     )
 
 

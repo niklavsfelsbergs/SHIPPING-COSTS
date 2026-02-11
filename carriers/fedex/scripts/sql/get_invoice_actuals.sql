@@ -5,12 +5,14 @@
 -- Parameters (replaced at runtime):
 --   {tracking_numbers_filter} - WHERE clause for tracking numbers
 --   {date_filter} - Optional date range filter
+--   {custref_filter} - Optional filter on original_customer_reference (for SmartPost)
 
 WITH fedex_invoice AS (
     SELECT *
     FROM bi_stage_dev_dbo.fedex_invoicedata_historical f
     WHERE 1=1
     {date_filter}
+    {custref_filter}
 )
 , charge_positions AS (
     SELECT 0 AS n UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4
@@ -39,6 +41,7 @@ WITH fedex_invoice AS (
         f.rated_weight_amount AS rated_weight,
         f.rated_weight_units,
         f.zone_code AS shipping_zone,
+        f.original_customer_reference,
         CASE p.n
             WHEN 0 THEN f.tracking_id_charge_description
             WHEN 1 THEN f.tracking_id_charge_description_1
@@ -129,6 +132,7 @@ SELECT
     invoice_date,
     invoice_number,
     trackingnumber,
+    original_customer_reference,
     transportation_charge_usd,
     net_charge_usd,
     service_type,
@@ -152,6 +156,7 @@ SELECT
     invoice_date,
     invoice_number,
     trackingnumber,
+    original_customer_reference,
     transportation_charge_usd,
     net_charge_usd,
     service_type,
@@ -168,7 +173,8 @@ FROM unpivoted_charges
 WHERE 1=1
 {tracking_numbers_filter}
 GROUP BY
-    invoice_date, invoice_number, trackingnumber, transportation_charge_usd,
+    invoice_date, invoice_number, trackingnumber, original_customer_reference,
+    transportation_charge_usd,
     net_charge_usd, service_type, ground_service, shipment_date,
     actual_weight, actual_weight_units, rated_weight, rated_weight_units,
     shipping_zone
