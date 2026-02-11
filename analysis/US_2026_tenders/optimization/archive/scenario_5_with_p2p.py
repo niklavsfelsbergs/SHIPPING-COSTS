@@ -12,20 +12,16 @@ Constraint combinations (same as S4 but with P2P added):
 - Drop OnTrac: USPS >= 140K (3 carriers: USPS + FedEx + P2P)
 - Drop USPS: OnTrac >= 279K (3 carriers: OnTrac + FedEx + P2P)
 - Drop both: No constraints (FedEx + P2P)
-
-FedEx rates adjusted: earned discount removed (18% -> 0%).
-When optimization reduces FedEx spend below $4.5M threshold, the earned
-discount is lost. All FedEx costs (including current-mix baseline) are
-recalculated without the earned discount.
 """
 
 import polars as pl
 import sys
 from pathlib import Path
 
-from analysis.US_2026_tenders.optimization.fedex_adjustment import adjust_and_aggregate
-
 sys.stdout.reconfigure(encoding='utf-8')
+
+# Baseline from Scenario 1
+SCENARIO_1_BASELINE = 5_833_893.77
 
 # S4 variants (without P2P) - mirrored from scenario_4
 S4_VARIANTS = [
@@ -44,13 +40,10 @@ S5_VARIANTS = [
 ]
 
 
-def load_data() -> tuple[pl.DataFrame, float]:
-    """Load and adjust shipment data with FedEx earned discount removed.
-
-    Returns:
-        Tuple of (aggregated DataFrame, adjusted S1 baseline).
-    """
-    return adjust_and_aggregate()
+def load_data() -> pl.DataFrame:
+    """Load the aggregated shipment data."""
+    path = Path("analysis/US_2026_tenders/combined_datasets/shipments_aggregated.parquet")
+    return pl.read_parquet(path)
 
 
 def greedy_assignment(df: pl.DataFrame, available_carriers: list[str]) -> pl.DataFrame:
@@ -431,12 +424,11 @@ def run_s5_variant(df: pl.DataFrame, s5_variant: dict, s4_variant: dict) -> dict
 def main():
     print("=" * 70)
     print("Scenario 5: Optimal with P2P")
-    print("FedEx rates adjusted: earned discount removed (18% -> 0%)")
     print("=" * 70)
 
-    # Load data (with FedEx adjustment)
-    print("\n[1] Loading data (with FedEx earned discount removal)...")
-    df, SCENARIO_1_BASELINE = load_data()
+    # Load data
+    print("\n[1] Loading data...")
+    df = load_data()
     total_shipments = int(df["shipment_count"].sum())
     print(f"    {df.shape[0]:,} groups, {total_shipments:,} shipments")
 
@@ -447,7 +439,7 @@ def main():
         pct = svc / total_shipments * 100
         print(f"    {carrier}: {svc:,} serviceable ({pct:.1f}%)")
 
-    print(f"\n    Current mix cost (adjusted, no earned discount): ${SCENARIO_1_BASELINE:,.2f}")
+    print(f"\n    Current mix cost (from S1): ${SCENARIO_1_BASELINE:,.2f}")
 
     # Run all S5 variants
     print("\n[3] Running S5 optimization variants...")

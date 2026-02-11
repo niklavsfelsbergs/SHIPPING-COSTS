@@ -4,19 +4,23 @@
 
 Analysis of 558,013 US shipments (2025 volumes) evaluated against 2026 rate cards across 5 carriers: OnTrac, USPS, FedEx, P2P, and Maersk. Five routing scenarios were modeled to identify the optimal carrier strategy while respecting contractual volume commitments.
 
+**S4 and S5 adjust FedEx costs to remove the 18% earned discount.** When optimization reduces FedEx spend below $4.5M, the earned discount is lost. This increases FedEx costs by ~49% on the base rate portion, making OnTrac and USPS more valuable in the optimized mix.
+
 ## Scenario Comparison
 
 | #   | Scenario                  | Total Cost          | Savings vs Baseline   | Savings %   |
 |-----|---------------------------|---------------------|-----------------------|-------------|
-| S1  | Current Carrier Mix       | $6,437,752          | Baseline              | -           |
-| S2  | 100% Maersk               | $6,041,478          | $396,274              | 6.2%        |
-| S3  | 100% FedEx                | $7,037,555          | -$599,803             | -9.3%       |
-| S4  | Constrained Optimal       | $5,471,118          | $966,634              | 15.0%       |
-| S5  | Constrained + P2P         | $5,629,197          | $808,555              | 12.6%       |
+| S1  | Current Carrier Mix       | $5,833,894          | Baseline              | -           |
+| S2  | 100% Maersk               | $6,041,478          | -$207,585             | -3.6%       |
+| S3  | 100% FedEx                | $5,889,066          | -$55,172              | -0.9%       |
+| S4  | Constrained Optimal*      | $5,492,793          | $341,101              | 5.8%        |
+| S5  | Constrained + P2P*        | $5,393,088          | $440,806              | 7.6%        |
 
-**Baseline**: Scenario 1 current carrier mix ($6.44M) using each shipment's actual 2025 carrier with 2026 calculated rates.
+**Baseline**: Scenario 1 current carrier mix ($5.83M) using each shipment's actual 2025 carrier with 2026 calculated rates.
 
-**Best scenario**: Scenario 4 saves **$967K (15.0%)** through optimized 3-carrier routing (OnTrac/USPS/FedEx) while meeting all contractual commitments.
+*\*S4 and S5 use FedEx rates with earned discount removed (18% -> 0%). This is the realistic cost when FedEx volume drops below the $4.5M earned discount threshold.*
+
+**Best scenario**: Scenario 5 saves **$441K (7.6%)** through optimized 4-carrier routing (OnTrac/USPS/FedEx/P2P) while meeting all contractual commitments. P2P saves $100K vs S4 by cherry-picking 44K cheap shipments from USPS and FedEx.
 
 ## Comparison to 2025 Actuals
 
@@ -25,82 +29,94 @@ For 539,941 matched shipments (96.8% match rate) with 2025 invoice data, each sc
 | #   | Scenario                  | 2026 Calculated     | 2025 Actuals        | vs Actuals          |
 |-----|---------------------------|---------------------|---------------------|---------------------|
 | -   | **2025 Invoiced**         | -                   | **$6,541,323**      | -                   |
-| S1  | Current Carrier Mix       | $6,185,721          | $6,541,323          | -$355,602 (-5.4%)   |
+| S1  | Current Carrier Mix       | $5,597,549          | $6,541,323          | -$943,774 (-14.4%)  |
 | S2  | 100% Maersk               | $5,686,496          | $6,541,323          | -$854,827 (-13.1%)  |
-| S3  | 100% FedEx                | $6,778,262          | $6,541,323          | +$236,939 (+3.6%)   |
-| S4  | Constrained Optimal       | $5,253,857          | $6,541,323          | -$1,287,466 (-19.7%)|
-| S5  | Constrained + P2P         | $5,401,495          | $6,541,323          | -$1,139,828 (-17.4%)|
+| S3  | 100% FedEx                | $5,671,838          | $6,541,323          | -$869,485 (-13.3%)  |
+| S4  | Constrained Optimal*      | $5,271,913          | $6,541,323          | -$1,269,410 (-19.4%)|
+| S5  | Constrained + P2P*        | $5,175,158          | $6,541,323          | -$1,366,165 (-20.9%)|
 
-**Key takeaway**: Every scenario except 100% FedEx reduces cost vs 2025 actuals. The optimized mix (S4) would save **$1.29M (-19.7%)** compared to what was actually invoiced in 2025.
+**Key takeaway**: All scenarios reduce cost vs 2025 actuals. The optimized mix with P2P (S5) would save **$1.37M (-20.9%)** compared to what was actually invoiced in 2025.
 
-*Note: Matched shipments exclude 18,072 unmatched shipments (3.2%). DHL shipments use $6.00 estimated actual. S4/S5 costs computed by joining optimized carrier assignments back to shipment-level data.*
+*Note: Matched shipments exclude 18,072 unmatched shipments (3.2%). DHL shipments use $6.00 estimated actual. S4/S5 costs computed by joining optimized carrier assignments back to shipment-level data, with FedEx costs adjusted for earned discount removal.*
 
 ### Monthly Breakdown (Matched Shipments, $K)
 
 | Month     | Ships    | 2025 Actual   | S1 Current   | S2 Maersk   | S3 FedEx   | S4 Optimal   | S5 +P2P   |
 |-----------|----------|---------------|--------------|-------------|------------|--------------|-----------|
-| 2025-01   | 41,882   | $571          | $514         | $438        | $546       | $413         | $398      |
-| 2025-02   | 40,741   | $579          | $476         | $431        | $499       | $382         | $371      |
-| 2025-03   | 32,474   | $430          | $379         | $348        | $402       | $311         | $302      |
-| 2025-04   | 35,369   | $430          | $410         | $372        | $433       | $340         | $349      |
-| 2025-05   | 48,362   | $585          | $561         | $496        | $587       | $462         | $488      |
-| 2025-06   | 37,256   | $449          | $435         | $392        | $460       | $364         | $384      |
-| 2025-07   | 34,715   | $438          | $410         | $385        | $428       | $339         | $357      |
-| 2025-08   | 33,203   | $422          | $386         | $377        | $409       | $320         | $338      |
-| 2025-09   | 29,989   | $340          | $341         | $350        | $373       | $292         | $314      |
-| 2025-10   | 30,337   | $350          | $355         | $338        | $388       | $308         | $328      |
-| 2025-11   | 52,185   | $642          | $629         | $572        | $685       | $538         | $563      |
-| 2025-12   | 119,881  | $1,264        | $1,247       | $1,147      | $1,522     | $1,147       | $1,171    |
-| 2026-01   | 3,547    | $42           | $42          | $39         | $48        | $38          | $40       |
-| **Total** |**539,941**|**$6,541**    | **$6,186**   | **$5,686**  | **$6,778** | **$5,254**   | **$5,401**|
+| 2025-01   | 41,882   | $571          | $424         | $438        | $446       | $399         | $391      |
+| 2025-02   | 40,741   | $579          | $407         | $431        | $424       | $384         | $377      |
+| 2025-03   | 32,474   | $430          | $327         | $348        | $343       | $313         | $307      |
+| 2025-04   | 35,369   | $430          | $355         | $372        | $372       | $352         | $346      |
+| 2025-05   | 48,362   | $585          | $487         | $496        | $506       | $487         | $479      |
+| 2025-06   | 37,256   | $449          | $377         | $392        | $394       | $382         | $377      |
+| 2025-07   | 34,715   | $438          | $364         | $385        | $369       | $354         | $349      |
+| 2025-08   | 33,203   | $422          | $354         | $377        | $352       | $329         | $324      |
+| 2025-09   | 29,989   | $340          | $328         | $350        | $320       | $300         | $295      |
+| 2025-10   | 30,337   | $350          | $337         | $338        | $323       | $301         | $296      |
+| 2025-11   | 52,185   | $642          | $596         | $572        | $557       | $523         | $512      |
+| 2025-12   | 119,881  | $1,264        | $1,202       | $1,147      | $1,228     | $1,112       | $1,088    |
+| 2026-01   | 3,547    | $42           | $40          | $39         | $38        | $36          | $35       |
+| **Total** |**539,941**|**$6,541**    | **$5,598**   | **$5,686**  | **$5,672** | **$5,272**   | **$5,175**|
 
-S4 (Constrained Optimal) is the cheapest scenario in every month. Dec 2025 peak volume (120K shipments) shows the largest absolute savings: $117K vs actuals. Maersk (S2) is cheaper than the current mix (S1) in every month except Sep-Oct 2025 where they are roughly equal.
+S5 (Constrained + P2P) is the cheapest scenario in every month. Dec 2025 peak volume (120K shipments) shows the largest absolute savings: $176K vs actuals. S1, S2, and S3 are clustered tightly ($5.6-5.7M) due to corrected SmartPost pricing. S4 and S5 are now closer to S1-S3 than before the earned discount adjustment.
 
 ## Scenario Details
 
 ### S1: Current Carrier Mix (Baseline)
 
-Reproduces 2025 routing decisions with 2026 rate cards. FedEx dominates at 49.1% of shipments (56.3% of cost), followed by OnTrac (24.7%), USPS (19.0%), and DHL (7.2%, estimated at $6/shipment). 2026 calculated rates are 5.4% lower than 2025 actuals for matched shipments.
+Reproduces 2025 routing decisions with 2026 rate cards. FedEx dominates at 49.1% of shipments (51.8% of cost), followed by OnTrac (24.7%), USPS (19.0%), and DHL (7.2%, estimated at $6/shipment). 2026 calculated rates are 14.4% lower than 2025 actuals for matched shipments, driven largely by the SmartPost pricing correction.
 
 ### S2: 100% Maersk
 
-Maersk is the **cheapest full-coverage carrier** at $6.04M (-6.2% vs baseline). Strong savings on lightweight packages (0-4 lbs represent 72% of volume, saving 28-42%). Becomes expensive for heavy packages due to 30 lb rate jump and dimensional surcharges. No fuel surcharge (included in base rates).
+Maersk costs $6.04M (+3.6% vs baseline). With corrected SmartPost pricing, Maersk is no longer the cheapest full-coverage carrier. Strong savings on lightweight packages (0-4 lbs represent 72% of volume, saving 25-38%), but becomes expensive for heavier packages due to 30 lb rate jump and dimensional surcharges. No fuel surcharge (included in base rates).
 
 ### S3: 100% FedEx
 
-FedEx at full volume costs $7.04M (+9.3% vs baseline). Transportation charges of $3.99M fall $506K short of the $4.5M earned discount threshold. At the 16% tier, FedEx would beat baseline (-0.6%). Surcharges represent 43% of total FedEx cost ($3.04M). SmartPost rates not yet populated.
+FedEx at full volume costs $5.89M (+0.9% vs baseline) - nearly cost-neutral with the current mix. SmartPost handles 86.8% of shipments at lower cost than Home Delivery. Transportation charges of $4.41M fall just $92K short of the $4.5M earned discount threshold. Surcharges represent 25% of total cost ($1.48M).
 
-### S4: Constrained Optimal (Recommended)
+### S4: Constrained Optimal (FedEx earned discount removed)
 
-Optimized 3-carrier mix meeting contractual commitments:
+Optimized 3-carrier mix meeting contractual commitments, with FedEx costs adjusted for earned discount loss:
 
 | Carrier   | Shipments   | % of Total   | Cost           |
 |-----------|-------------|--------------|----------------|
-| OnTrac    | 279,085     | 50.0%        | $2,632,038     |
-| USPS      | 188,240     | 33.7%        | $1,283,864     |
-| FedEx     | 90,688      | 16.3%        | $1,555,215     |
-| **Total** | **558,013** | **100%**     | **$5,471,118** |
+| OnTrac    | 279,082     | 50.0%        | $2,563,752     |
+| USPS      | 224,183     | 40.2%        | $1,736,238     |
+| FedEx     | 54,748      | 9.8%         | $1,192,804     |
+| **Total** | **558,013** | **100%**     | **$5,492,793** |
 
-Constraints satisfied: OnTrac 279,085 (min 279,080), USPS 188,240 (min 140,000). Cost penalty to meet OnTrac minimum: $192K ($1.77/shipment avg for 108K shifted shipments).
+Constraints satisfied: OnTrac 279,082 (min 279,080), USPS 224,183 (min 140,000). FedEx volume drops to just 9.8% as the inflated rates push traffic to OnTrac and USPS. Both commitments are strongly beneficial: OnTrac saves $364K, USPS saves $1.15M vs dropping either.
 
-### S5: Constrained + P2P
+### S5: Constrained + P2P (Recommended)
 
-Adding P2P as a 4th carrier **increases cost by $158K** vs Scenario 4. P2P is genuinely cheap ($4.59/shipment avg) but its serviceable area (51.8% coverage) overlaps heavily with OnTrac's. The OnTrac minimum forces expensive shifts that negate P2P's advantage. P2P only viable if OnTrac commitment is reduced to ~100-150K.
+Adding P2P as a 4th carrier **saves $100K** vs Scenario 4. P2P cherry-picks 43,856 shipments at $4.51/shipment from USPS and FedEx. Without the OnTrac commitment, savings increase to $903K (15.5% vs S1).
+
+| Carrier   | Shipments   | % of Total   | Cost           |
+|-----------|-------------|--------------|----------------|
+| OnTrac    | 279,082     | 50.0%        | $2,563,752     |
+| USPS      | 181,917     | 32.6%        | $1,471,243     |
+| FedEx     | 53,158      | 9.5%         | $1,160,117     |
+| P2P       | 43,856      | 7.9%         | $197,977       |
+| **Total** | **558,013** | **100%**     | **$5,393,088** |
 
 ## Key Insights
 
-1. **Scenario 4 is optimal**: $967K savings (15.0%) with all constraints met. OnTrac and USPS handle 84% of volume at lower cost.
+1. **Scenario 5 is optimal**: $441K savings (7.6%) with all constraints met. P2P adds $100K of incremental savings over S4 with zero downside risk.
 
-2. **Maersk is surprisingly competitive**: Cheapest full-coverage carrier at $6.04M. Strong candidate for selective routing of lightweight packages in the optimized mix.
+2. **Earned discount removal is significant**: Without the 18% earned discount, FedEx costs increase by $2.44M (41.5%). This makes S4/S5 savings smaller vs S1 baseline (7.6% vs 17.2% pre-adjustment) but the result is more realistic.
 
-3. **FedEx volume matters**: At current volumes, FedEx earns no discount. Reaching $4.5M transportation charges (-$506K gap) would unlock 16% savings on base rates.
+3. **OnTrac commitment is now clearly beneficial**: With adjusted FedEx costs, OnTrac saves $364K/year vs dropping it - a strong argument for maintaining the commitment (previously was marginal at $3K).
 
-4. **P2P doesn't help under current constraints**: The OnTrac contractual minimum negates P2P's cost advantage. Revisit if OnTrac commitment is renegotiated.
+4. **USPS is the most valuable commitment**: Saves $1.15M/year. Dropping USPS forces volume to expensive FedEx, making it the most costly commitment to lose.
 
-5. **Carrier strengths by segment**:
-   - **Lightweight (0-4 lbs)**: Maersk dominates (28-42% cheaper)
+5. **Drop OnTrac remains transformative**: Without OnTrac's 279K minimum, S5 achieves $4.93M (15.5% savings) - the cheapest result. But the gap vs "Both constraints" narrowed from $598K to $462K.
+
+6. **SmartPost changes everything**: Correcting SmartPost pricing reduced FedEx costs by ~$1.1M. FedEx ($5.89M) is now nearly cost-neutral with the current mix and cheaper than Maersk.
+
+7. **Carrier strengths by segment**:
+   - **Lightweight (0-4 lbs)**: Maersk dominates (25-38% cheaper)
    - **West region**: OnTrac is cost-effective ($11.10 avg, 64.5% coverage)
-   - **Universal coverage**: USPS at $7.85 avg for current lightweight mix
+   - **Universal coverage**: USPS at $7.85 avg for lightweight; FedEx SmartPost at $9.46 avg
    - **Heavy/oversize**: FedEx most competitive (Maersk 30 lb rate jump, USPS oversize penalties)
 
 ## Constraints Reference
@@ -127,4 +143,5 @@ Adding P2P as a 4th carrier **increases cost by $158K** vs Scenario 4. P2P is ge
 
 *Generated: February 2026*
 *Data Period: 2025 shipment volumes with 2026 calculated rates*
-*Baseline: Scenario 1 current carrier mix ($6,437,752.11)*
+*Baseline: Scenario 1 current carrier mix ($5,833,893.77)*
+*S4/S5 FedEx adjustment: earned discount removed (18% -> 0%), multiplier 1.4865x on base rate*

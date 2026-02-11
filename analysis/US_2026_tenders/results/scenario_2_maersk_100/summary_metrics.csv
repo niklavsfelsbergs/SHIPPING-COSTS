@@ -1,10 +1,10 @@
 metric,value
 total_shipments,558013.0
-current_mix_total,6437752.112825568
+current_mix_total,5833893.772825568
 maersk_total,6041478.28
-cost_difference,-396273.8328255676
-cost_diff_percent,-6.155468956875394
-avg_per_shipment_current,11.536921385031475
+cost_difference,207584.50717443228
+cost_diff_percent,3.55824969150735
+avg_per_shipment_current,10.454763191584368
 avg_per_shipment_maersk,10.826769770596743
 surcharge_nsl1_total,417884.0
 surcharge_nsl2_total,515840.0

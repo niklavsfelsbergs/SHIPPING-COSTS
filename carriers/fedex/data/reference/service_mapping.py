@@ -6,6 +6,7 @@ SERVICE_MAPPING = {
     "FXESPPS": "Ground Economy",
     "FXEGRD": "Ground Economy",
     "FXESPPSL": "Ground Economy",
+    "FXSP": "Ground Economy",
 
     # Home Delivery
     "FXE2D": "Home Delivery",
