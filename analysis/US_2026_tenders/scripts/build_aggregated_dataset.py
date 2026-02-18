@@ -62,6 +62,16 @@ def main():
         pl.col("p2p_cost_total").sum().alias("p2p_cost_total"),
         pl.col("p2p_cost_total").mean().alias("p2p_cost_avg"),
 
+        # P2P US2 (best of PFA/PFS per group)
+        pl.col("p2p_us2_cost_total").sum().alias("p2p_us2_cost_total"),
+        pl.col("p2p_us2_cost_total").mean().alias("p2p_us2_cost_avg"),
+        pl.col("p2p_us2_pfa_cost_total").sum().alias("p2p_us2_pfa_cost_total"),
+        pl.col("p2p_us2_pfa_cost_total").mean().alias("p2p_us2_pfa_cost_avg"),
+        pl.col("p2p_us2_pfs_cost_total").sum().alias("p2p_us2_pfs_cost_total"),
+        pl.col("p2p_us2_pfs_cost_total").mean().alias("p2p_us2_pfs_cost_avg"),
+        (pl.col("p2p_us2_service_selected") == "PFA").sum().alias("p2p_us2_pfa_shipment_count"),
+        (pl.col("p2p_us2_service_selected") == "PFS").sum().alias("p2p_us2_pfs_shipment_count"),
+
         # Maersk
         pl.col("maersk_cost_total").sum().alias("maersk_cost_total"),
         pl.col("maersk_cost_total").mean().alias("maersk_cost_avg"),
@@ -118,7 +128,7 @@ def main():
     current_total = df_agg["cost_current_carrier_total"].sum()
     print(f"    Current mix:     ${current_total:,.2f}")
 
-    for carrier in ["ontrac", "usps", "fedex", "p2p", "maersk"]:
+    for carrier in ["ontrac", "usps", "fedex", "p2p", "p2p_us2", "maersk"]:
         col = f"{carrier}_cost_total"
         total = df_agg[col].sum()
         diff_pct = (total - current_total) / current_total * 100

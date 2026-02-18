@@ -1,15 +1,20 @@
 """
 FedEx Earned Discount Adjustment
 
-When S4/S5 optimization reduces FedEx spend below $4.5M, the 18% earned discount
-is lost. This module adjusts FedEx costs to reflect 0% earned discount.
+Adjusts FedEx costs to reflect a target earned discount tier, given that rate tables
+have 18% earned discount baked in.
 
 The FedEx discount structure is additive — both PP and earned are percentages
 of the true undiscounted rate:
 
-    current_rate = undiscounted × (1 - PP - earned) = undiscounted × 0.37
-    rate_without_earned = undiscounted × (1 - PP) = undiscounted × 0.55
-    multiplier = 0.55 / 0.37 ≈ 1.4865
+    baked_rate = undiscounted × (1 - PP - BAKED_EARNED) = undiscounted × 0.37
+    target_rate = undiscounted × (1 - PP - target_earned)
+    multiplier = (1 - PP - target_earned) / (1 - PP - BAKED_EARNED)
+
+Examples:
+    target_earned=0.00 → multiplier = 0.55/0.37 = 1.4865 (lose all earned discount)
+    target_earned=0.16 → multiplier = 0.39/0.37 = 1.0541 (16% tier instead of 18%)
+    target_earned=0.18 → multiplier = 1.0 (no change, verification mode)
 
 Fuel (14%) is applied on base rate only, so per-shipment adjustment:
 
@@ -22,7 +27,7 @@ from pathlib import Path
 
 # Discount parameters
 PP_DISCOUNT = 0.45       # Performance pricing (flat percentage)
-EARNED_DISCOUNT = 0.18   # Earned discount being removed
+BAKED_EARNED = 0.18      # Earned discount baked into rate tables
 FUEL_RATE = 0.14         # From carriers/fedex/data/reference/fuel.py
 
 # Paths
@@ -30,38 +35,35 @@ PROJECT_ROOT = Path(__file__).parent.parent.parent.parent
 COMBINED_DATASETS = PROJECT_ROOT / "analysis" / "US_2026_tenders" / "combined_datasets"
 
 
-def adjust_and_aggregate(earned_discount: float = EARNED_DISCOUNT) -> tuple[pl.DataFrame, float]:
-    """Adjust FedEx costs for earned discount removal and return aggregated data.
+def adjust_fedex_costs(df: pl.DataFrame, target_earned: float) -> pl.DataFrame:
+    """Adjust FedEx costs on a shipment-level DataFrame to reflect a target earned discount.
 
     Args:
-        earned_discount: The earned discount percentage to remove (default 0.18).
-            Pass 0.0 for no adjustment (verification mode).
+        df: Shipment-level DataFrame with fedex_cost_base_rate, fedex_cost_total,
+            fedex_hd_cost_total, fedex_sp_cost_total, fedex_service_selected,
+            cost_current_carrier, pcs_shipping_provider columns.
+        target_earned: The target earned discount percentage (e.g., 0.16 for 16% tier,
+            0.0 to remove all earned discount).
 
     Returns:
-        Tuple of (aggregated DataFrame, adjusted S1 baseline cost).
-        The aggregated DataFrame has the same schema as shipments_aggregated.parquet.
+        DataFrame with adjusted FedEx costs. If target_earned == BAKED_EARNED (0.18),
+        no adjustment is made.
     """
-    # Load shipment-level data
-    input_path = COMBINED_DATASETS / "shipments_unified.parquet"
-    print(f"    Loading: {input_path.name}")
-    df = pl.read_parquet(input_path)
-    print(f"    {df.shape[0]:,} shipments loaded")
+    baked_factor = 1 - PP_DISCOUNT - BAKED_EARNED   # 0.37
+    target_factor = 1 - PP_DISCOUNT - target_earned  # e.g., 0.39 for 16%, 0.55 for 0%
+    multiplier = target_factor / baked_factor
 
-    # Compute multiplier
-    current_factor = 1 - PP_DISCOUNT - earned_discount   # 0.37 with defaults
-    adjusted_factor = 1 - PP_DISCOUNT                     # 0.55
-    multiplier = adjusted_factor / current_factor         # 1.4865 with defaults
-    print(f"\n    FedEx adjustment:")
-    print(f"      PP discount:      {PP_DISCOUNT:.0%}")
-    print(f"      Earned discount:  {earned_discount:.0%} (being removed)")
-    print(f"      Current factor:   {current_factor:.4f}")
-    print(f"      Adjusted factor:  {adjusted_factor:.4f}")
-    print(f"      Multiplier:       {multiplier:.4f}")
+    print(f"\n    FedEx earned discount adjustment:")
+    print(f"      Baked earned:   {BAKED_EARNED:.0%}")
+    print(f"      Target earned:  {target_earned:.0%}")
+    print(f"      Multiplier:     {multiplier:.4f}")
+
+    if abs(multiplier - 1.0) < 1e-6:
+        print(f"      No adjustment needed (target matches baked rate)")
+        return df
 
     # Snapshot original FedEx totals
     old_fedex_total = float(df["fedex_cost_total"].sum())
-    old_fedex_hd_total = float(df["fedex_hd_cost_total"].sum())
-    old_fedex_sp_total = float(df["fedex_sp_cost_total"].sum())
 
     # Per-shipment adjustment: delta = base_rate × (multiplier - 1) × (1 + fuel_rate)
     delta_expr = pl.col("fedex_cost_base_rate") * (multiplier - 1) * (1 + FUEL_RATE)
@@ -109,6 +111,28 @@ def adjust_and_aggregate(earned_discount: float = EARNED_DISCOUNT) -> tuple[pl.D
     print(f"      New total:  ${new_fedex_total:,.2f}")
     print(f"      Delta:      ${new_fedex_total - old_fedex_total:+,.2f} ({(new_fedex_total/old_fedex_total - 1)*100:+.1f}%)")
 
+    return df
+
+
+def adjust_and_aggregate(target_earned: float = 0.0) -> tuple[pl.DataFrame, float]:
+    """Load shipment data, adjust FedEx costs, and return aggregated data.
+
+    Args:
+        target_earned: The target earned discount percentage (default 0.0 = no earned
+            discount). Used by S4/S5 where FedEx volume drops below $4.5M threshold.
+
+    Returns:
+        Tuple of (aggregated DataFrame, adjusted S1 baseline cost).
+    """
+    # Load shipment-level data
+    input_path = COMBINED_DATASETS / "shipments_unified.parquet"
+    print(f"    Loading: {input_path.name}")
+    df = pl.read_parquet(input_path)
+    print(f"    {df.shape[0]:,} shipments loaded")
+
+    # Adjust FedEx costs
+    df = adjust_fedex_costs(df, target_earned)
+
     # Compute adjusted S1 baseline (sum of cost_current_carrier)
     s1_baseline = float(df["cost_current_carrier"].sum())
     print(f"\n    Adjusted S1 baseline: ${s1_baseline:,.2f}")
@@ -135,6 +159,9 @@ def adjust_and_aggregate(earned_discount: float = EARNED_DISCOUNT) -> tuple[pl.D
         # USPS
         pl.col("usps_cost_total").sum().alias("usps_cost_total"),
         pl.col("usps_cost_total").mean().alias("usps_cost_avg"),
+
+        # FedEx base rate (unadjusted, for threshold calculations)
+        pl.col("fedex_cost_base_rate").sum().alias("fedex_cost_base_rate_total"),
 
         # FedEx (best of HD vs SP)
         pl.col("fedex_cost_total").sum().alias("fedex_cost_total"),

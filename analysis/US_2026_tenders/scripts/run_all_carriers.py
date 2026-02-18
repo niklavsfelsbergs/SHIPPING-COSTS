@@ -31,6 +31,7 @@ CARRIERS = [
     ("usps", "carriers.usps.scripts.upload_expected_all_us"),
     ("fedex", "carriers.fedex.scripts.upload_expected_all_us"),
     ("p2p_us", "carriers.p2p_us.scripts.upload_expected_all_us"),
+    ("p2p_us2", "carriers.p2p_us2.scripts.upload_expected_all_us"),
     ("maersk_us", "carriers.maersk_us.scripts.upload_expected_all_us"),
 ]
 

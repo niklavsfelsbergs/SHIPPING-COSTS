@@ -6,9 +6,9 @@ This analysis extends Scenario 4 by adding P2P US as an additional carrier. For 
 
 **FedEx costs are adjusted to remove the 18% earned discount** (same as S4). When optimization reduces FedEx spend below $4.5M, the earned discount is lost, increasing FedEx costs by ~49% on the base rate portion.
 
-**With both constraints enforced**, adding P2P saves **$99,705 (1.8%)** vs S4, bringing the total to **$5,393,088 (7.6% savings vs S1 baseline)**. P2P captures 43,856 shipments at $4.51/shipment average by cherry-picking the cheapest segments from USPS and FedEx.
+**With both constraints enforced**, adding P2P saves **$99,705 (1.8%)** vs S4, bringing the total to **$5,393,088 (9.7% savings vs S1 baseline)**. P2P captures 43,856 shipments at $4.51/shipment average by cherry-picking the cheapest segments from USPS and FedEx.
 
-**Without the OnTrac commitment**, the best result drops to **$4,931,056 (15.5% savings)** using USPS + FedEx + P2P.
+**Without the OnTrac commitment**, the best result drops to **$4,931,056 (17.4% savings)** using USPS + FedEx + P2P.
 
 ## Carrier Serviceability
 
@@ -54,14 +54,14 @@ Same as S4 but with P2P added to each variant:
 
 | Variant                | S5 Cost        | S4 Cost        | P2P Benefit   | vs S1 Baseline  | Method   |
 |------------------------|----------------|----------------|---------------|-----------------|----------|
-| **Both constraints**   | **$5,393,088** | **$5,492,793** | **+$99,705**  | **7.6%**        | **B**    |
-| Drop OnTrac            | $4,931,056     | $5,857,270     | +$926,214     | 15.5%           | A        |
-| Drop USPS              | $6,371,922     | $6,645,023     | +$273,102     | 9.4%            | B        |
-| Drop both              | $6,324,461     | $8,333,650     | +$2,009,188   | 8.5%            | A        |
+| **Both constraints**   | **$5,393,088** | **$5,492,793** | **+$99,705**  | **9.7%**        | **B**    |
+| Drop OnTrac            | $4,931,056     | $5,857,270     | +$926,214     | 17.4%           | A        |
+| Drop USPS              | $6,371,922     | $6,645,023     | +$273,102     | +6.7%           | B        |
+| Drop both              | $6,324,461     | $8,333,650     | +$2,009,188   | +5.9%           | A        |
 
 **S5 <= S4 guarantee met for all variants.** P2P improves every scenario.
 
-P2P's biggest impact is when OnTrac is dropped: the "Drop OnTrac" variant saves $903K (15.5%) vs S1 baseline - the cheapest scenario across all of S4 and S5. P2P absorbs enormous FedEx volume ($2.01M savings in "Drop both").
+P2P's biggest impact is when OnTrac is dropped: the "Drop OnTrac" variant saves $1,041K (17.4%) vs S1 baseline - the cheapest scenario across all of S4 and S5. P2P absorbs enormous FedEx volume ($2.01M savings in "Drop both").
 
 ### Optimal Carrier Mix (Both Constraints)
 
@@ -103,12 +103,12 @@ OnTrac -> P2P: 0 switches (OnTrac is at its minimum with no surplus to release).
 
 ## The "Drop OnTrac" Finding
 
-The most significant finding is that **USPS + FedEx + P2P without OnTrac** produces the cheapest result at $4,931,056 (15.5% savings vs S1 baseline). This is $462K cheaper than "Both constraints" with P2P.
+The most significant finding is that **USPS + FedEx + P2P without OnTrac** produces the cheapest result at $4,931,056 (17.4% savings vs S1 baseline). This is $462K cheaper than "Both constraints" with P2P.
 
 | Metric                    | Both Constraints   | Drop OnTrac         |
 |---------------------------|--------------------|---------------------|
 | Total Cost                | $5,393,088         | $4,931,056          |
-| Savings vs S1 Baseline    | 7.6%               | 15.5%               |
+| Savings vs S1 Baseline    | 9.7%               | 17.4%               |
 | USPS shipments            | 181,917            | ~450K*              |
 | FedEx shipments           | 53,158             | ~108K*              |
 | P2P shipments             | 43,856             | ~(remainder)*       |
@@ -125,7 +125,7 @@ The most significant finding is that **USPS + FedEx + P2P without OnTrac** produ
 
 2. **Both constraints + P2P saves $100K vs S4**: P2P cherry-picks 44K shipments from USPS and FedEx at $4.51/shipment average - an increase from 27K pre-adjustment as FedEx became less competitive.
 
-3. **Drop OnTrac remains transformative**: Without OnTrac's 279K minimum, P2P + USPS + FedEx saves 15.5% ($903K) vs S1 baseline - the best result across all scenarios.
+3. **Drop OnTrac remains transformative**: Without OnTrac's 279K minimum, P2P + USPS + FedEx saves 17.4% ($1,041K) vs S1 baseline - the best result across all scenarios.
 
 4. **P2P's coverage limits its impact under tight constraints**: Only 51.8% of shipments are serviceable by P2P. With OnTrac consuming its overlap area, only 44K shipments (7.9%) go to P2P under both constraints.
 
@@ -145,8 +145,8 @@ The most significant finding is that **USPS + FedEx + P2P without OnTrac** produ
 
 | OnTrac Minimum   | Best S5 Cost   | vs S1 Baseline   | P2P Shipments   |
 |------------------|----------------|------------------|-----------------|
-| 279K (current)   | $5,393,088     | 7.6%             | 44K             |
-| 0 (dropped)      | $4,931,056     | 15.5%            | ~large          |
+| 279K (current)   | $5,393,088     | 9.7%             | 44K             |
+| 0 (dropped)      | $4,931,056     | 17.4%            | ~large          |
 
 **Negotiate earned discount floor**: If FedEx would guarantee a minimum earned discount (e.g., 10%) even below $4.5M spend, FedEx becomes more competitive and the overall mix cost drops.
 
@@ -155,5 +155,5 @@ The most significant finding is that **USPS + FedEx + P2P without OnTrac** produ
 *Analysis generated: February 2026*
 *Data source: shipments_unified.parquet (558,013 shipments), FedEx earned discount removed*
 *Note: P2P US is not currently used - this is a future assessment*
-*Baseline: $5,833,893.77 (Scenario 1 current mix, unadjusted)*
+*Baseline: $5,971,748 (Scenario 1 current mix, unadjusted)*
 *FedEx adjustment: 1.4865x multiplier on base rate (PP 45%, earned 18% removed, fuel 14%)*

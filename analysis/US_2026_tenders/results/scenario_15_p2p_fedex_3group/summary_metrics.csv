@@ -1,0 +1,14 @@
+metric,value
+total_shipments,558013.0
+s1_baseline,5971748.119387728
+s15_total,4537888.757394593
+savings_vs_s1,1433859.361993135
+savings_pct,24.010714004128925
+fedex_earned_discount,0.16
+fedex_undiscounted_spend,5222850.324324324
+fedex_undiscounted_threshold,5100000.0
+fedex_margin_above_5m,122850.3243243238
+light_p2p_us_cutoff,3.0
+light_p2p_us2_cutoff,2.0
+medium_p2p_us_cutoff,21.0
+medium_p2p_us2_cutoff,2.0

@@ -9,6 +9,7 @@ total transportation charges.
 import polars as pl
 from pathlib import Path
 
+from analysis.US_2026_tenders.optimization.baseline import compute_s1_baseline
 # Paths
 PROJECT_ROOT = Path(__file__).parent.parent.parent.parent
 COMBINED_DATASETS = PROJECT_ROOT / "analysis" / "US_2026_tenders" / "combined_datasets"
@@ -62,10 +63,8 @@ def main():
     total_shipments = len(df)
     print(f"  {total_shipments:,} shipments loaded")
 
-    # Load aggregated dataset for baseline comparison
-    agg_path = COMBINED_DATASETS / "shipments_aggregated.parquet"
-    df_agg = pl.read_parquet(agg_path)
-    baseline_cost = df_agg["cost_current_carrier_total"].sum()
+    # Use S1 baseline for comparison (consistent across scenarios)
+    baseline_cost = compute_s1_baseline()
 
     print("\n" + "-" * 70)
     print("BASELINE: Current Carrier Mix")

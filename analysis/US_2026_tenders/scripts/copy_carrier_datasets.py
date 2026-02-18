@@ -12,7 +12,7 @@ CARRIERS_DIR = PROJECT_ROOT / "carriers"
 OUTPUT_DIR = PROJECT_ROOT / "analysis" / "US_2026_tenders" / "carrier_datasets"
 
 # Carriers to process
-CARRIERS = ["ontrac", "usps", "fedex", "p2p_us", "maersk_us"]
+CARRIERS = ["ontrac", "usps", "fedex", "p2p_us", "p2p_us2", "maersk_us"]
 
 
 def get_latest_parquet(carrier: str) -> Path | None:

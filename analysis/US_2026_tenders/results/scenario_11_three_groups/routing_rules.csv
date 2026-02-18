@@ -1,0 +1,55 @@
+packagetype,group,shipments,p2p_max_weight,usps_max_weight
+PIZZA BOX 20x16x1,Light,117206,3,3
+PIZZA BOX 12x8x1,Light,55898,3,3
+PIZZA BOX 16x12x2,Light,43674,3,3
+WRAP 16''x12'',Light,42298,3,3
+PIZZA BOX 24x20x2,Medium,40950,21,2
+PIZZA BOX 36x24x2,Light,37143,3,3
+PIZZA BOX 20x16x2,Medium,36316,21,2
+PIZZA BOX 42x32x2,Heavy,24809,0,0
+WRAP 24''x16'',Light,23432,3,3
+PIZZA BOX 40x30x1,Heavy,21002,0,0
+PIZZA BOX 48X36X1,Heavy,19768,0,0
+"CROSS PACKAGING 30X24""",Medium,15128,21,2
+"21"" Tube",Light,12376,3,3
+PIZZA BOX 30x20x3,Medium,10152,21,2
+POLY BAG 9x12,Light,5471,3,3
+MUG BOX 16x12x8,Medium,4962,21,2
+"26"" Tube",Light,4717,3,3
+MUG BOX 5x5x5,Light,4464,3,3
+MIXPIX BOX,Light,3239,3,3
+PIZZA BOX 42x32x2 (2x strapped),Heavy,2910,0,0
+"",Light,2685,3,3
+PIZZA BOX 27x23x2,Medium,2427,21,2
+"CROSS PACKAGING 49X30""",Heavy,2254,0,0
+BUBBLE MAILER 9x14,Light,2053,3,3
+"POLY BAG 14,5x19",Medium,2043,21,2
+PIZZA BOX 24x20x2 (2x strapped),Medium,1846,21,2
+PIZZA BOX 40x30x2,Heavy,1692,0,0
+BOX 16x24x12,Medium,1666,21,2
+PIZZA BOX 30x20x3 (2x strapped),Medium,1519,21,2
+MUG BOX 9x7x5,Light,1493,3,3
+"CROSS PACKAGING 40X30""",Heavy,1483,0,0
+PIZZA BOX 36x24x2 (2x strapped),Medium,1479,21,2
+PIZZA BOX 42x32x2 (3x strapped),Heavy,1133,0,0
+MUG BOX 16x6x4,Light,1130,3,3
+Carpet Box 22x4x4,Light,1112,3,3
+POLY BAG 12x15,Light,824,3,3
+PIZZA BOX 36x24x2 (3x strapped),Medium,777,21,2
+WRAP 36''x24'' [x2],Medium,632,21,2
+MIXPIX BOX_(2),Light,504,3,3
+"CROSS PACKAGING 40X40""",Heavy,444,0,0
+PIZZA BOX 40x30x2 (2x strapped),Heavy,441,0,0
+PIZZA BOX 40x30x2 (3x strapped),Heavy,433,0,0
+MIXPIX BOX_(4),Light,329,3,3
+PIZZA BOX 24x20x2 (3x strapped),Medium,329,21,2
+Carpet Box 37x5x5,Light,319,3,3
+WRAP 36''x24'',Medium,307,21,2
+WRAP 27''x23'',Medium,243,21,2
+PIZZA BOX 27x23x2 (2x strapped),Medium,200,21,2
+PIZZA BOX 30x20x3 (3x strapped),Medium,142,21,2
+WRAP 40''x30'',Heavy,69,0,0
+PIZZA BOX 27x23x2 (3x strapped),Heavy,47,0,0
+WRAP 36''x24'' [x3],Heavy,36,0,0
+WRAP 40''x30'' [x3],Heavy,6,0,0
+PAPIER-VERSANDTASCHE klein 250x353x50,Heavy,1,0,0

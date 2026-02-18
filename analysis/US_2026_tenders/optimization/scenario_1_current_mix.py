@@ -4,11 +4,17 @@ Scenario 1: Current Carrier Mix Baseline
 Calculates the total expected shipping cost using the current carrier routing
 (as recorded in pcs_shipping_provider) with 2026 calculated rates.
 
+FedEx rates adjusted: Rate tables have 18% earned discount baked in, but the
+current carrier mix (~274K FedEx shipments, ~$6.05M true undiscounted transportation)
+qualifies for the 16% tier ($4.5-6.5M). Rates are adjusted from 18% to 16%.
+
 This serves as the baseline for comparing optimization scenarios.
 """
 
 import polars as pl
 from pathlib import Path
+
+from analysis.US_2026_tenders.optimization.fedex_adjustment import adjust_fedex_costs
 
 # Paths
 PROJECT_ROOT = Path(__file__).parent.parent.parent.parent
@@ -17,6 +23,9 @@ RESULTS_DIR = PROJECT_ROOT / "analysis" / "US_2026_tenders" / "results" / "scena
 
 # DHL estimated cost per shipment (no calculator available, so use flat estimate)
 DHL_ESTIMATED_COST = 6.00
+
+# FedEx earned discount: current mix qualifies for 16% tier (not 18% baked into rates)
+FEDEX_TARGET_EARNED = 0.16
 
 
 def map_provider_to_carrier(provider: str) -> str:
@@ -38,12 +47,16 @@ def main():
 
     print("=" * 60)
     print("Scenario 1: Current Carrier Mix Baseline")
+    print("FedEx rates adjusted: earned discount 18% -> 16% (actual tier)")
     print("=" * 60)
 
     # Load unified dataset (shipment-level data with actual carrier assignments)
     print("\nLoading shipments_unified.parquet...")
     df = pl.read_parquet(COMBINED_DATASETS / "shipments_unified.parquet")
     print(f"  Total shipments: {df.shape[0]:,}")
+
+    # Adjust FedEx rates from baked 18% to actual 16% earned discount tier
+    df = adjust_fedex_costs(df, target_earned=FEDEX_TARGET_EARNED)
 
     # Add carrier mapping
     df = df.with_columns(

@@ -1,0 +1,11 @@
+metric,value
+total_shipments,558013.0
+current_mix_total,5971748.119387728
+s13_total,4942666.175362163
+cost_difference,-1029081.9440255649
+cost_diff_percent,-17.23250752463208
+avg_per_shipment_current,10.701808236345261
+avg_per_shipment_s13,8.857618326745369
+shipments_no_coverage,0.0
+usps_mix_total,5303527.046744145
+usps_fedex_total,5857111.696562161

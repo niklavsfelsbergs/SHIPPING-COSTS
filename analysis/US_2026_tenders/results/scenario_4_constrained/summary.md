@@ -6,7 +6,7 @@ This analysis finds the optimal carrier mix for US shipments while respecting co
 
 **FedEx costs are adjusted to remove the 18% earned discount.** When optimization reduces FedEx spend below $4.5M, the earned discount is lost. The adjustment increases FedEx costs by ~49% on the base rate portion (multiplier 1.4865x), making OnTrac and USPS significantly more valuable.
 
-**Both constraints can be satisfied.** The optimized mix with both OnTrac and USPS commitments achieves **$341,101 (5.8%) savings** versus current routing (also adjusted). Both commitments are strongly beneficial - OnTrac saves $364K/year and USPS saves $1.15M/year compared to dropping either carrier.
+**Both constraints can be satisfied.** The optimized mix with both OnTrac and USPS commitments achieves **$478,955 (8.0%) savings** versus the S1 baseline. Both commitments are strongly beneficial - OnTrac saves $364K/year and USPS saves $1.15M/year compared to dropping either carrier.
 
 ## Carrier Serviceability
 
@@ -53,7 +53,7 @@ When a carrier commitment is dropped, the carrier is removed entirely from routi
 
 **Both constraints is the cheapest variant** by a significant margin ($365K cheaper than Drop OnTrac). FedEx-only at $8.33M is extremely expensive without the earned discount - 18% more than the adjusted current mix.
 
-*Note: "Current Mix (adjusted)" reflects the S1 baseline with FedEx earned discount removed from FedEx shipments in the current routing. The universal S1 baseline (with earned discount) is $5,833,894.*
+*Note: "Current Mix (adjusted)" reflects the S1 baseline with FedEx earned discount removed from FedEx shipments in the current routing. The universal S1 baseline (with earned discount, FedEx at actual 16% tier) is $5,971,748.*
 
 ### Cost of Commitment
 

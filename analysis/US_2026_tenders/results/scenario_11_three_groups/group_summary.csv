@@ -1,0 +1,4 @@
+group,p2p_max_weight,usps_max_weight,package_types,shipments
+Light,3,3,20,360367
+Medium,21,2,18,121118
+Heavy,0,0,16,76528

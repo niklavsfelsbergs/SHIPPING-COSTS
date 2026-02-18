@@ -105,6 +105,25 @@ def load_p2p() -> pl.DataFrame:
     ])
 
 
+def load_p2p_us2() -> pl.DataFrame:
+    """Load P2P US2 data with renamed columns.
+
+    Includes both PFA and PFS costs, the selected service, and the final cost_total.
+    """
+    path = list(CARRIER_DATASETS.glob("p2p_us2_all_us_*.parquet"))[0]
+    df = pl.read_parquet(path)
+
+    return df.select([
+        "pcs_orderid",
+        pl.col("shipping_zone").alias("p2p_us2_shipping_zone"),
+        pl.col("is_remote").alias("p2p_us2_is_remote"),
+        pl.col("service").alias("p2p_us2_service_selected"),
+        pl.col("pfa_cost_total").alias("p2p_us2_pfa_cost_total"),
+        pl.col("pfs_cost_total").alias("p2p_us2_pfs_cost_total"),
+        pl.col("cost_total").alias("p2p_us2_cost_total"),
+    ])
+
+
 def load_maersk() -> pl.DataFrame:
     """Load Maersk data with base columns and renamed cost columns."""
     path = list(CARRIER_DATASETS.glob("maersk_us_all_us_*.parquet"))[0]
@@ -291,6 +310,9 @@ def main():
     print("  Loading and joining P2P...")
     df = df.join(load_p2p(), on="pcs_orderid", how="left")
 
+    print("  Loading and joining P2P US2...")
+    df = df.join(load_p2p_us2(), on="pcs_orderid", how="left")
+
     # Add current carrier cost
     print("  Calculating cost_current_carrier...")
     df = determine_current_carrier_cost(df)
@@ -348,7 +370,7 @@ def main():
     print(f"    Current carrier total: ${current_total:,.2f}")
 
     print("\n  Cost totals (100% single carrier):")
-    for carrier in ["ontrac", "usps", "fedex", "p2p", "maersk"]:
+    for carrier in ["ontrac", "usps", "fedex", "p2p", "p2p_us2", "maersk"]:
         col = f"{carrier}_cost_total"
         total = df[col].sum()
         diff_pct = (total - current_total) / current_total * 100

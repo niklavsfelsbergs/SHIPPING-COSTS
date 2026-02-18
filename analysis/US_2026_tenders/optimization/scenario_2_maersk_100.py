@@ -10,6 +10,7 @@ Maersk US is NOT currently used - this is a future assessment scenario.
 import polars as pl
 from pathlib import Path
 
+from analysis.US_2026_tenders.optimization.baseline import compute_s1_baseline
 # Paths
 PROJECT_ROOT = Path(__file__).parent.parent.parent.parent
 COMBINED_DATASETS = PROJECT_ROOT / "analysis" / "US_2026_tenders" / "combined_datasets"
@@ -31,14 +32,14 @@ def load_data():
     return df_agg, df_unified
 
 
-def analyze_totals(df_agg):
-    """Calculate overall cost comparison."""
+def analyze_totals(df_agg, s1_baseline):
+    """Calculate overall cost comparison using the S1 baseline."""
     print("\n" + "=" * 60)
     print("TOTAL COST ANALYSIS")
     print("=" * 60)
 
     total_shipments = df_agg["shipment_count"].sum()
-    current_total = df_agg["cost_current_carrier_total"].sum()
+    current_total = s1_baseline
     maersk_total = df_agg["maersk_cost_total"].sum()
 
     diff = maersk_total - current_total
@@ -47,7 +48,7 @@ def analyze_totals(df_agg):
     avg_per_shipment_maersk = maersk_total / total_shipments
 
     print(f"\nTotal shipments: {total_shipments:,}")
-    print(f"\nCurrent mix total:     ${current_total:,.2f}")
+    print(f"\nCurrent mix total (S1 baseline): ${current_total:,.2f}")
     print(f"100% Maersk total:     ${maersk_total:,.2f}")
     print(f"Difference:            ${diff:+,.2f} ({diff_pct:+.1f}%)")
     print(f"\nAvg cost per shipment:")
@@ -425,7 +426,8 @@ def main():
     df_agg, df_unified = load_data()
 
     # Run analyses
-    totals = analyze_totals(df_agg)
+    s1_baseline = compute_s1_baseline()
+    totals = analyze_totals(df_agg, s1_baseline)
     weight_analysis = analyze_weight_brackets(df_unified)
     zone_analysis = analyze_zones(df_unified)
     surcharges = analyze_surcharges(df_unified)
