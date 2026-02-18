@@ -104,7 +104,8 @@ def supplement_shipments(
 
     Returns:
         DataFrame with added columns:
-            - rate_service (Home Delivery or Ground Economy)
+            - rate_service (Home Delivery or Ground Economy, with SmartPost
+              overrides for packages exceeding SmartPost limits)
             - cubic_in, longest_side_in, second_longest_in, length_plus_girth
             - shipping_zone
             - das_zone (DAS tier or null)
@@ -117,6 +118,7 @@ def supplement_shipments(
 
     df = _add_service_type(df)
     df = _add_calculated_dimensions(df)
+    df = _enforce_smartpost_limits(df)
     df = _lookup_zones(df, zones)
     df = _lookup_das_zones(df, das_zones)
     df = _add_billable_weight(df)
@@ -176,6 +178,36 @@ def _add_calculated_dimensions(df: pl.DataFrame) -> pl.DataFrame:
             )
         ).round(1).alias("length_plus_girth"),
     ])
+
+
+def _enforce_smartpost_limits(df: pl.DataFrame) -> pl.DataFrame:
+    """
+    Override Ground Economy (SmartPost) to Home Delivery for packages exceeding
+    SmartPost size/weight limits.
+
+    Packages that exceed these limits would trigger Balloon, Non-Machinable,
+    or Oversize surcharges on SmartPost. Routing them to Home Delivery avoids
+    those surcharges entirely.
+
+    SmartPost limits:
+        - Length + Girth <= 84 inches
+        - Actual weight <= 20 lbs
+        - No single dimension > 27 inches
+        - No two dimensions > 17 inches (i.e. second_longest <= 17)
+    """
+    exceeds_limits = (
+        (pl.col("length_plus_girth") > 84) |
+        (pl.col("weight_lbs") > 20) |
+        (pl.col("longest_side_in") > 27) |
+        (pl.col("second_longest_in") > 17)
+    )
+
+    return df.with_columns(
+        pl.when((pl.col("rate_service") == "Ground Economy") & exceeds_limits)
+        .then(pl.lit("Home Delivery"))
+        .otherwise(pl.col("rate_service"))
+        .alias("rate_service")
+    )
 
 
 def _lookup_zones(df: pl.DataFrame, zones: pl.DataFrame) -> pl.DataFrame:
