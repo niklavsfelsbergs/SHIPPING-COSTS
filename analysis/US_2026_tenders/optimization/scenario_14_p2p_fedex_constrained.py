@@ -17,6 +17,9 @@ Only 2 carrier relationships (P2P + FedEx). FedEx at 16% earned discount.
 import polars as pl
 from pathlib import Path
 
+from analysis.US_2026_tenders.optimization.fedex_adjustment import (
+    BAKED_FACTOR_HD, BAKED_FACTOR_SP,
+)
 from analysis.US_2026_tenders.optimization.baseline import compute_s1_baseline, apply_s1_adjustments
 
 # Paths
@@ -30,19 +33,23 @@ FEDEX_UNDISCOUNTED_THRESHOLD = 5_100_000  # $5.1M to stay safely above $5M penal
 
 
 def load_data():
-    """Load unified dataset at both FedEx earned levels (16% for costs, 0% for undiscounted spend)."""
+    """Load unified dataset with FedEx at 16% earned for costs."""
     unified_path = COMBINED_DATASETS / "shipments_unified.parquet"
 
     print("Loading dataset...")
-    df_16 = pl.read_parquet(unified_path)
-    df_16 = apply_s1_adjustments(df_16, target_earned=0.16)
+    df = pl.read_parquet(unified_path)
+    df = apply_s1_adjustments(df, target_earned=0.16)
 
-    df_0 = pl.read_parquet(unified_path)
-    df_0 = apply_s1_adjustments(df_0, target_earned=0.0)
-
-    # Add fedex_cost_undiscounted column (= FedEx cost at 0% earned)
-    df = df_16.with_columns(
-        df_0["fedex_cost_total"].alias("fedex_cost_undiscounted"),
+    # Compute true FedEx undiscounted list price per shipment from baked base rates.
+    # The rate tables have PP + earned baked in:
+    #   cost_base_rate = undiscounted × (1 - PP - baked_earned)
+    # So: undiscounted = cost_base_rate / baked_factor
+    is_sp = pl.col("fedex_service_selected") == "FXSP"
+    df = df.with_columns(
+        pl.when(is_sp)
+        .then(pl.col("fedex_cost_base_rate") / BAKED_FACTOR_SP)
+        .otherwise(pl.col("fedex_cost_base_rate") / BAKED_FACTOR_HD)
+        .alias("fedex_cost_undiscounted"),
     )
 
     print(f"  Unified: {df.shape[0]:,} shipments")

@@ -16,6 +16,9 @@ for FedEx to reflect this reality.
 import polars as pl
 from pathlib import Path
 
+from analysis.US_2026_tenders.optimization.fedex_adjustment import (
+    BAKED_FACTOR_HD, BAKED_FACTOR_SP,
+)
 from analysis.US_2026_tenders.optimization.baseline import compute_s1_baseline, apply_s1_adjustments
 
 # Paths
@@ -24,21 +27,93 @@ COMBINED_DATASETS = PROJECT_ROOT / "analysis" / "US_2026_tenders" / "combined_da
 RESULTS_DIR = PROJECT_ROOT / "analysis" / "US_2026_tenders" / "results" / "scenario_13_p2p_fedex"
 
 
-# FedEx earned discount for this scenario (0% - below $4.5M threshold)
-FEDEX_EARNED = 0.0
+# FedEx earned discount — determined dynamically in load_data() based on
+# whether the unconstrained cheapest-per-shipment generates enough FedEx
+# undiscounted spend to qualify for 16% HD / 4% SP earned.
+FEDEX_EARNED = 0.0  # Updated by load_data()
+
+
+FEDEX_UNDISCOUNTED_THRESHOLD = 5_100_000  # $5.1M for 16% HD / 4% SP earned discount
+
+
+def _add_undiscounted(df: pl.DataFrame) -> pl.DataFrame:
+    """Add true FedEx undiscounted list price per shipment.
+
+    Uses baked base rates: undiscounted = cost_base_rate / baked_factor.
+    This is independent of the earned discount adjustment.
+    """
+    is_sp = pl.col("fedex_service_selected") == "FXSP"
+    return df.with_columns(
+        pl.when(is_sp)
+        .then(pl.col("fedex_cost_base_rate") / BAKED_FACTOR_SP)
+        .otherwise(pl.col("fedex_cost_base_rate") / BAKED_FACTOR_HD)
+        .alias("fedex_cost_undiscounted"),
+    )
 
 
 def load_data():
-    """Load unified dataset with S1 baseline adjustments and FedEx at 0% earned."""
+    """Load unified dataset and determine self-consistent FedEx earned tier.
+
+    Strategy:
+      1. Try 16% earned first (most favorable for FedEx costs)
+      2. Run cheapest-per-shipment selection
+      3. Compute true undiscounted for FedEx-assigned shipments
+      4. If undiscounted >= $5.1M threshold → 16% is self-consistent, use it
+      5. Otherwise fall back to 0% earned
+    """
     unified_path = COMBINED_DATASETS / "shipments_unified.parquet"
 
     print("Loading dataset...")
     df = pl.read_parquet(unified_path)
-    # Apply S1 adjustments (DHL flat estimate, OnTrac null imputation)
-    # with FedEx at 0% earned — we won't meet $4.5M undiscounted threshold
-    df = apply_s1_adjustments(df, target_earned=FEDEX_EARNED)
     print(f"  Unified: {df.shape[0]:,} shipments")
-    print(f"  FedEx earned discount: {FEDEX_EARNED:.0%}")
+
+    # Add undiscounted column (independent of earned tier)
+    df = _add_undiscounted(df)
+
+    # Try 16% earned first
+    print("\n  Checking if 16% earned is self-consistent...")
+    df_16 = apply_s1_adjustments(df.clone(), target_earned=0.16)
+
+    # Quick cheapest-per-shipment at 16%
+    cost_cols_16 = ["p2p_cost_total", "p2p_us2_cost_total", "fedex_cost_total"]
+    df_16 = df_16.with_columns(
+        pl.min_horizontal(*cost_cols_16).alias("_quick_cost"),
+    )
+    fedex_wins = df_16.filter(
+        pl.col("fedex_cost_total").is_not_null()
+        & (pl.col("fedex_cost_total") == pl.col("_quick_cost"))
+    )
+    undisc_at_16 = float(fedex_wins["fedex_cost_undiscounted"].sum())
+    fedex_count_16 = fedex_wins.height
+
+    print(f"    FedEx at 16% earned: {fedex_count_16:,} shipments")
+    print(f"    True undiscounted:   ${undisc_at_16:,.2f}")
+    print(f"    Threshold:           ${FEDEX_UNDISCOUNTED_THRESHOLD:,.2f}")
+
+    if undisc_at_16 >= FEDEX_UNDISCOUNTED_THRESHOLD:
+        print(f"    --> 16% earned is self-consistent! Using 16% earned.")
+        FEDEX_EARNED_ACTUAL = 0.16
+        df = apply_s1_adjustments(df, target_earned=0.16)
+    else:
+        print(f"    --> Undiscounted below threshold. Falling back to 0% earned.")
+        # Also check undiscounted at 0% earned (fewer FedEx shipments)
+        df_0 = apply_s1_adjustments(df.clone(), target_earned=0.0)
+        df_0 = df_0.with_columns(
+            pl.min_horizontal(*cost_cols_16).alias("_quick_cost"),
+        )
+        fedex_wins_0 = df_0.filter(
+            pl.col("fedex_cost_total").is_not_null()
+            & (pl.col("fedex_cost_total") == pl.col("_quick_cost"))
+        )
+        undisc_at_0 = float(fedex_wins_0["fedex_cost_undiscounted"].sum())
+        print(f"    FedEx at 0% earned: {fedex_wins_0.height:,} shipments, undiscounted = ${undisc_at_0:,.2f}")
+        FEDEX_EARNED_ACTUAL = 0.0
+        df = apply_s1_adjustments(df, target_earned=0.0)
+
+    # Store the actual earned tier used
+    global FEDEX_EARNED
+    FEDEX_EARNED = FEDEX_EARNED_ACTUAL
+    print(f"\n  Final FedEx earned discount: {FEDEX_EARNED:.0%}")
 
     return df
 
@@ -96,6 +171,17 @@ def analyze_totals(df, s1_baseline):
     print(f"S13 P2P+FedEx total:             ${s13_total:,.2f}")
     print(f"Difference:                      ${diff:+,.2f} ({diff_pct:+.1f}%)")
 
+    # FedEx undiscounted spend analysis
+    fedex_ships = df.filter(pl.col("s13_selected_carrier") == "FEDEX")
+    fedex_undiscounted = float(fedex_ships["fedex_cost_undiscounted"].sum())
+    fedex_count = fedex_ships.height
+    print(f"\nFedEx undiscounted spend analysis:")
+    print(f"  FedEx shipments:     {fedex_count:,}")
+    print(f"  True undiscounted:   ${fedex_undiscounted:,.2f}")
+    print(f"  $5.1M threshold:     {'MET' if fedex_undiscounted >= FEDEX_UNDISCOUNTED_THRESHOLD else 'NOT MET'}")
+    print(f"  $5.0M penalty:       {'SAFE' if fedex_undiscounted >= 5_000_000 else 'AT RISK'}")
+    print(f"  Earned discount:     {FEDEX_EARNED:.0%}")
+
     # Reference: each carrier alone
     print(f"\nFor reference (100% single carrier):")
     for label, col in [("OnTrac", "ontrac_cost_total"), ("FedEx", "fedex_cost_total"),
@@ -120,6 +206,7 @@ def analyze_totals(df, s1_baseline):
         "avg_current": avg_current,
         "avg_s13": avg_s13,
         "null_count": null_count,
+        "fedex_undiscounted": fedex_undiscounted,
     }
 
 
@@ -327,6 +414,9 @@ def save_results(totals, carrier_stats, vs_mixes, weight_analysis, pkg_analysis)
             "avg_per_shipment_current",
             "avg_per_shipment_s13",
             "shipments_no_coverage",
+            "fedex_earned_discount",
+            "fedex_undiscounted_spend",
+            "fedex_undiscounted_threshold",
             "usps_mix_total",
             "usps_fedex_total",
         ],
@@ -339,6 +429,9 @@ def save_results(totals, carrier_stats, vs_mixes, weight_analysis, pkg_analysis)
             float(totals["avg_current"]),
             float(totals["avg_s13"]),
             float(totals["null_count"]),
+            float(FEDEX_EARNED),
+            float(totals["fedex_undiscounted"]),
+            float(FEDEX_UNDISCOUNTED_THRESHOLD),
             float(vs_mixes["usps_mix_total"]),
             float(vs_mixes["usps_fedex_total"]),
         ],

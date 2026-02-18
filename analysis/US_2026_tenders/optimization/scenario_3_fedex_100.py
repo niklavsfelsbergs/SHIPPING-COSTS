@@ -10,6 +10,7 @@ import polars as pl
 from pathlib import Path
 
 from analysis.US_2026_tenders.optimization.baseline import compute_s1_baseline
+from analysis.US_2026_tenders.optimization.fedex_adjustment import compute_undiscounted
 # Paths
 PROJECT_ROOT = Path(__file__).parent.parent.parent.parent
 COMBINED_DATASETS = PROJECT_ROOT / "analysis" / "US_2026_tenders" / "combined_datasets"
@@ -149,9 +150,12 @@ def main():
     print(f"    Total surcharges:         ${total_surcharges:>12,.2f}")
     print(f"    Total (calculated):       ${fedex_total:>12,.2f}")
 
-    # Calculate transportation charges for earned discount tier determination
-    # Transportation charges = base rate (undiscounted) - this is what FedEx uses to determine tier
-    transportation_charges = base_rate_total
+    # Calculate true undiscounted transportation charges for earned discount tier determination
+    # Rate tables have discounts baked in (HD: 18% earned, SP: 4.5% earned, both: 45% PP)
+    # True undiscounted = HD_base / 0.37 + SP_base / 0.505
+    hd_base = df.filter(pl.col("fedex_service_selected") == "FXEHD")["fedex_cost_base_rate"].sum()
+    sp_base = df.filter(pl.col("fedex_service_selected") == "FXSP")["fedex_cost_base_rate"].sum()
+    transportation_charges = compute_undiscounted(hd_base, sp_base)
 
     print("\n" + "-" * 70)
     print("Earned Discount Tier Calculation")
@@ -178,25 +182,20 @@ def main():
         marker = " <-- YOU ARE HERE" if tier == tier_desc else ""
         print(f"    {tier:<30} {disc*100:>9.1f}%{marker}")
 
-    # Calculate new earned discount amount
-    # Note: Earned discount applies to transportation charges (base rates), not surcharges
-    # For simplicity, we apply it to the base rate total
-    earned_discount_amount = transportation_charges * discount_pct
+    # Rate tables already have 18% earned discount baked in (HD) / 4.5% (SP).
+    # True tier at $9.3M undiscounted would be 19%, but we use 18% conservatively.
+    # The baked rate IS the final cost — no re-application needed.
+    fedex_total_with_earned_discount = fedex_total  # baked 18% (conservative)
 
-    # Calculate total cost after earned discount
-    # Remove any existing earned discount and apply the new one
-    fedex_total_before_new_discount = fedex_total - current_earned_discount
-    fedex_total_with_earned_discount = fedex_total_before_new_discount - earned_discount_amount
+    print(f"\n  Rate tables have 18% HD / 4.5% SP earned discount baked in.")
+    print(f"  True tier ({discount_pct*100:.0f}%) is {'better' if discount_pct > 0.18 else 'same'} — using baked 18% is conservative.")
+    print(f"  Baked base rate total: ${base_rate_total:,.2f}")
+    print(f"  True undiscounted:     ${transportation_charges:,.2f}")
 
     print("\n" + "-" * 70)
     print("Total Cost Calculation")
     print("-" * 70)
-    print(f"\n  FedEx cost (with current 0% earned discount): ${fedex_total:>14,.2f}")
-    print(f"  Less: Current earned discount (0%):           ${current_earned_discount:>14,.2f}")
-    print(f"  Cost before new earned discount:              ${fedex_total_before_new_discount:>14,.2f}")
-    print(f"  Less: New earned discount ({discount_pct*100:.1f}%):           ${-earned_discount_amount:>14,.2f}")
-    print(f"  ---------------------------------------------------------------")
-    print(f"  TOTAL COST WITH EARNED DISCOUNT:              ${fedex_total_with_earned_discount:>14,.2f}")
+    print(f"\n  FedEx cost (baked 18% earned, conservative): ${fedex_total:>14,.2f}")
 
     print("\n" + "-" * 70)
     print("Comparison to Baseline (Current Carrier Mix)")
@@ -205,13 +204,8 @@ def main():
     diff_vs_baseline = fedex_total_with_earned_discount - baseline_cost
     diff_pct = (diff_vs_baseline / baseline_cost) * 100
 
-    diff_before_discount = fedex_total - baseline_cost
-    diff_before_discount_pct = (diff_before_discount / baseline_cost) * 100
-
     print(f"\n  Current carrier mix baseline:    ${baseline_cost:>14,.2f}")
-    print(f"  100% FedEx (before earned disc): ${fedex_total:>14,.2f}  ({diff_before_discount_pct:+.1f}%)")
-    print(f"  100% FedEx (after earned disc):  ${fedex_total_with_earned_discount:>14,.2f}  ({diff_pct:+.1f}%)")
-    print(f"\n  Savings from earned discount:    ${earned_discount_amount:>14,.2f}")
+    print(f"  100% FedEx (baked 18% earned):   ${fedex_total_with_earned_discount:>14,.2f}  ({diff_pct:+.1f}%)")
     print(f"  Net difference vs baseline:      ${diff_vs_baseline:>14,.2f}  ({diff_pct:+.1f}%)")
 
     # Breakdown by weight bracket
@@ -228,25 +222,18 @@ def main():
         .agg([
             pl.len().alias("shipment_count"),
             pl.col("fedex_cost_total").sum().alias("fedex_total"),
-            pl.col("fedex_cost_base_rate").sum().alias("base_rate_total"),
         ])
         .sort("weight_bracket")
-        .with_columns([
-            (pl.col("base_rate_total") * discount_pct).alias("earned_discount"),
-        ])
-        .with_columns([
-            (pl.col("fedex_total") - pl.col("earned_discount")).alias("fedex_with_discount"),
-        ])
     )
 
-    print(f"\n  {'Weight':<10} {'Shipments':>12} {'FedEx Total':>14} {'After Discount':>16}")
-    print(f"  {'-'*10} {'-'*12} {'-'*14} {'-'*16}")
+    print(f"\n  {'Weight':<10} {'Shipments':>12} {'FedEx Total':>14}")
+    print(f"  {'-'*10} {'-'*12} {'-'*14}")
 
     # Show top weight brackets
     top_brackets = df_weight.sort("fedex_total", descending=True).head(15)
     for row in top_brackets.iter_rows(named=True):
         wt = f"{row['weight_bracket']} lb"
-        print(f"  {wt:<10} {row['shipment_count']:>12,} ${row['fedex_total']:>13,.2f} ${row['fedex_with_discount']:>15,.2f}")
+        print(f"  {wt:<10} {row['shipment_count']:>12,} ${row['fedex_total']:>13,.2f}")
 
     # Breakdown by zone
     print("\n" + "-" * 70)
@@ -259,54 +246,16 @@ def main():
         .agg([
             pl.len().alias("shipment_count"),
             pl.col("fedex_cost_total").sum().alias("fedex_total"),
-            pl.col("fedex_cost_base_rate").sum().alias("base_rate_total"),
         ])
         .sort("fedex_shipping_zone")
-        .with_columns([
-            (pl.col("base_rate_total") * discount_pct).alias("earned_discount"),
-        ])
-        .with_columns([
-            (pl.col("fedex_total") - pl.col("earned_discount")).alias("fedex_with_discount"),
-        ])
     )
 
-    print(f"\n  {'Zone':<10} {'Shipments':>12} {'FedEx Total':>14} {'After Discount':>16}")
-    print(f"  {'-'*10} {'-'*12} {'-'*14} {'-'*16}")
+    print(f"\n  {'Zone':<10} {'Shipments':>12} {'FedEx Total':>14}")
+    print(f"  {'-'*10} {'-'*12} {'-'*14}")
 
     for row in df_zone.iter_rows(named=True):
         zone = row['fedex_shipping_zone']
-        print(f"  {zone:<10} {row['shipment_count']:>12,} ${row['fedex_total']:>13,.2f} ${row['fedex_with_discount']:>15,.2f}")
-
-    # What-if analysis: Show potential savings at each tier
-    print("\n" + "-" * 70)
-    print("What-If Analysis: Impact of Different Earned Discount Tiers")
-    print("-" * 70)
-    print(f"\n  If we could reach different tiers, here's the impact:")
-    print(f"\n  {'Tier':<25} {'Discount':>10} {'Savings':>15} {'Total Cost':>15} {'vs Baseline':>12}")
-    print(f"  {'-'*25} {'-'*10} {'-'*15} {'-'*15} {'-'*12}")
-
-    for min_val, max_val, disc in EARNED_DISCOUNT_TIERS:
-        if max_val == float('inf'):
-            tier = f"$24.5M+"
-        elif min_val == 0:
-            tier = f"< ${max_val/1_000_000:.1f}M"
-        else:
-            tier = f"${min_val/1_000_000:.1f}M - ${max_val/1_000_000:.1f}M"
-
-        potential_savings = transportation_charges * disc
-        potential_total = fedex_total - potential_savings
-        potential_diff = potential_total - baseline_cost
-        potential_diff_pct = (potential_diff / baseline_cost) * 100
-
-        marker = " <--" if tier == tier_desc else ""
-        print(f"  {tier:<25} {disc*100:>9.1f}% ${potential_savings:>14,.2f} ${potential_total:>14,.2f} {potential_diff_pct:>+11.1f}%{marker}")
-
-    # Gap to next tier
-    if transportation_charges < 4_500_000:
-        gap_to_next = 4_500_000 - transportation_charges
-        next_tier_savings = 4_500_000 * 0.16
-        print(f"\n  Gap to $4.5M tier: ${gap_to_next:,.2f}")
-        print(f"  At $4.5M, would save: ${next_tier_savings:,.2f} (16% of $4.5M)")
+        print(f"  {zone:<10} {row['shipment_count']:>12,} ${row['fedex_total']:>13,.2f}")
 
     # Key findings
     print("\n" + "=" * 70)
@@ -314,31 +263,26 @@ def main():
     print("=" * 70)
 
     print(f"""
-  1. Transportation charges of ${transportation_charges/1_000_000:.2f}M qualify for the
-     "{tier_desc}" earned discount tier ({discount_pct*100:.1f}% discount).
+  1. True undiscounted transportation charges: ${transportation_charges/1_000_000:.2f}M
+     Qualifies for the "{tier_desc}" earned discount tier ({discount_pct*100:.1f}%).
 
-  2. The earned discount saves ${earned_discount_amount:,.2f} annually.
+  2. Rate tables have 18% HD / 4.5% SP earned discount baked in (conservative).
+     True tier ({discount_pct*100:.0f}%) is better — actual cost would be slightly lower.
 
-  3. Even with the {discount_pct*100:.1f}% earned discount, 100% FedEx costs
+  3. 100% FedEx (at baked 18%) costs
      ${abs(diff_vs_baseline):,.2f} {'more' if diff_vs_baseline > 0 else 'less'} than the current carrier mix
      ({abs(diff_pct):.1f}% {'increase' if diff_vs_baseline > 0 else 'decrease'}).
-
-  4. Without the earned discount (current 0% tier), FedEx would cost
-     ${abs(diff_before_discount):,.2f} {'more' if diff_before_discount > 0 else 'less'} than baseline ({abs(diff_before_discount_pct):.1f}% {'increase' if diff_before_discount > 0 else 'decrease'}).
-
-  5. We are ${4_500_000 - transportation_charges:,.2f} short of the $4.5M threshold
-     needed to qualify for the 16% earned discount tier.
 """)
 
     # Export results
     results = {
         "baseline_cost": baseline_cost,
         "total_shipments": total_shipments,
-        "transportation_charges": transportation_charges,
+        "transportation_charges_undiscounted": transportation_charges,
+        "transportation_charges_baked": base_rate_total,
         "earned_discount_tier": tier_desc,
         "earned_discount_pct": discount_pct,
-        "earned_discount_amount": earned_discount_amount,
-        "fedex_total_before_earned_discount": fedex_total,
+        "fedex_total": fedex_total,
         "fedex_total_with_earned_discount": fedex_total_with_earned_discount,
         "diff_vs_baseline": diff_vs_baseline,
         "diff_vs_baseline_pct": diff_pct,

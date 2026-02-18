@@ -30,7 +30,7 @@ import sys
 from pathlib import Path
 
 from analysis.US_2026_tenders.optimization.fedex_adjustment import (
-    adjust_fedex_costs, adjust_and_aggregate, PP_DISCOUNT, BAKED_EARNED,
+    adjust_fedex_costs, adjust_and_aggregate, compute_undiscounted,
 )
 
 sys.stdout.reconfigure(encoding="utf-8")
@@ -38,8 +38,14 @@ sys.stdout.reconfigure(encoding="utf-8")
 # FedEx earned discount parameters
 FEDEX_TARGET_EARNED = 0.16
 FEDEX_UNDISCOUNTED_THRESHOLD = 4_500_000
-BAKED_FACTOR = 1 - PP_DISCOUNT - BAKED_EARNED  # 0.37
-FEDEX_BASE_RATE_THRESHOLD = FEDEX_UNDISCOUNTED_THRESHOLD * BAKED_FACTOR  # $1,665,000
+
+
+def _fedex_undiscounted(result: pl.DataFrame) -> float:
+    """Compute FedEx undiscounted spend from a result DataFrame with assigned_carrier."""
+    fedex_rows = result.filter(pl.col("assigned_carrier") == "FEDEX")
+    hd = float(fedex_rows.filter(pl.col("fedex_service_selected") == "FXEHD")["fedex_cost_base_rate"].sum())
+    sp = float(fedex_rows.filter(pl.col("fedex_service_selected") == "FXSP")["fedex_cost_base_rate"].sum())
+    return compute_undiscounted(hd, sp)
 
 # Paths
 PROJECT_ROOT = Path(__file__).parent.parent.parent.parent
@@ -197,19 +203,15 @@ def adjust_for_fedex_threshold(
 
     while True:
         result = apply_static_rules(df, cutoffs)
-        fedex_base = float(
-            result.filter(pl.col("assigned_carrier") == "FEDEX")[
-                "fedex_cost_base_rate"
-            ].sum()
-        )
+        current_undisc = _fedex_undiscounted(result)
 
-        if fedex_base >= threshold:
+        if current_undisc >= threshold:
             return result, cutoffs, shift_log
 
-        shortfall = threshold - fedex_base
+        shortfall = threshold - current_undisc
 
         # Find the best cutoff to lower: for each active cutoff, compute the
-        # cost penalty and FedEx base rate gain from lowering by 1
+        # cost penalty and undiscounted gain from lowering by 1
         candidates = []
         for pkg, (p, u) in cutoffs.items():
             # Try lowering P2P cutoff
@@ -218,23 +220,19 @@ def adjust_for_fedex_threshold(
                 new_cutoffs[pkg] = (p - 1, u)
                 new_result = apply_static_rules(df, new_cutoffs)
                 new_cost = float(new_result["assigned_cost"].sum())
-                new_fedex_base = float(
-                    new_result.filter(pl.col("assigned_carrier") == "FEDEX")[
-                        "fedex_cost_base_rate"
-                    ].sum()
-                )
+                new_undisc = _fedex_undiscounted(new_result)
                 old_cost = float(result["assigned_cost"].sum())
                 cost_penalty = new_cost - old_cost
-                base_gain = new_fedex_base - fedex_base
-                if base_gain > 0:
+                undisc_gain = new_undisc - current_undisc
+                if undisc_gain > 0:
                     candidates.append({
                         "pkg": pkg,
                         "type": "P2P",
                         "old_cut": p,
                         "new_cut": p - 1,
                         "cost_penalty": cost_penalty,
-                        "base_gain": base_gain,
-                        "efficiency": cost_penalty / base_gain,
+                        "undisc_gain": undisc_gain,
+                        "efficiency": cost_penalty / undisc_gain,
                     })
 
             # Try lowering USPS cutoff
@@ -243,30 +241,26 @@ def adjust_for_fedex_threshold(
                 new_cutoffs[pkg] = (p, u - 1)
                 new_result = apply_static_rules(df, new_cutoffs)
                 new_cost = float(new_result["assigned_cost"].sum())
-                new_fedex_base = float(
-                    new_result.filter(pl.col("assigned_carrier") == "FEDEX")[
-                        "fedex_cost_base_rate"
-                    ].sum()
-                )
+                new_undisc = _fedex_undiscounted(new_result)
                 old_cost = float(result["assigned_cost"].sum())
                 cost_penalty = new_cost - old_cost
-                base_gain = new_fedex_base - fedex_base
-                if base_gain > 0:
+                undisc_gain = new_undisc - current_undisc
+                if undisc_gain > 0:
                     candidates.append({
                         "pkg": pkg,
                         "type": "USPS",
                         "old_cut": u,
                         "new_cut": u - 1,
                         "cost_penalty": cost_penalty,
-                        "base_gain": base_gain,
-                        "efficiency": cost_penalty / base_gain,
+                        "undisc_gain": undisc_gain,
+                        "efficiency": cost_penalty / undisc_gain,
                     })
 
         if not candidates:
             print("    WARNING: No more cutoffs to lower, threshold cannot be met")
             return apply_static_rules(df, cutoffs), cutoffs, shift_log
 
-        # Pick the most efficient shift (lowest cost per dollar of base rate gained)
+        # Pick the most efficient shift (lowest cost per dollar of undiscounted gained)
         best = min(candidates, key=lambda x: x["efficiency"])
         pkg = best["pkg"]
         p, u = cutoffs[pkg]
@@ -278,7 +272,7 @@ def adjust_for_fedex_threshold(
         shift_log.append(best)
         print(
             f"    Shift: {pkg} {best['type']} cutoff {best['old_cut']}→{best['new_cut']} "
-            f"(penalty +${best['cost_penalty']:,.0f}, FedEx base +${best['base_gain']:,.0f}, "
+            f"(penalty +${best['cost_penalty']:,.0f}, undiscounted +${best['undisc_gain']:,.0f}, "
             f"ratio {best['efficiency']:.2f})"
         )
 
@@ -300,16 +294,12 @@ def main():
     # Apply unconstrained
     result_unconstrained = apply_static_rules(df, cutoffs)
     cost_unconstrained = float(result_unconstrained["assigned_cost"].sum())
-    fedex_base_unconstrained = float(
-        result_unconstrained.filter(pl.col("assigned_carrier") == "FEDEX")[
-            "fedex_cost_base_rate"
-        ].sum()
-    )
+    undisc_unconstrained = _fedex_undiscounted(result_unconstrained)
 
     print(f"\n    Unconstrained result:")
     print(f"      Total cost: ${cost_unconstrained:,.0f}")
-    print(f"      FedEx base: ${fedex_base_unconstrained:,.0f} (threshold: ${FEDEX_BASE_RATE_THRESHOLD:,.0f})")
-    print(f"      Threshold met: {'YES' if fedex_base_unconstrained >= FEDEX_BASE_RATE_THRESHOLD else 'NO'}")
+    print(f"      Undiscounted: ${undisc_unconstrained:,.0f} (threshold: ${FEDEX_UNDISCOUNTED_THRESHOLD:,.0f})")
+    print(f"      Threshold met: {'YES' if undisc_unconstrained >= FEDEX_UNDISCOUNTED_THRESHOLD else 'NO'}")
 
     # Print per-packagetype cutoffs
     active = {k: v for k, v in cutoffs.items() if v[0] > 0 or v[1] > 0}
@@ -326,10 +316,10 @@ def main():
         print(f"    {pkg:<42} {p_str:>5} {u_str:>6}  ({n:>7,} ships)")
 
     # [3] Adjust for FedEx threshold if needed
-    if fedex_base_unconstrained < FEDEX_BASE_RATE_THRESHOLD:
-        print(f"\n[3] Adjusting cutoffs for FedEx threshold (shortfall: ${FEDEX_BASE_RATE_THRESHOLD - fedex_base_unconstrained:,.0f})...")
+    if undisc_unconstrained < FEDEX_UNDISCOUNTED_THRESHOLD:
+        print(f"\n[3] Adjusting cutoffs for FedEx threshold (shortfall: ${FEDEX_UNDISCOUNTED_THRESHOLD - undisc_unconstrained:,.0f} undiscounted)...")
         result, adjusted_cutoffs, shift_log = adjust_for_fedex_threshold(
-            df, cutoffs, FEDEX_BASE_RATE_THRESHOLD
+            df, cutoffs, FEDEX_UNDISCOUNTED_THRESHOLD
         )
         print(f"\n    Shifts made: {len(shift_log)}")
         total_penalty = sum(s["cost_penalty"] for s in shift_log)
@@ -355,12 +345,7 @@ def main():
 
     # [4] Final results
     total_cost = float(result["assigned_cost"].sum())
-    fedex_base = float(
-        result.filter(pl.col("assigned_carrier") == "FEDEX")[
-            "fedex_cost_base_rate"
-        ].sum()
-    )
-    fedex_undiscounted = fedex_base / BAKED_FACTOR
+    fedex_undiscounted = _fedex_undiscounted(result)
 
     print(f"\n{'=' * 90}")
     print(f"SCENARIO 10 RESULTS")
@@ -372,11 +357,10 @@ def main():
     print(f"    Savings vs S1:     ${savings:,.0f} ({savings / SCENARIO_1_BASELINE * 100:.1f}%)")
 
     print(f"\n    FedEx earned discount:")
-    print(f"      Base rate total:    ${fedex_base:,.0f}")
-    print(f"      Undiscounted equiv: ${fedex_undiscounted:,.0f}")
+    print(f"      Undiscounted:       ${fedex_undiscounted:,.0f}")
     print(f"      Threshold:          ${FEDEX_UNDISCOUNTED_THRESHOLD:,}")
     print(f"      Margin:             ${fedex_undiscounted - FEDEX_UNDISCOUNTED_THRESHOLD:+,.0f}")
-    print(f"      16% tier met:       {'YES' if fedex_base >= FEDEX_BASE_RATE_THRESHOLD else 'NO'}")
+    print(f"      16% tier met:       {'YES' if fedex_undiscounted >= FEDEX_UNDISCOUNTED_THRESHOLD else 'NO'}")
 
     # Carrier mix
     print(f"\n    {'Carrier':<10} {'Shipments':>12} {'%':>8} {'Cost':>15} {'Avg':>10}")

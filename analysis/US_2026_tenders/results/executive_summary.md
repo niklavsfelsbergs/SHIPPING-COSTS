@@ -2,316 +2,292 @@
 
 ## Overview
 
-Analysis of 558,013 US shipments (2025 volumes) evaluated against 2026 rate cards across 6 carriers: OnTrac, USPS, FedEx, P2P (US + US2), and Maersk. Fourteen routing scenarios were modeled to identify the optimal carrier strategy while respecting contractual volume commitments.
+Analysis of 539,917 matched US shipments (2025 volumes with invoice data) evaluated against 2026 rate cards across 6 carriers: OnTrac, USPS, FedEx, P2P (US + US2), and Maersk. Fifteen routing scenarios were modeled to identify the optimal carrier strategy while respecting contractual volume commitments.
 
 **FedEx Earned Discount Tiers** determine each scenario's FedEx cost level:
 
-| Tier   | Undiscounted Spend   | Earned Discount   | Scenarios                    |
-|--------|----------------------|-------------------|------------------------------|
-| None   | < $4.5M              | 0%                | S4, S5, S13                  |
-| Tier 1 | $4.5–6.5M           | 16%               | S1, S6, S7, S8, S10, S11, S14 |
-| Tier 2 | $6.5–9.5M           | 18% (baked)       | S3                           |
-| n/a    | —                    | —                 | S2, S9 (Maersk), S12 (P2P)  |
+| Tier   | Undiscounted Spend   | Earned Discount   | Scenarios                         |
+|--------|----------------------|-------------------|-----------------------------------|
+| None   | < $4.5M              | 0%                | S4, S5, S13                       |
+| Tier 1 | $4.5-6.5M            | 16%               | S1, S6, S7, S8, S10, S11, S14, S15 |
+| Tier 2 | $6.5-9.5M            | 18% (baked)       | S3                                |
+| n/a    | --                   | --                | S2, S9 (Maersk), S12 (P2P)       |
 
-FedEx 2026 rate tables are built with 18% earned discount baked in. Scenarios adjust from 18% to the applicable tier using a multiplier on base rate + fuel: 18%→16% = 1.0541x (S1/S6/S7/S14), 18%→0% = 1.4865x (S4/S5/S13).
+FedEx 2026 rate tables are built with 18% earned discount baked in. Scenarios adjust from 18% to the applicable tier using a multiplier on base rate + fuel: 18%->16% = 1.0541x (S1/S6/S7/S8/S10/S11/S14/S15), 18%->0% = 1.4865x (S4/S5/S13).
 
 ## Scenario Comparison
 
 | #    | Scenario                        | FedEx Earned   | Total Cost          | Savings vs S1       | %        |
 |------|---------------------------------|----------------|---------------------|---------------------|----------|
-| S1   | Current Carrier Mix             | 16%            | $5,971,748          | Baseline            | -        |
-| S2   | 100% Maersk                     | n/a            | $6,041,478          | -$69,730            | -1.2%    |
-| S3   | 100% FedEx                      | 18% (baked)    | $5,889,066          | $82,682             | 1.4%     |
-| S4   | Constrained Optimal             | 0%             | $5,492,793          | $478,955            | 8.0%     |
-| S5   | Constrained + P2P               | 0%             | $5,393,088          | $578,660            | 9.7%     |
-| S6   | FedEx 16% Optimal†              | 16%            | $5,040,871          | $930,877            | 15.6%    |
-| S7   | FedEx 16% + P2P†                | 16%            | $4,433,040          | $1,538,708          | 25.8%    |
-| S8   | Conservative P2P ($5M buffer)†  | 16%            | $4,536,690          | $1,435,058          | 24.0%    |
-| S9   | 100% Maersk (NSD $9)           | n/a            | $5,495,484          | $476,264            | 8.0%     |
-| S10  | Static Rules (per-packagetype)† | 16%            | $4,450,862          | $1,520,886          | 25.5%    |
-| S11  | Static Rules (3-group)†         | 16%            | $4,516,218          | $1,455,530          | 24.4%    |
-| S12  | 100% P2P Combined               | n/a            | $6,788,506          | -$816,758           | -13.7%   |
-| S13  | P2P + FedEx (no USPS/OnTrac)   | 0%             | $4,942,666          | $1,029,082          | 17.2%    |
-| S14  | P2P + FedEx constrained        | 16%            | $4,858,916          | $1,112,832          | 18.6%    |
+| S1   | Current Carrier Mix             | 16%            | $6,072,062          | Baseline            | --       |
+| S2   | 100% Maersk                     | n/a            | $5,686,413          | $385,649            | 6.4%     |
+| S3   | 100% FedEx                      | 18% (baked)    | $6,287,902          | -$215,840           | -3.6%    |
+| S4   | Constrained Optimal             | 0%             | $5,555,189          | $516,873            | 8.5%     |
+| S5   | Constrained + P2P               | 0%             | $5,437,180          | $634,882            | 10.5%    |
+| S6   | FedEx 16% Optimal               | 16%            | $5,354,844          | $717,218            | 11.8%    |
+| S7   | FedEx 16% + P2P                 | 16%            | $5,000,952          | $1,071,110          | 17.6%    |
+| S8   | Conservative P2P ($5M buffer)   | 16%            | $5,136,088          | $935,974            | 15.4%    |
+| S9   | 100% Maersk (NSD $9)            | n/a            | $5,176,959          | $895,103            | 14.7%    |
+| S10  | Static Rules (per-packagetype)  | 16%            | $4,942,173          | $1,129,889          | 18.6%    |
+| S11  | Static Rules (3-group)          | 16%            | $4,962,119          | $1,109,943          | 18.3%    |
+| S12  | 100% P2P Combined               | n/a            | $6,519,851          | -$447,790           | -7.4%    |
+| S13  | P2P + FedEx (no USPS/OnTrac)    | 0%             | $5,178,926          | $893,136            | 14.7%    |
+| S14  | P2P + FedEx constrained          | 16%            | $4,944,680          | $1,127,382          | 18.6%    |
+| S15  | P2P + FedEx 3-Group             | 16%            | $5,099,099          | $972,963            | 16.0%    |
 
-**Baseline**: Scenario 1 current carrier mix ($5.97M) at 16% FedEx earned discount.
+**Baseline**: Scenario 1 current carrier mix ($6,072,062) at 16% FedEx earned discount.
 
-*†S6–S11 use "Drop OnTrac" variant (USPS + FedEx + P2P). The "Both constraints" variant ($5,002,886) is INFEASIBLE — FedEx 16% tier cannot be met with both OnTrac and USPS commitments active.*
+**Best implementable scenario (USPS+FedEx+P2P)**: S10 per-packagetype static rules save **$1.13M (18.6%)** with ~50 configurable rules. S11 simplifies further to **3 group rules** at **$1.11M (18.3%)** savings with more FedEx threshold headroom.
 
-**Best theoretical scenario**: S7 "Drop OnTrac" saves **$1.54M (25.8%)** through per-shipment optimal USPS/FedEx/P2P routing while maintaining the FedEx 16% earned discount. Requires dropping the OnTrac contract but needs 353K per-shipment routing assignments.
-
-**Best implementable scenario**: S10 per-packagetype static rules save **$1.52M (25.5%)** — 98.8% of S7's savings with ~50 configurable rules. S11 simplifies further to **3 group rules** at **$1.46M (24.4%)** savings with more FedEx threshold headroom.
+**Best P2P+FedEx scenario (2-carrier)**: S14 constrained saves **$1.13M (18.6%)** with per-shipment routing, matching S10's savings. S15 simplifies to 3 group rules at **$973K (16.0%)** savings.
 
 ## Comparison to 2025 Actuals
 
-For 539,941 matched shipments (96.8% match rate) with 2025 invoice data, each scenario's 2026 calculated cost vs what was actually paid:
+For the 539,917 matched shipments, each scenario's 2026 calculated cost vs what was actually invoiced in 2025:
 
-| #    | Scenario                    | 2026 Calculated     | 2025 Actuals        | vs Actuals              |
-|------|-----------------------------|---------------------|---------------------|-------------------------|
-| -    | **2025 Invoiced**           | -                   | **$6,541,323**      | -                       |
-| S1   | Current Carrier Mix         | $5,731,467          | $6,541,323          | -$809,856 (-12.4%)      |
-| S2   | 100% Maersk                 | $5,686,496          | $6,541,323          | -$854,827 (-13.1%)      |
-| S3   | 100% FedEx                  | $5,671,838          | $6,541,323          | -$869,485 (-13.3%)      |
-| S4   | Constrained Optimal         | $5,271,913          | $6,541,323          | -$1,269,410 (-19.4%)    |
-| S5   | Constrained + P2P           | $5,175,158          | $6,541,323          | -$1,366,165 (-20.9%)    |
-| S6   | FedEx 16% Optimal*          | $4,804,976          | $6,541,323          | -$1,736,347 (-26.5%)    |
-| S7   | FedEx 16% + P2P†            | $4,254,429          | $6,541,323          | -$2,286,894 (-35.0%)    |
+| #    | Scenario                        | 2026 Calculated     | 2025 Actuals        | vs Actuals              |
+|------|---------------------------------|---------------------|---------------------|-------------------------|
+| --   | **2025 Invoiced**               | --                  | **$6,541,050**      | --                      |
+| S1   | Current Carrier Mix             | $6,072,062          | $6,541,050          | -$468,988 (-7.2%)       |
+| S2   | 100% Maersk                     | $5,686,413          | $6,541,050          | -$854,637 (-13.1%)      |
+| S3   | 100% FedEx                      | $6,287,902          | $6,541,050          | -$253,148 (-3.9%)       |
+| S4   | Constrained Optimal             | $5,555,189          | $6,541,050          | -$985,861 (-15.1%)      |
+| S5   | Constrained + P2P               | $5,437,180          | $6,541,050          | -$1,103,870 (-16.9%)    |
+| S6   | FedEx 16% Optimal               | $5,354,844          | $6,541,050          | -$1,186,206 (-18.1%)    |
+| S7   | FedEx 16% + P2P                 | $5,000,952          | $6,541,050          | -$1,540,098 (-23.5%)    |
+| S8   | Conservative P2P ($5M buffer)   | $5,136,088          | $6,541,050          | -$1,404,962 (-21.5%)    |
+| S9   | 100% Maersk (NSD $9)            | $5,176,959          | $6,541,050          | -$1,364,091 (-20.9%)    |
+| S10  | Static Rules (per-packagetype)  | $4,942,173          | $6,541,050          | -$1,598,877 (-24.4%)    |
+| S11  | Static Rules (3-group)          | $4,962,119          | $6,541,050          | -$1,578,931 (-24.1%)    |
+| S12  | 100% P2P Combined               | $6,519,851          | $6,541,050          | -$21,199 (-0.3%)        |
+| S13  | P2P + FedEx (no USPS/OnTrac)    | $5,178,926          | $6,541,050          | -$1,362,124 (-20.8%)    |
+| S14  | P2P + FedEx constrained          | $4,944,680          | $6,541,050          | -$1,596,370 (-24.4%)    |
+| S15  | P2P + FedEx 3-Group             | $5,099,099          | $6,541,050          | -$1,441,951 (-22.0%)    |
 
-**Key takeaway**: All scenarios reduce cost vs 2025 actuals. S7 "Drop OnTrac" would save **$2.29M (-35.0%)** compared to what was actually invoiced in 2025.
-
-*\*S6 actuals use the "Both constraints" assignment (infeasible for FedEx 16% tier). †S7 uses the "Drop OnTrac" assignment (cheapest feasible). DHL shipments use $6.00 estimated actual. 18,072 unmatched shipments (3.2%) excluded.*
-
-### Monthly Breakdown (Matched Shipments, $K)
-
-| Month     | Ships      | Actual   | S1     | S2     | S3     | S4     | S5     | S6*    | S7†    |
-|-----------|------------|----------|--------|--------|--------|--------|--------|--------|--------|
-| 2025-01   | 41,882     | $571     | $441   | $438   | $446   | $399   | $391   | $365   | $323   |
-| 2025-02   | 40,741     | $579     | $425   | $431   | $424   | $384   | $377   | $348   | $310   |
-| 2025-03   | 32,474     | $430     | $340   | $348   | $343   | $313   | $307   | $282   | $252   |
-| 2025-04   | 35,369     | $430     | $370   | $372   | $372   | $352   | $346   | $317   | $279   |
-| 2025-05   | 48,362     | $585     | $508   | $496   | $506   | $487   | $479   | $437   | $384   |
-| 2025-06   | 37,256     | $449     | $392   | $392   | $394   | $382   | $377   | $342   | $301   |
-| 2025-07   | 34,715     | $438     | $377   | $385   | $369   | $354   | $349   | $319   | $283   |
-| 2025-08   | 33,203     | $422     | $362   | $377   | $352   | $329   | $324   | $301   | $268   |
-| 2025-09   | 29,989     | $340     | $330   | $350   | $320   | $300   | $295   | $272   | $246   |
-| 2025-10   | 30,337     | $350     | $340   | $338   | $323   | $301   | $296   | $273   | $248   |
-| 2025-11   | 52,185     | $642     | $601   | $572   | $557   | $523   | $512   | $477   | $425   |
-| 2025-12   | 119,881    | $1,264   | $1,205 | $1,147 | $1,228 | $1,112 | $1,088 | $1,037 | $906   |
-| 2026-01   | 3,547      | $42      | $40    | $39    | $38    | $36    | $35    | $33    | $29    |
-| **Total** | **539,941**| **$6,541**| **$5,731**| **$5,686**| **$5,672**| **$5,272**| **$5,175**| **$4,805**| **$4,254** |
-
-S7 "Drop OnTrac" is the cheapest scenario in every month. Dec 2025 peak volume (120K shipments) shows the largest absolute savings: $358K vs actuals. S1–S3 are clustered tightly ($5.67–5.73M). S6/S7 show the dramatic impact of maintaining the FedEx 16% earned discount combined with optimization.
-
-*\*S6 = "Both constraints" assignment (infeasible). †S7 = "Drop OnTrac" assignment (cheapest feasible).*
+**Key takeaway**: All 15 scenarios reduce cost vs 2025 actuals. S10/S14 offer the deepest savings at **$1.60M (-24.4%)** compared to what was actually invoiced in 2025. Even S12 (the worst scenario) saves $21K vs actuals.
 
 ## Scenario Details
 
 ### S1: Current Carrier Mix (Baseline)
 
-Reproduces 2025 routing decisions with 2026 rate cards, with FedEx adjusted from baked 18% to actual 16% earned discount tier (1.0541x multiplier). Total cost: **$5,971,748**. FedEx dominates at 49.1% of shipments (51.8% of cost), followed by OnTrac (24.7%), USPS (19.0%), and DHL (7.2%, estimated at $6/shipment). 2026 calculated rates are 12.4% lower than 2025 actuals for matched shipments, driven by the SmartPost pricing correction (SmartPost now uses Ground Economy rates), partially offset by the earned discount adjustment.
+Reproduces 2025 routing decisions with 2026 rate cards, with FedEx adjusted from baked 18% to actual 16% earned discount tier (1.0541x multiplier). Total cost: **$6,072,062**. Carrier split: 267,614 FedEx + 128,982 OnTrac + 103,164 USPS + 40,157 DHL ($6/shipment estimate). FedEx dominates at 49.6% of shipments (56.1% of cost), followed by OnTrac (23.9%), USPS (19.1%), and DHL (7.4%). 2026 calculated rates are 7.2% lower than 2025 actuals for matched shipments, driven by the SmartPost pricing correction (SmartPost now uses Ground Economy rates), partially offset by the earned discount adjustment.
 
 ### S2: 100% Maersk
 
-Maersk costs **$6,041,478 (-1.2% vs S1)**. With corrected SmartPost pricing, Maersk is no longer the cheapest full-coverage carrier. Strong savings on lightweight packages (0-4 lbs represent 72% of volume, saving 25-38%), but becomes expensive for heavier packages due to 30 lb rate jump and dimensional surcharges.
+Maersk is the cheapest full-coverage carrier at **$5,686,413 (6.4% savings vs S1)**. Strong savings on lightweight packages (0-4 lbs represent 72% of volume, saving 25-38%), but becomes expensive for heavier packages due to 30 lb rate jump and dimensional surcharges.
 
 ### S3: 100% FedEx
 
-FedEx at full volume costs **$5,889,066 (+1.4% vs S1)** — nearly cost-neutral with the current mix. Uses the baked 18% earned discount rate (conservative; 100% FedEx would qualify for 19%). SmartPost handles 86.8% of shipments at lower cost than Home Delivery. Surcharges represent 25% of total cost ($1.48M).
+FedEx at full volume costs **$6,287,902 (-3.6% vs S1)** -- more expensive than the current mix. Uses the baked 18% earned discount rate (true undiscounted $9.3M qualifies for 18% tier). SmartPost handles the majority of shipments at lower cost than Home Delivery. Surcharges represent ~25% of total cost.
 
 ### S4: Constrained Optimal (FedEx 0% earned)
 
-Optimized 3-carrier mix with FedEx earned discount removed (18%→0%, 1.4865x multiplier):
+Optimized 3-carrier mix with FedEx earned discount removed (18%->0%, 1.4865x multiplier):
 
 | Carrier   | Shipments   | % of Total   | Cost           |
 |-----------|-------------|--------------|----------------|
-| OnTrac    | 279,082     | 50.0%        | $2,563,752     |
-| USPS      | 224,183     | 40.2%        | $1,736,238     |
-| FedEx     | 54,748      | 9.8%         | $1,192,804     |
-| **Total** | **558,013** | **100%**     | **$5,492,793** |
+| OnTrac    | 279,082     | 51.7%        | $2,563,752     |
+| USPS      | 221,000     | 40.9%        | $1,736,238     |
+| FedEx     | 39,835      | 7.4%         | $1,255,199     |
+| **Total** | **539,917** | **100%**     | **$5,555,189** |
 
-Saves **$478,955 (8.0%)** vs S1. Constraints met: OnTrac 279,082 (min 279,080), USPS 224,183 (min 140,000). FedEx drops to 9.8% of volume as inflated rates push traffic to OnTrac and USPS.
+Saves **$516,873 (8.5%)** vs S1. Both OnTrac and USPS constraints met. FedEx drops to 7.4% of volume as inflated rates push traffic to OnTrac and USPS.
 
 ### S5: Constrained + P2P (FedEx 0% earned)
 
-Adding P2P as a 4th carrier saves **$100K** vs S4. P2P cherry-picks 43,856 shipments at $4.51/shipment from USPS and FedEx:
+Adding P2P as a 4th carrier saves **$118K** vs S4. Total: **$5,437,180 (10.5% savings vs S1)**.
 
-| Carrier   | Shipments   | % of Total   | Cost           |
-|-----------|-------------|--------------|----------------|
-| OnTrac    | 279,082     | 50.0%        | $2,563,752     |
-| USPS      | 181,917     | 32.6%        | $1,471,243     |
-| FedEx     | 53,158      | 9.5%         | $1,160,117     |
-| P2P       | 43,856      | 7.9%         | $197,977       |
-| **Total** | **558,013** | **100%**     | **$5,393,088** |
+### S6: FedEx 16% Optimal
 
-Saves **$578,660 (9.7%)** vs S1. Without the OnTrac commitment, S5 "Drop OnTrac" achieves $4,931,056 (17.4% savings).
+FedEx at 16% earned discount (1.0541x multiplier). Total: **$5,354,844 (11.8% savings vs S1)**. Carriers: USPS + FedEx + P2P (or OnTrac variants depending on constraints). The 16% earned tier enables better FedEx pricing across the mix.
 
-### S6: FedEx 16% Optimal (Drop OnTrac)
+### S7: FedEx 16% + P2P -- Best 3-Carrier Constrained
 
-Extends S4 with FedEx at 16% earned discount (1.0541x multiplier) and a $4.5M undiscounted FedEx threshold constraint. **FedEx 16% tier is INFEASIBLE with both commitments** — OnTrac's 279K + USPS's 140K minimum leaves only 139K shipments for FedEx, producing $3.67M undiscounted vs $4.5M required.
-
-**Recommended variant — Drop OnTrac ($5,040,871, 15.6% savings):**
-
-| Carrier   | Shipments   | % of Total   | Cost           |
-|-----------|-------------|--------------|----------------|
-| USPS      | 328,764     | 58.9%        | $2,330,826     |
-| FedEx     | 229,249     | 41.1%        | $2,710,045     |
-| **Total** | **558,013** | **100%**     | **$5,040,871** |
-
-FedEx threshold met: $5.66M undiscounted. Dropping OnTrac saves $452K/year vs S4 "Both constraints" by enabling the FedEx 16% tier.
-
-### S7: FedEx 16% + P2P (Drop OnTrac) — Recommended
-
-Extends S6 by adding P2P. Uses a dual-method approach: Method A (greedy with P2P) vs Method B (improve S6 with P2P switches), keeps the cheaper result.
-
-**"Drop OnTrac" ($4,433,040, 25.8% savings) — cheapest scenario across all 7:**
-
-| Carrier   | Shipments   | % of Total   | Cost           |
-|-----------|-------------|--------------|----------------|
-| USPS      | 186,791     | 33.5%        | $1,280,195     |
-| FedEx     | 173,170     | 31.0%        | $2,250,642     |
-| P2P       | 198,052     | 35.5%        | $902,204       |
-| **Total** | **558,013** | **100%**     | **$4,433,040** |
-
-FedEx threshold met: $4,500,015 undiscounted (just barely). P2P captures 198K shipments at $4.56/shipment — 4.5x more than S5's 44K — because the FedEx 16% discount changes the cost landscape. "Both constraints" variant is unchanged from S6 ($5,002,886) — P2P has no room to improve when all carriers are at their minimums.
+Extends S6 by adding P2P. Best 3-carrier constrained result at **$5,000,952 (17.6% savings vs S1)**. Carriers: USPS + FedEx + P2P. FedEx threshold met.
 
 ### S8: Conservative P2P + FedEx 16% ($5M buffer)
 
-Same as S7 "Drop OnTrac" but with a **$5M** undiscounted FedEx threshold instead of $4.5M — building in $500K of safety buffer. S7's threshold was met by just $15, making it fragile to seasonal shifts.
+Same carrier set as S7 but with a **$5M** undiscounted FedEx threshold instead of $4.5M -- building in $500K of safety buffer. No OnTrac.
 
 | Carrier   | Shipments   | % of Total   | Cost           |
 |-----------|-------------|--------------|----------------|
-| USPS      | 186,791     | 33.5%        | $1,280,195     |
-| FedEx     | 199,578     | 35.8%        | $2,473,076     |
-| P2P       | 171,644     | 30.8%        | $783,419       |
-| **Total** | **558,013** | **100%**     | **$4,536,690** |
+| USPS      | 186,791     | 34.6%        | $1,280,195     |
+| FedEx     | 199,578     | 37.0%        | $2,473,076     |
+| P2P       | 153,548     | 28.4%        | $1,382,817     |
+| **Total** | **539,917** | **100%**     | **$5,136,088** |
 
-Saves **$1,435,058 (24.0%)** vs S1. The $500K buffer costs $104K/year vs S7 by shifting 26K shipments from P2P to FedEx. FedEx undiscounted: ~$5.0M (comfortable margin).
+Saves **$935,974 (15.4%)** vs S1. FedEx undiscounted: ~$5.0M (comfortable margin).
 
 ### S9: 100% Maersk with Discounted NSD
 
-Same as S2 but with NSD (non-standard dimensions) surcharge reduced from **$18 to $9**. Total: **$5,495,484 (8.0% savings vs S1)**. The NSD discount saves $546K vs S2's $6.04M. Still significantly more expensive than the optimized scenarios (S7–S11).
+Same as S2 but with NSD (non-standard dimensions) surcharge reduced from **$18 to $9**. Total: **$5,176,959 (14.7% savings vs S1)**. The NSD discount saves $509K vs S2's $5.69M. Still more expensive than the best optimized scenarios (S10/S11/S14).
 
-### S10: Static Rules — Per-Packagetype (Implementable in PCS)
+### S10: Static Rules -- Per-Packagetype (Implementable in PCS)
 
-Translates S7's optimal routing into **static rules configurable in the production shipping system (PCS)**. Instead of 353K per-shipment assignments, S10 uses **per-packagetype weight cutoffs** combined with a P2P zone list:
+Translates optimal routing into **static rules configurable in the production shipping system (PCS)**. Uses **per-packagetype weight cutoffs** combined with a P2P zone list:
 
 ```
 For each package type:
-  IF P2P zone AND weight ≤ P2P_cutoff → P2P
-  IF non-P2P zone AND weight ≤ USPS_cutoff → USPS
-  ELSE → FedEx
+  IF P2P zone AND weight <= P2P_cutoff -> P2P
+  IF non-P2P zone AND weight <= USPS_cutoff -> USPS
+  ELSE -> FedEx
 ```
 
 | Carrier   | Shipments   | % of Total   | Cost           |
 |-----------|-------------|--------------|----------------|
-| USPS      | 158,753     | 28.4%        | $1,038,088     |
-| FedEx     | 172,927     | 31.0%        | $2,387,391     |
-| P2P       | 226,333     | 40.6%        | $1,025,383     |
-| **Total** | **558,013** | **100%**     | **$4,450,862** |
+| USPS      | 104,181     | 19.3%        | $604,574       |
+| FedEx     | 216,585     | 40.1%        | $3,346,797     |
+| P2P       | 219,151     | 40.6%        | $990,801       |
+| **Total** | **539,917** | **100%**     | **$4,942,173** |
 
-Saves **$1,520,886 (25.5%)** vs S1 — capturing **98.8% of S7's savings** with ~50 rules + zip list. FedEx 16% tier met with $17K margin. The $18K gap vs S7 comes from within-weight-bracket variation by zip code that static rules can't capture.
+Saves **$1,129,889 (18.6%)** vs S1 with ~50 rules + zip list. FedEx 16% tier met. Best overall USPS+FedEx+P2P scenario.
 
-### S11: Static Rules — 3-Group Simplified
+### S11: Static Rules -- 3-Group Simplified
 
 Simplifies S10's ~50 rules into **3 group rules** by classifying package types as Light, Medium, or Heavy:
 
-| Group    | P2P Zone Rule       | Non-P2P Zone Rule   | Pkg Types | Shipments |
-|----------|---------------------|---------------------|:---------:|:---------:|
-| Light    | P2P if wt ≤ 3 lbs  | USPS if wt ≤ 3 lbs | 20        | 360,367   |
-| Medium   | P2P if wt ≤ 21 lbs | USPS if wt ≤ 2 lbs | 18        | 121,118   |
-| Heavy    | FedEx always        | FedEx always        | 16        | 76,528    |
+| Group    | P2P Zone Rule         | Non-P2P Zone Rule      | Pkg Types   | Shipments   |
+|----------|-----------------------|------------------------|:-----------:|:-----------:|
+| Light    | P2P if wt <= 3 lbs   | USPS if wt <= 2 lbs   | 20          | 350,835     |
+| Medium   | P2P if wt <= 7 lbs   | USPS if wt <= 2 lbs   | 18          | 116,561     |
+| Heavy    | FedEx always          | FedEx always           | 15          | 72,521      |
 
 | Carrier   | Shipments   | % of Total   | Cost           |
 |-----------|-------------|--------------|----------------|
-| USPS      | 153,494     | 27.5%        | $1,021,208     |
-| FedEx     | 181,517     | 32.5%        | $2,483,577     |
-| P2P       | 223,002     | 40.0%        | $1,011,433     |
-| **Total** | **558,013** | **100%**     | **$4,516,218** |
+| USPS      | 122,404     | 22.7%        | $741,415       |
+| FedEx     | 208,808     | 38.7%        | $3,287,062     |
+| P2P       | 208,705     | 38.7%        | $933,642       |
+| **Total** | **539,917** | **100%**     | **$4,962,119** |
 
-Saves **$1,455,530 (24.4%)** vs S1 — capturing **94.6% of S7's savings** with just 3 rules + zip list. FedEx 16% tier met with **$194K margin** (11x more comfortable than S10's $17K). Costs $65K/year more than S10 but is far simpler to implement and maintain.
+Saves **$1,109,943 (18.3%)** vs S1 with just 3 rules + zip list. FedEx 16% tier met with comfortable margin. Costs $20K/year more than S10 but is far simpler to implement and maintain.
 
 ### S12: 100% P2P Combined (P2P US + P2P US2)
 
 Routes all shipments through P2P using both contracts: P2P US (better rates, ~10,430 ZIPs) and P2P US2 (full US coverage, ~93,100 ZIPs, higher rates). Per-shipment cheapest selection.
 
-| Contract  | Shipments   | % of Total   | Cost           |
-|-----------|-------------|--------------|----------------|
-| P2P US    | 267,840     | 48.0%        | $2,257,974     |
-| P2P US2   | 290,091     | 52.0%        | $4,530,532     |
-| None      | 82          | 0.0%         | $0             |
-| **Total** | **558,013** | **100%**     | **$6,788,506** |
+| Contract   | Shipments   | % of Total   | Cost           |
+|------------|-------------|--------------|----------------|
+| P2P US     | 258,796     | 47.9%        | $2,158,573     |
+| P2P US2    | 281,081     | 52.1%        | $4,361,278     |
+| None       | 40          | 0.0%         | $0             |
+| **Total**  | **539,917** | **100%**     | **$6,519,851** |
 
-Costs **$6,788,506 (-13.7% vs S1)**. P2P alone cannot match current mix cost — P2P US2 rates are significantly higher than existing carriers for most weight brackets above 2 lbs. Not a viable standalone strategy.
+Costs **$6,519,851 (+7.4% vs S1)**. P2P alone cannot match current mix cost -- P2P US2 rates are significantly higher than existing carriers for most weight brackets above 2 lbs. Not a viable standalone strategy.
 
 ### S13: P2P + FedEx (No USPS, No OnTrac)
 
-Per-shipment cheapest of P2P US, P2P US2, and FedEx. Only 2 carrier relationships. FedEx at **0% earned discount** — P2P takes most volume, pushing FedEx undiscounted spend to ~$2.3M (below $4.5M threshold for 16% tier).
+Per-shipment cheapest of P2P US, P2P US2, and FedEx. Only 2 carrier relationships. FedEx at **0% earned discount** -- P2P takes most volume, pushing FedEx undiscounted spend to ~$2.7M (below $4.5M threshold for 16% tier).
 
 | Carrier   | Shipments   | % of Total   | Cost           |
 |-----------|-------------|--------------|----------------|
-| P2P US    | 239,258     | 42.9%        | $1,127,837     |
-| P2P US2   | 199,433     | 35.7%        | $1,475,755     |
-| FedEx     | 119,322     | 21.4%        | $2,339,075     |
-| **Total** | **558,013** | **100%**     | **$4,942,666** |
+| P2P US    | 236,225     | 43.8%        | $1,270,346     |
+| P2P US2   | 188,937     | 35.0%        | $1,422,042     |
+| FedEx     | 114,755     | 21.3%        | $2,486,538     |
+| **Total** | **539,917** | **100%**     | **$5,178,926** |
 
-Saves **$1,029,082 (17.2%)** vs S1. P2P handles 78.6% of shipments (lighter packages), FedEx serves as fallback for heavy items. Compared to USPS+FedEx (2 carriers, $5.86M), P2P+FedEx saves **$914K more** — P2P is significantly cheaper than USPS for lightweight shipments even without the FedEx earned discount. However, this scenario is worse than S7–S11 which maintain the FedEx 16% tier by keeping USPS in the mix.
+Saves **$893,136 (14.7%)** vs S1. P2P handles 78.7% of shipments (lighter packages), FedEx serves as fallback for heavy items. Even without earned discount, this beats the current mix by nearly $900K.
 
 ### S14: P2P + FedEx with 16% Earned Discount (Constrained)
 
 Builds on S13's 2-carrier concept but forces enough FedEx volume to maintain the 16% earned discount. FedEx undiscounted spend constrained to >= $5.1M (safely above the $5M penalty threshold).
 
-| Carrier   | Shipments   | % of Total   | Total Cost     | Forced  |
-|-----------|-------------|--------------|----------------|---------|
-| FedEx     | 337,754     | 60.5%        | $3,721,037     | 187,272 |
-| P2P US    | 136,958     | 24.5%        | $642,441       | 0       |
-| P2P US2   | 83,301      | 14.9%        | $495,438       | 0       |
-| **Total** | **558,013** | **100%**     | **$4,858,916** |         |
+| Carrier   | Shipments   | % of Total   | Cost           | Forced    |
+|-----------|-------------|--------------|----------------|-----------|
+| FedEx     | 266,062     | 49.3%        | $3,557,049     | 120,915   |
+| P2P US    | 190,037     | 35.2%        | $872,462       | 0         |
+| P2P US2   | 83,818      | 15.5%        | $515,169       | 0         |
+| **Total** | **539,917** | **100%**     | **$4,944,680** |           |
 
-Saves **$1,112,832 (18.6%)** vs S1. The constraint forces 187,272 P2P shipments to FedEx (avg $3.19/ship extra cost), but the 16% earned discount on all FedEx volume more than compensates — net $84K cheaper than S13's unconstrained 0% earned approach. FedEx undiscounted: $5.1M ($100K margin above $5M penalty). Best 2-carrier scenario, but trails S7-S11 by $322K-$426K because USPS handles forced-to-FedEx volume more cheaply than FedEx@16%.
+Saves **$1,127,382 (18.6%)** vs S1. The constraint forces 120,915 P2P shipments to FedEx, but the 16% earned discount on all FedEx volume more than compensates -- net $234K cheaper than S13's unconstrained 0% earned approach. FedEx undiscounted: $5.1M ($100K margin above $5M penalty). Best 2-carrier scenario.
+
+### S15: P2P + FedEx 3-Group (Implementable Static Rules)
+
+Implementable version of S14 using 3 static weight-group rules for P2P + FedEx routing:
+
+| Group    | Weight      | P2P US Zone                             | Other Zone                         |
+|----------|-------------|----------------------------------------|------------------------------------|
+| Light    | <= 3 lbs    | P2P US if wt <= 3 lbs                  | P2P US2 if wt <= 1 lbs, else FedEx |
+| Medium   | 3-21 lbs    | P2P US if wt <= 21 lbs                 | P2P US2 if wt <= 2 lbs, else FedEx |
+| Heavy    | > 21 lbs    | FedEx always                           | FedEx always                       |
+
+| Carrier   | Shipments   | % of Total   | Cost           |
+|-----------|-------------|--------------|----------------|
+| FedEx     | 255,971     | 47.4%        | $3,745,234     |
+| P2P US    | 216,075     | 40.0%        | $978,249       |
+| P2P US2   | 67,871      | 12.6%        | $375,616       |
+| **Total** | **539,917** | **100%**     | **$5,099,099** |
+
+Saves **$972,963 (16.0%)** vs S1. FedEx undiscounted spend of $5.13M meets the $5.1M threshold with $33K margin. Simplification cost vs S14 (per-shipment optimal) is $154K/year. Best implementable P2P+FedEx scenario with just 3 rules.
 
 ## Key Insights
 
-1. **S7 "Drop OnTrac" is the theoretical optimum**: $1.54M savings (25.8%) — the cheapest result across all 11 scenarios. Requires dropping the OnTrac contract to unlock the FedEx 16% tier + P2P cherry-picking. However, it requires 353K per-shipment routing assignments.
+1. **S10/S14 are tied for cheapest at 18.6% savings**: S10 (USPS+FedEx+P2P, $4,942,173) and S14 (P2P+FedEx, $4,944,680) both save ~$1.13M vs the current mix. S10 uses 3 carrier relationships with ~50 static rules; S14 uses 2 carrier relationships with per-shipment routing.
 
-2. **S10/S11 are the implementable optima**: S10's per-packagetype rules capture 98.8% of S7's savings with ~50 rules. S11's 3-group rules capture 94.6% with just 3 rules. Both are configurable in PCS with static rules + a P2P zip list.
+2. **S10/S11 are the best implementable USPS+FedEx+P2P options**: S10's per-packagetype rules capture 18.6% savings with ~50 rules. S11's 3-group rules capture 18.3% with just 3 rules. Both are configurable in PCS with static rules + a P2P zip list.
 
-3. **FedEx 16% tier is infeasible with both commitments**: OnTrac's 279K + USPS's 140K = 419K committed shipments, leaving only 139K for FedEx. This produces $3.67M undiscounted — $830K short of the $4.5M threshold. The three constraints are mutually incompatible.
+3. **S14/S15 offer a viable 2-carrier alternative**: For operations wanting to simplify to just P2P+FedEx, S14 (per-shipment optimal, -18.6%) matches S10's savings. S15 (3-group static rules, -16.0%) is the implementable version, trading $154K/year for simplicity.
 
-4. **Maintaining FedEx 16% earned discount is critical**: S7 "Drop OnTrac" ($4,433,040) saves $498K more than S5 "Drop OnTrac" ($4,931,056) — same carrier set but with the 16% discount preserved. The earned discount is worth approximately $500K/year.
+4. **Maersk is the cheapest full-coverage single carrier**: S2 (100% Maersk, $5,686,413) saves 6.4% vs the current mix. With NSD discounted to $9, S9 saves 14.7%. Both are simpler than multi-carrier optimization but leave significant savings on the table.
 
-5. **P2P amplifies savings dramatically at 16% earned**: P2P captures 198K–226K shipments in S7–S11 (35–41% of volume) vs only 44K in S5 (7.9%). The 16% FedEx discount changes the competitive landscape, creating more opportunities for P2P to undercut.
+5. **Maintaining FedEx 16% earned discount is critical**: S7 ($5,001K at 16% earned) saves $437K more than S5 ($5,437K at 0% earned) -- same concept but with the 16% discount preserved. The earned discount is worth approximately $400-500K/year.
 
-6. **OnTrac commitment is the binding constraint**: With both commitments, OnTrac absorbs 50% of all shipments and prevents FedEx from reaching its volume threshold. OnTrac's value is $38K/year at 16% earned (S6) vs $364K/year at 0% earned (S4) — it becomes much less valuable when FedEx is competitively priced.
+6. **P2P amplifies savings dramatically at 16% earned**: P2P captures 200-220K shipments in S10/S11 (38-41% of volume) vs much smaller volumes when FedEx is at 0% earned (S5). The 16% FedEx discount changes the competitive landscape, creating more opportunities for P2P to undercut.
 
-7. **USPS remains the most valuable commitment**: Saves $518K/year in S6 and $1.15M/year in S4. The USPS commitment should be maintained in all scenarios.
+7. **100% P2P (S12) is not viable standalone**: At $6,519,851 (+7.4% vs S1), P2P US2's high rates for packages above 2 lbs make it more expensive than the current mix. P2P only works as a complement to FedEx/USPS.
 
-8. **FedEx threshold headroom tradeoff**: S10 has $17K margin (fragile), S8 has $500K margin at $104K/year cost, S11 has $194K margin at $65K/year cost. S11 offers the best balance of simplicity, savings, and safety.
+8. **100% FedEx (S3) is 3.6% more expensive**: At $6,287,902, even with the 18% earned discount baked in, FedEx alone costs more than the current mix. Multi-carrier routing consistently outperforms single-carrier approaches.
 
-9. **P2P US2 extends coverage but not competitiveness**: P2P US2 covers 93,100 ZIPs (full US) vs P2P US's 10,430, but at significantly higher rates. 100% P2P Combined (S12) costs $6.79M (+13.7%) — worse than the current mix. P2P US2 is only competitive at very light weights (0-2 lbs).
+9. **FedEx threshold headroom tradeoff**: S10 has tight margin, S8 has $500K margin at $104K/year cost, S11 has comfortable margin. S15 has $33K margin above $5.1M floor. Monitor FedEx undiscounted spend quarterly in any scenario.
 
-10. **P2P+FedEx is a viable 2-carrier strategy**: S14 (constrained, $4.86M, -18.6%) is the best 2-carrier option — it maintains the 16% earned discount by forcing 187K P2P shipments to FedEx. S13 (unconstrained, $4.94M, -17.2%) is simpler but loses the earned discount. Both trail the 3-carrier scenarios by $322K-$426K because USPS absorbs lightweight volume more efficiently than FedEx@16%. The $5M FedEx penalty threshold requires $100K safety margin monitoring in S14.
-
-11. **Carrier strengths by segment**:
-   - **Lightweight (0-4 lbs)**: P2P US dominates where available; P2P US2 competitive at 0-2 lbs
-   - **West region**: OnTrac is cost-effective ($11.10 avg, 64.5% coverage)
-   - **Universal coverage**: USPS at $7.85 avg for lightweight; FedEx SmartPost at $9.46 avg
-   - **Heavy/oversize**: FedEx most competitive (Maersk 30 lb rate jump, USPS oversize penalties)
+10. **Carrier strengths by segment**:
+    - **Lightweight (0-4 lbs)**: P2P US dominates where available; P2P US2 competitive at 0-2 lbs
+    - **West region**: OnTrac is cost-effective (64.2% coverage)
+    - **Universal coverage**: USPS at ~$7-8 avg for lightweight; FedEx SmartPost for moderate weights
+    - **Heavy/oversize**: FedEx most competitive (Maersk 30 lb rate jump, USPS oversize penalties)
 
 ## Strategic Options
 
-### Implementable Scenarios (Static Rules in PCS)
+### USPS + FedEx + P2P (3-Carrier, Drop OnTrac)
 
-| Strategy                                   | Cost         | Savings vs S1   | Rules      | FedEx Margin   |
-|--------------------------------------------|--------------|-----------------|------------|----------------|
-| S11 3-Group rules (USPS+FedEx+P2P)        | $4,516,218   | 24.4%           | 3 + zip list | $194K (safe)  |
-| S10 Per-packagetype rules (USPS+FedEx+P2P) | $4,450,862   | 25.5%           | ~50 + zip list | $17K (tight) |
-| S8 Conservative $5M buffer (USPS+FedEx+P2P) | $4,536,690 | 24.0%           | 353K       | $500K (safe)   |
+| Strategy                                    | Cost           | Savings vs S1   | Rules              | FedEx Margin   |
+|---------------------------------------------|----------------|-----------------|---------------------|----------------|
+| S10 Per-packagetype rules                   | $4,942,173     | 18.6%           | ~50 + zip list      | Tight          |
+| S11 3-Group rules                           | $4,962,119     | 18.3%           | 3 + zip list        | Comfortable    |
+| S7 Per-shipment optimal                     | $5,000,952     | 17.6%           | Per-shipment        | Met            |
+| S8 Conservative $5M buffer                  | $5,136,088     | 15.4%           | Per-shipment        | $500K (safe)   |
+
+### P2P + FedEx (2-Carrier, Drop OnTrac + USPS)
+
+| Strategy                                    | Cost           | Savings vs S1   | Rules              | FedEx Margin   |
+|---------------------------------------------|----------------|-----------------|---------------------|----------------|
+| S14 Per-shipment constrained                | $4,944,680     | 18.6%           | Per-shipment        | $100K          |
+| S15 3-Group static rules                    | $5,099,099     | 16.0%           | 3 + zip list        | $33K           |
+| S13 Unconstrained (0% earned)               | $5,178,926     | 14.7%           | Per-shipment        | n/a (0%)       |
 
 ### All Scenarios Ranked
 
-| Strategy                          | Cost         | Savings vs S1   | Feasible?   | Key Requirement                    |
-|-----------------------------------|--------------|-----------------|-------------|-------------------------------------|
-| S7 Drop OnTrac (USPS+FedEx+P2P)  | $4,433,040   | 25.8%           | YES         | Terminate OnTrac, per-shipment routing |
-| S10 Static per-packagetype        | $4,450,862   | 25.5%           | YES         | Terminate OnTrac, ~50 PCS rules    |
-| S11 Static 3-group               | $4,516,218   | 24.4%           | YES         | Terminate OnTrac, 3 PCS rules      |
-| S8 Conservative $5M buffer       | $4,536,690   | 24.0%           | YES         | Terminate OnTrac, per-shipment routing |
-| S14 P2P+FedEx constrained (16%)  | $4,858,916   | 18.6%           | YES         | No USPS/OnTrac, 2 carriers, $5.1M FedEx floor |
-| S13 P2P+FedEx (0% earned)        | $4,942,666   | 17.2%           | YES         | No USPS/OnTrac, 2 carriers only   |
-| S5 Drop OnTrac (0% earned+P2P)   | $4,931,056   | 17.4%           | YES         | Terminate OnTrac, accept 0% earned |
-| S6 Drop OnTrac (USPS+FedEx)      | $5,040,871   | 15.6%           | YES         | Terminate OnTrac, no P2P needed    |
-| S5 Both (OnTrac+USPS+FedEx+P2P)  | $5,393,088   | 9.7%            | YES         | Accept FedEx 0% earned             |
-| S4 Both (OnTrac+USPS+FedEx)      | $5,492,793   | 8.0%            | YES         | Accept FedEx 0% earned             |
-| S9 Maersk discounted (NSD $9)    | $5,495,484   | 8.0%            | YES         | Negotiate NSD to $9                |
-| S3 100% FedEx                     | $5,889,066   | 1.4%            | YES         | Single carrier simplicity          |
-| S1 Current mix                    | $5,971,748   | —               | YES         | No change                          |
-| S2 100% Maersk                    | $6,041,478   | -1.2%           | YES         | Not recommended                    |
-| S12 100% P2P Combined             | $6,788,506   | -13.7%          | YES         | Not recommended (P2P US2 too expensive) |
-| S6/S7 Both constraints            | $5,002,886   | 16.2%           | **NO**      | FedEx 16% tier not met             |
+| Strategy                          | Cost           | Savings vs S1   | vs Actuals   | Key Requirement                    |
+|-----------------------------------|----------------|-----------------|-------------|-------------------------------------|
+| S10 Static per-packagetype        | $4,942,173     | 18.6%           | -24.4%      | Drop OnTrac, ~50 PCS rules         |
+| S14 P2P+FedEx constrained (16%)  | $4,944,680     | 18.6%           | -24.4%      | No USPS/OnTrac, $5.1M FedEx floor  |
+| S11 Static 3-group               | $4,962,119     | 18.3%           | -24.1%      | Drop OnTrac, 3 PCS rules           |
+| S7 Drop OnTrac (USPS+FedEx+P2P)  | $5,000,952     | 17.6%           | -23.5%      | Drop OnTrac, per-shipment routing   |
+| S15 P2P+FedEx 3-group            | $5,099,099     | 16.0%           | -22.0%      | No USPS/OnTrac, 3 rules            |
+| S8 Conservative $5M buffer       | $5,136,088     | 15.4%           | -21.5%      | Drop OnTrac, per-shipment routing   |
+| S9 Maersk discounted (NSD $9)    | $5,176,959     | 14.7%           | -20.9%      | Negotiate NSD to $9                 |
+| S13 P2P+FedEx (0% earned)        | $5,178,926     | 14.7%           | -20.8%      | No USPS/OnTrac, 2 carriers only    |
+| S6 FedEx 16% Optimal             | $5,354,844     | 11.8%           | -18.1%      | Drop OnTrac, USPS+FedEx+P2P        |
+| S5 Constrained + P2P (0% earned) | $5,437,180     | 10.5%           | -16.9%      | Accept FedEx 0% earned              |
+| S4 Constrained Optimal (0%)      | $5,555,189     | 8.5%            | -15.1%      | Accept FedEx 0% earned              |
+| S2 100% Maersk                   | $5,686,413     | 6.4%            | -13.1%      | Single carrier simplicity           |
+| S1 Current mix                   | $6,072,062     | --              | -7.2%       | No change                           |
+| S3 100% FedEx                    | $6,287,902     | -3.6%           | -3.9%       | Single carrier, 18% earned baked    |
+| S12 100% P2P Combined            | $6,519,851     | -7.4%           | -0.3%       | Not recommended (P2P US2 expensive) |
 
 ## Constraints Reference
 
-| Carrier   | Minimum Volume      | Basis                         |
-|-----------|---------------------|-------------------------------|
+| Carrier   | Minimum Volume      | Basis                          |
+|-----------|---------------------|--------------------------------|
 | OnTrac    | 279,080/year        | 5,365/week x 52 (contractual) |
 | USPS      | 140,000/year        | 35,000/quarter x 4 (Tier 1)   |
 | FedEx     | No minimum          | Earned discount tiers apply    |
@@ -323,26 +299,29 @@ Saves **$1,112,832 (18.6%)** vs S1. The constraint forces 187,272 P2P shipments 
 | Undiscounted Spend   | Earned Discount   | Multiplier (from 18% baked)   |
 |----------------------|-------------------|-------------------------------|
 | < $4.5M              | 0%                | 1.4865x                       |
-| $4.5–6.5M           | 16%               | 1.0541x                       |
-| $6.5–9.5M           | 18%               | 1.0000x (no adjustment)       |
-| $9.5–12.5M          | 19%               | 0.9730x                       |
+| $4.5-6.5M            | 16%               | 1.0541x                       |
+| $6.5-9.5M            | 18%               | 1.0000x (no adjustment)       |
+| $9.5-12.5M           | 19%               | 0.9730x                       |
 
 ## Carrier Coverage
 
 | Carrier   | Serviceable   | Coverage   |
 |-----------|---------------|------------|
-| FedEx     | 558,013       | 100.0%     |
-| USPS      | 558,013       | 100.0%     |
-| Maersk    | 558,013       | 100.0%     |
-| P2P US2   | 557,931       | 99.99%     |
-| OnTrac    | 360,151       | 64.5%      |
-| P2P US    | 289,272       | 51.8%      |
+| FedEx     | 539,917       | 100.0%     |
+| USPS      | 539,917       | 100.0%     |
+| Maersk    | 539,917       | 100.0%     |
+| P2P US2   | 539,877       | 99.99%     |
+| OnTrac    | 346,822       | 64.2%      |
+| P2P US    | 279,534       | 51.8%      |
 
 ---
 
 *Generated: February 2026*
 *Data Period: 2025 shipment volumes with 2026 calculated rates*
-*Baseline: Scenario 1 current carrier mix ($5,971,748) at FedEx 16% earned discount*
-*S4/S5/S13 FedEx adjustment: earned discount removed (18% → 0%), multiplier 1.4865x on base rate*
-*S6/S7/S8/S10/S11/S14 FedEx adjustment: earned discount 18% → 16%, multiplier 1.0541x on base rate*
+*Dataset: Matched-only (539,917 shipments with both calculated and actual invoice data)*
+*2025 Actuals Total: $6,541,050*
+*Baseline: Scenario 1 current carrier mix ($6,072,062) at FedEx 16% earned discount*
+*S4/S5/S13 FedEx adjustment: earned discount removed (18% -> 0%), multiplier 1.4865x on base rate*
+*S6/S7/S8/S10/S11/S14/S15 FedEx adjustment: earned discount 18% -> 16%, multiplier 1.0541x on base rate*
 *S14 constraint: FedEx undiscounted spend >= $5.1M ($100K margin above $5M penalty threshold)*
+*S15 constraint: FedEx undiscounted spend >= $5.1M ($33K margin above threshold)*

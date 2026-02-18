@@ -22,7 +22,7 @@ import sys
 from pathlib import Path
 
 from analysis.US_2026_tenders.optimization.fedex_adjustment import (
-    adjust_fedex_costs, PP_DISCOUNT, BAKED_EARNED,
+    adjust_fedex_costs, BAKED_FACTOR_HD, BAKED_FACTOR_SP, compute_undiscounted,
 )
 
 sys.stdout.reconfigure(encoding="utf-8")
@@ -30,8 +30,6 @@ sys.stdout.reconfigure(encoding="utf-8")
 # FedEx earned discount parameters
 FEDEX_TARGET_EARNED = 0.16
 FEDEX_UNDISCOUNTED_THRESHOLD = 4_500_000
-BAKED_FACTOR = 1 - PP_DISCOUNT - BAKED_EARNED  # 0.37
-FEDEX_BASE_RATE_THRESHOLD = FEDEX_UNDISCOUNTED_THRESHOLD * BAKED_FACTOR  # $1,665,000
 
 # Paths
 PROJECT_ROOT = Path(__file__).parent.parent.parent.parent
@@ -89,11 +87,15 @@ def define_groups() -> tuple[list[str], list[str], list[str]]:
 
 def compute_group_costs(
     df_group: pl.DataFrame, p2p_cut: int, usps_cut: int
-) -> tuple[float, float]:
-    """Compute total cost and FedEx base rate for a group with given cutoffs.
+) -> tuple[float, float, float]:
+    """Compute total cost and FedEx HD/SP base rates for a group with given cutoffs.
 
-    Returns (total_cost, fedex_base_rate).
+    Returns (total_cost, fedex_hd_base, fedex_sp_base).
     """
+    is_fedex = (
+        ~(pl.col("p2p_available") & (pl.col("weight_bracket") <= p2p_cut))
+        & ~((~pl.col("p2p_available")) & (pl.col("weight_bracket") <= usps_cut))
+    )
     carrier = (
         pl.when(pl.col("p2p_available") & (pl.col("weight_bracket") <= p2p_cut))
         .then(pl.lit("P2P"))
@@ -106,21 +108,27 @@ def compute_group_costs(
         .when(carrier == "USPS").then(pl.col("usps_cost_total"))
         .otherwise(pl.col("fedex_cost_total"))
     )
-    fedex_base = (
-        pl.when(carrier == "FEDEX").then(pl.col("fedex_cost_base_rate"))
+    is_sp = pl.col("fedex_service_selected") == "FXSP"
+    fedex_hd_base = (
+        pl.when(is_fedex & ~is_sp).then(pl.col("fedex_cost_base_rate"))
+        .otherwise(pl.lit(0.0))
+    )
+    fedex_sp_base = (
+        pl.when(is_fedex & is_sp).then(pl.col("fedex_cost_base_rate"))
         .otherwise(pl.lit(0.0))
     )
     row = df_group.select(
         cost.sum().alias("total_cost"),
-        fedex_base.sum().alias("fedex_base"),
+        fedex_hd_base.sum().alias("fedex_hd_base"),
+        fedex_sp_base.sum().alias("fedex_sp_base"),
     ).row(0)
-    return row[0], row[1]
+    return row[0], row[1], row[2]
 
 
 def precompute_group_grid(
     df_group: pl.DataFrame, max_p2p: int, max_usps: int
-) -> dict[tuple[int, int], tuple[float, float]]:
-    """Precompute (total_cost, fedex_base) for all (p2p_cut, usps_cut) combinations."""
+) -> dict[tuple[int, int], tuple[float, float, float]]:
+    """Precompute (total_cost, fedex_hd_base, fedex_sp_base) for all cutoff combinations."""
     grid = {}
     for p in range(0, max_p2p + 1):
         for u in range(0, max_usps + 1):
@@ -130,27 +138,29 @@ def precompute_group_grid(
 
 def find_best_cutoffs(
     light_grid: dict, medium_grid: dict,
-    heavy_cost: float, heavy_fedex_base: float,
+    heavy_cost: float, heavy_hd_base: float, heavy_sp_base: float,
     threshold: float,
 ) -> tuple[dict, dict]:
     """Find best (p2p, usps) cutoffs per group, with and without FedEx threshold.
 
-    Returns (best_constrained, best_unconstrained) dicts with keys:
-      lp, lu, mp, mu, total_cost, fedex_base
+    Threshold is on undiscounted spend (HD base / 0.37 + SP base / 0.505).
+    Returns (best_constrained, best_unconstrained).
     """
     best_unc = None
     best_con = None
 
-    for (lp, lu), (lc, lb) in light_grid.items():
-        for (mp, mu), (mc, mb) in medium_grid.items():
+    for (lp, lu), (lc, l_hd, l_sp) in light_grid.items():
+        for (mp, mu), (mc, m_hd, m_sp) in medium_grid.items():
             tc = lc + mc + heavy_cost
-            fb = lb + mb + heavy_fedex_base
+            total_hd = l_hd + m_hd + heavy_hd_base
+            total_sp = l_sp + m_sp + heavy_sp_base
+            undiscounted = compute_undiscounted(total_hd, total_sp)
 
             if best_unc is None or tc < best_unc["total_cost"]:
-                best_unc = dict(lp=lp, lu=lu, mp=mp, mu=mu, total_cost=tc, fedex_base=fb)
+                best_unc = dict(lp=lp, lu=lu, mp=mp, mu=mu, total_cost=tc, undiscounted=undiscounted)
 
-            if fb >= threshold and (best_con is None or tc < best_con["total_cost"]):
-                best_con = dict(lp=lp, lu=lu, mp=mp, mu=mu, total_cost=tc, fedex_base=fb)
+            if undiscounted >= threshold and (best_con is None or tc < best_con["total_cost"]):
+                best_con = dict(lp=lp, lu=lu, mp=mp, mu=mu, total_cost=tc, undiscounted=undiscounted)
 
     return best_con, best_unc
 
@@ -236,14 +246,20 @@ def main():
     print(f"    Medium grid: {len(medium_grid)} combinations computed")
 
     heavy_cost = float(df_heavy["fedex_cost_total"].sum())
-    heavy_fedex_base = float(df_heavy["fedex_cost_base_rate"].sum())
-    print(f"    Heavy (always FedEx): cost=${heavy_cost:,.0f}, FedEx base=${heavy_fedex_base:,.0f}")
+    heavy_hd_base = float(
+        df_heavy.filter(pl.col("fedex_service_selected") == "FXEHD")["fedex_cost_base_rate"].sum()
+    )
+    heavy_sp_base = float(
+        df_heavy.filter(pl.col("fedex_service_selected") == "FXSP")["fedex_cost_base_rate"].sum()
+    )
+    print(f"    Heavy (always FedEx): cost=${heavy_cost:,.0f}, undiscounted=${compute_undiscounted(heavy_hd_base, heavy_sp_base):,.0f}")
 
     # ── [4] Find optimal cutoffs ───────────────────────────────────────
     print("\n[4] Searching for optimal cutoffs...")
+    print(f"    FedEx undiscounted threshold: ${FEDEX_UNDISCOUNTED_THRESHOLD:,.0f}")
     best_con, best_unc = find_best_cutoffs(
-        light_grid, medium_grid, heavy_cost, heavy_fedex_base,
-        FEDEX_BASE_RATE_THRESHOLD,
+        light_grid, medium_grid, heavy_cost, heavy_hd_base, heavy_sp_base,
+        FEDEX_UNDISCOUNTED_THRESHOLD,
     )
 
     print(f"\n    Unconstrained optimum (ignoring FedEx threshold):")
@@ -251,8 +267,8 @@ def main():
     print(f"      Medium: P2P ≤ {best_unc['mp']},  USPS ≤ {best_unc['mu']}")
     print(f"      Heavy:  FedEx always")
     print(f"      Total cost: ${best_unc['total_cost']:,.0f}")
-    print(f"      FedEx base: ${best_unc['fedex_base']:,.0f} (threshold: ${FEDEX_BASE_RATE_THRESHOLD:,.0f})")
-    threshold_met_unc = best_unc["fedex_base"] >= FEDEX_BASE_RATE_THRESHOLD
+    print(f"      Undiscounted: ${best_unc['undiscounted']:,.0f} (threshold: ${FEDEX_UNDISCOUNTED_THRESHOLD:,.0f})")
+    threshold_met_unc = best_unc["undiscounted"] >= FEDEX_UNDISCOUNTED_THRESHOLD
     print(f"      Threshold met: {'YES' if threshold_met_unc else 'NO'}")
 
     if best_con is None:
@@ -264,8 +280,8 @@ def main():
         print(f"      Medium: P2P ≤ {best_con['mp']},  USPS ≤ {best_con['mu']}")
         print(f"      Heavy:  FedEx always")
         print(f"      Total cost: ${best_con['total_cost']:,.0f}")
-        print(f"      FedEx base: ${best_con['fedex_base']:,.0f} (threshold: ${FEDEX_BASE_RATE_THRESHOLD:,.0f})")
-        margin = best_con["fedex_base"] - FEDEX_BASE_RATE_THRESHOLD
+        print(f"      Undiscounted: ${best_con['undiscounted']:,.0f} (threshold: ${FEDEX_UNDISCOUNTED_THRESHOLD:,.0f})")
+        margin = best_con["undiscounted"] - FEDEX_UNDISCOUNTED_THRESHOLD
         print(f"      Margin: ${margin:+,.0f}")
 
         if not threshold_met_unc:
@@ -279,10 +295,14 @@ def main():
     result = apply_group_rules(df, light_set, medium_set, lp, lu, mp, mu)
 
     total_cost = float(result["assigned_cost"].sum())
-    fedex_base = float(
-        result.filter(pl.col("assigned_carrier") == "FEDEX")["fedex_cost_base_rate"].sum()
+    fedex_rows = result.filter(pl.col("assigned_carrier") == "FEDEX")
+    fedex_hd_base = float(
+        fedex_rows.filter(pl.col("fedex_service_selected") == "FXEHD")["fedex_cost_base_rate"].sum()
     )
-    fedex_undiscounted = fedex_base / BAKED_FACTOR
+    fedex_sp_base = float(
+        fedex_rows.filter(pl.col("fedex_service_selected") == "FXSP")["fedex_cost_base_rate"].sum()
+    )
+    fedex_undiscounted = compute_undiscounted(fedex_hd_base, fedex_sp_base)
     savings = SCENARIO_1_BASELINE - total_cost
 
     print(f"\n{'=' * 90}")
@@ -294,11 +314,10 @@ def main():
     print(f"    Savings vs S1:     ${savings:,.0f} ({savings / SCENARIO_1_BASELINE * 100:.1f}%)")
 
     print(f"\n    FedEx earned discount:")
-    print(f"      Base rate total:    ${fedex_base:,.0f}")
-    print(f"      Undiscounted equiv: ${fedex_undiscounted:,.0f}")
+    print(f"      Undiscounted:       ${fedex_undiscounted:,.0f}")
     print(f"      Threshold:          ${FEDEX_UNDISCOUNTED_THRESHOLD:,}")
     print(f"      Margin:             ${fedex_undiscounted - FEDEX_UNDISCOUNTED_THRESHOLD:+,.0f}")
-    print(f"      16% tier met:       {'YES' if fedex_base >= FEDEX_BASE_RATE_THRESHOLD else 'NO'}")
+    print(f"      16% tier met:       {'YES' if fedex_undiscounted >= FEDEX_UNDISCOUNTED_THRESHOLD else 'NO'}")
 
     # Carrier mix
     print(f"\n    {'Carrier':<10} {'Shipments':>12} {'%':>8} {'Cost':>15} {'Avg':>10}")

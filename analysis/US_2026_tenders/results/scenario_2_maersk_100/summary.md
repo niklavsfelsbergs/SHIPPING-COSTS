@@ -2,7 +2,7 @@
 
 ## Executive Summary
 
-This scenario calculates the total shipping cost if 100% of US shipment volume were routed to Maersk US, a carrier not currently used in the production system. **Maersk would cost $6.04M vs the current mix of $5.83M, representing a 3.6% ($208K) increase**. With the corrected SmartPost pricing, the current mix is now cheaper than Maersk. Maersk has strong savings on lightweight packages (0-4 lbs) but becomes significantly more expensive for mid-to-heavy weight shipments due to high base rates and a dramatic rate jump at 30 lbs.
+This scenario calculates the total shipping cost if 100% of US shipment volume were routed to Maersk US, a carrier not currently used in the production system. **Maersk would cost $5.69M vs the current mix of $6.07M, representing a 6.4% ($386K) saving**. Maersk is now the cheapest full-coverage carrier, with strong savings on lightweight packages (0-4 lbs) and competitive rates through zone 8. Mid-to-heavy weight shipments (10+ lbs) remain significantly more expensive due to high base rates and a dramatic rate jump at 30 lbs, but these are a small portion of total volume.
 
 ## Methodology
 
@@ -27,21 +27,21 @@ Where:
 
 | Metric                        | Value                       |
 |-------------------------------|-----------------------------|
-| Total Shipments               | 558,013                     |
-| Current Mix Total             | $5,833,893.77               |
-| 100% Maersk Total             | $6,041,478.28               |
-| **Difference**                | **+$207,584.51 (+3.6%)**    |
-| Avg Cost/Shipment (Current)   | $10.45                      |
-| Avg Cost/Shipment (Maersk)    | $10.83                      |
+| Total Shipments               | 539,917                     |
+| Current Mix Total             | $6,072,061.73               |
+| 100% Maersk Total             | $5,686,413.05               |
+| **Difference**                | **-$385,649 (-6.4%)**       |
+| Avg Cost/Shipment (Current)   | $11.25                      |
+| Avg Cost/Shipment (Maersk)    | $10.53                      |
 
 ### Carrier Ranking (Full Coverage Only)
 
 | Rank   | Carrier       | Serviceable   | Total Cost       | Avg Cost   |
 |--------|---------------|---------------|------------------|------------|
-| 1      | Current Mix   | 558,013       | $5,833,894       | $10.45     |
-| 2      | FedEx         | 558,013       | $5,889,066       | $10.55     |
-| 3      | Maersk        | 558,013       | $6,041,478       | $10.83     |
-| 4      | USPS          | 558,013       | $14,835,549      | $26.59     |
+| 1      | Maersk        | 539,917       | $5,686,413       | $10.53     |
+| 2      | Current Mix   | 539,917       | $6,072,062       | $11.25     |
+| 3      | FedEx         | 539,917       | $6,287,902       | $11.65     |
+| 4      | USPS          | 539,917       | $14,835,549      | $27.48     |
 
 *Note: OnTrac (64.5% coverage) and P2P (51.8% coverage) excluded - cannot service all shipments*
 
@@ -51,17 +51,17 @@ The 30 lb rate jump is a critical cost driver for Maersk. The table below shows 
 
 | Weight Bracket   | Shipments   | Current Avg   | Maersk Avg   | Base Rate   | Surcharges   | Diff %    |
 |------------------|-------------|---------------|--------------|-------------|--------------|-----------|
-| 0-1 lbs          | 145,687     | $6.74         | $4.62        | $4.15       | $0.47        | -31%      |
-| 1-2 lbs          | 113,398     | $8.61         | $5.37        | $5.17       | $0.21        | -38%      |
-| 2-3 lbs          | 96,338      | $9.78         | $7.47        | $5.56       | $1.91        | -24%      |
-| 3-4 lbs          | 43,900      | $11.82        | $8.87        | $6.35       | $2.52        | -25%      |
-| 4-5 lbs          | 41,160      | $11.67        | $12.28       | $7.43       | $4.85        | +5%       |
-| 5-10 lbs         | 87,898      | $15.08        | $21.12       | $9.35       | $11.77       | +40%      |
-| 10-20 lbs        | 24,071      | $19.22        | $37.06       | $17.44      | $19.62       | +93%      |
-| 20-30 lbs        | 3,678       | $23.92        | $72.31       | $49.38      | $22.93       | +202%     |
-| 30+ lbs          | 1,883       | $31.66        | $99.95       | $75.71      | $24.24       | +216%     |
+| 0-1 lbs          | 142,303     | $6.74         | $4.61        | $4.15       | $0.47        | -32%      |
+| 1-2 lbs          | 109,943     | $8.62         | $5.37        | $5.16       | $0.20        | -38%      |
+| 2-3 lbs          | 93,314      | $9.86         | $7.46        | $5.55       | $1.91        | -24%      |
+| 3-4 lbs          | 42,378      | $11.95        | $8.84        | $6.32       | $2.52        | -26%      |
+| 4-5 lbs          | 40,112      | $12.32        | $12.21       | $7.39       | $4.82        | -1%       |
+| 5-10 lbs         | 85,026      | $17.83        | $20.32       | $9.03       | $11.28       | +14%      |
+| 10-20 lbs        | 22,481      | $23.70        | $36.11       | $17.16      | $18.96       | +52%      |
+| 20-30 lbs        | 3,016       | $25.62        | $68.99       | $46.13      | $22.86       | +169%     |
+| 30+ lbs          | 1,321       | $31.57        | $97.49       | $73.28      | $24.20       | +209%     |
 
-**Key insight:** Surcharges stay relatively flat ($20-24) for heavier packages, while the **base rate** is the primary cost driver - jumping from $49 (20-30 lbs) to $76 (30-70 lbs) due to Maersk's 30 lb rate jump.
+**Key insight:** Surcharges stay relatively flat ($20-24) for heavier packages, while the **base rate** is the primary cost driver - jumping from $46 (20-30 lbs) to $73 (30+ lbs) due to Maersk's 30 lb rate jump.
 
 **The 30 lb Rate Jump:**
 
@@ -71,35 +71,35 @@ The 30 lb rate jump is a critical cost driver for Maersk. The table below shows 
 | Zone 5   | $11.81           | $45.18           | +$33.37 (+283%)       |
 | Zone 8   | $20.36           | $73.60           | +$53.24 (+262%)       |
 
-While only 0.3% of shipments exceed 30 lbs, they represent 3.1% of Maersk's total cost.
+While only 0.2% of shipments exceed 30 lbs, they represent a disproportionate share of Maersk's total cost.
 
 ### Cost by Zone
 
 | Zone   | Shipments   | % of Total   | Current Avg   | Maersk Avg   | Difference        |
 |--------|-------------|--------------|---------------|--------------|-------------------|
-| 1      | 4,321       | 0.8%         | $8.70         | $8.50        | -$0.20 (-2%)      |
-| 2      | 20,994      | 3.8%         | $8.57         | $8.13        | -$0.44 (-5%)      |
-| 3      | 57,898      | 10.4%        | $9.09         | $8.80        | -$0.28 (-3%)      |
-| 4      | 194,013     | 34.8%        | $9.51         | $9.61        | +$0.10 (+1%)      |
-| 5      | 132,018     | 23.7%        | $10.38        | $10.82       | +$0.44 (+4%)      |
-| 6      | 38,034      | 6.8%         | $11.46        | $12.32       | +$0.86 (+8%)      |
-| 7      | 35,760      | 6.4%         | $12.84        | $14.09       | +$1.25 (+10%)     |
-| 8      | 73,222      | 13.1%        | $12.90        | $13.56       | +$0.66 (+5%)      |
-| 9      | 1,753       | 0.3%         | $20.42        | $37.69       | +$17.26 (+85%)    |
+| 1      | 3,956       | 0.7%         | $9.30         | $8.47        | -$0.83 (-9%)      |
+| 2      | 20,412      | 3.8%         | $9.07         | $8.04        | -$1.03 (-11%)     |
+| 3      | 56,270      | 10.4%        | $9.63         | $8.68        | -$0.95 (-10%)     |
+| 4      | 188,429     | 34.9%        | $10.14        | $9.46        | -$0.69 (-7%)      |
+| 5      | 128,384     | 23.8%        | $11.10        | $10.60       | -$0.50 (-5%)      |
+| 6      | 36,722      | 6.8%         | $12.18        | $11.86       | -$0.33 (-3%)      |
+| 7      | 34,230      | 6.3%         | $13.37        | $13.38       | +$0.01 (+0%)      |
+| 8      | 69,879      | 12.9%        | $13.33        | $12.92       | -$0.41 (-3%)      |
+| 9      | 1,635       | 0.3%         | $36.49        | $37.11       | +$0.62 (+2%)      |
 
-Maersk is cheaper only in zones 1-3. In zones 4-9, the current carrier mix (with corrected SmartPost pricing) is now cheaper.
+Maersk is cheaper in zones 1-6 and zone 8. Only zones 7 and 9 are marginally more expensive.
 
 ### Surcharge Breakdown
 
 | Component         | Total Cost     | % of Total   | Shipments Affected   |
 |-------------------|----------------|--------------|----------------------|
-| Base Rate         | $3,870,329     | 64.1%        | 558,013 (100%)       |
-| NSD (>2 cu ft)    | $1,091,988     | 18.1%        | 60,666 (10.9%)       |
-| NSL2 (>30")       | $515,840       | 8.5%         | 128,960 (23.1%)      |
-| NSL1 (>21")       | $417,884       | 6.9%         | 104,471 (18.7%)      |
-| Pickup Fee        | $145,437       | 2.4%         | 558,013 (100%)       |
+| Base Rate         | $3,632,259     | 63.9%        | 539,917 (100%)       |
+| NSD (>2 cu ft)    | $1,018,908     | 17.9%        | 56,606 (10.5%)       |
+| NSL2 (>30")       | $493,584       | 8.7%         | 123,396 (22.9%)      |
+| NSL1 (>21")       | $404,100       | 7.1%         | 101,025 (18.7%)      |
+| Pickup Fee        | $137,562       | 2.4%         | 539,917 (100%)       |
 
-**Key Insight:** 41.8% of shipments trigger length surcharges (NSL1 or NSL2), and 10.9% trigger the volume surcharge (NSD). Surcharge overlap (NSL + NSD) affects 10.9% of shipments, adding $22 per package.
+**Key Insight:** 41.6% of shipments trigger length surcharges (NSL1 or NSL2), and 10.5% trigger the volume surcharge (NSD). Surcharge overlap (NSL + NSD) affects a subset of shipments, adding $22 per package.
 
 ### Top Cost Drivers
 
@@ -107,42 +107,44 @@ Maersk is cheaper only in zones 1-3. In zones 4-9, the current carrier mix (with
 
 | Package Type                    | Shipments   | Avg Weight   | Current Avg   | Maersk Avg   | Diff    |
 |---------------------------------|-------------|--------------|---------------|--------------|---------|
-| PIZZA BOX 42x32x2 (2x str)      | 2,910       | 22.4 lbs     | $32.34        | $92.27       | +185%   |
-| PIZZA BOX 42x32x2               | 24,809      | 8.9 lbs      | $26.68        | $32.66       | +22%    |
-| PIZZA BOX 48X36X1               | 19,768      | 8.0 lbs      | $31.49        | $35.62       | +13%    |
+| BOX 16x24x12                    | 1,238       | 9.2 lbs      | $14.50        | $71.24       | +391%   |
+| PIZZA BOX 42x32x2 (2x str)      | 2,532       | 21.9 lbs     | $32.17        | $91.54       | +185%   |
+| PIZZA BOX 30x20x3 (2x str)      | 1,359       | 10.6 lbs     | $14.36        | $36.12       | +151%   |
+| PIZZA BOX 36x24x2 (2x str)      | 1,289       | 15.3 lbs     | $18.68        | $45.30       | +142%   |
+| CROSS PACKAGING 49X30"          | 1,990       | 17.7 lbs     | $26.55        | $52.69       | +98%    |
 
 **Package types where Maersk is CHEAP:**
 
 | Package Type                    | Shipments   | Avg Weight   | Current Avg   | Maersk Avg   | Diff    |
 |---------------------------------|-------------|--------------|---------------|--------------|---------|
-| PIZZA BOX 40x30x1               | 21,002      | 3.3 lbs      | $19.76        | $9.99        | -49%    |
-| PIZZA BOX 20x16x1               | 117,206     | 1.3 lbs      | $8.40         | $4.98        | -41%    |
-| MIXPIX BOX                      | 3,239       | 1.3 lbs      | $8.54         | $4.89        | -43%    |
-| PIZZA BOX 20x16x2               | 36,316      | 3.2 lbs      | $9.81         | $5.91        | -40%    |
-| PIZZA BOX 16x12x2               | 43,674      | 2.2 lbs      | $9.09         | $5.48        | -40%    |
+| PIZZA BOX 40x30x1               | 20,091      | 3.3 lbs      | $19.62        | $9.99        | -49%    |
+| PIZZA BOX 20x16x1               | 113,896     | 1.3 lbs      | $8.42         | $4.97        | -41%    |
+| MIXPIX BOX                      | 3,082       | 1.3 lbs      | $7.96         | $4.88        | -39%    |
+| PIZZA BOX 16x12x2               | 42,377      | 2.2 lbs      | $8.57         | $5.48        | -36%    |
+| PIZZA BOX 20x16x2               | 35,114      | 3.2 lbs      | $9.21         | $5.90        | -36%    |
 
 ## Key Findings
 
-1. **Maersk is 3.6% more expensive than current mix** (+$208K) for full volume. With corrected SmartPost pricing, the current mix is now cheaper than Maersk. FedEx ($5.89M) is also cheaper than Maersk.
+1. **Maersk is 6.4% cheaper than current mix** (-$386K) for full volume. Maersk is now the cheapest full-coverage carrier, beating both the current mix and FedEx.
 
-2. **Still dominant for lightweight packages (0-4 lbs)**: These represent 72% of shipments and show 25-38% cost savings vs current mix, but this no longer offsets the higher costs for heavier shipments.
+2. **Dominant for lightweight packages (0-4 lbs)**: These represent 72% of shipments and show 24-38% cost savings vs current mix. This lightweight advantage is the primary driver of overall savings.
 
-3. **The 30 lb rate jump is devastating**: Base rates nearly triple at the 30 lb threshold across all zones. Fortunately, only 0.3% of shipments exceed this weight.
+3. **Competitive across most zones**: Maersk is cheaper in 7 of 9 zones (zones 1-6 and 8), with savings of 3-11% per shipment. Only zones 7 and 9 are marginally more expensive.
 
-4. **Surcharges are significant**: 35.9% of total cost comes from surcharges (NSL1/NSL2/NSD/Pickup), with the $18 NSD surcharge being the largest individual contributor.
+4. **The 30 lb rate jump is devastating**: Base rates nearly triple at the 30 lb threshold across all zones. Fortunately, only 0.2% of shipments exceed this weight.
 
-5. **Zone pricing less favorable with SmartPost fix**: Maersk is now cheaper only in zones 1-3. The corrected SmartPost rates make the current mix cheaper in zones 4-9.
+5. **Surcharges are significant**: 36.1% of total cost comes from surcharges (NSL1/NSL2/NSD/Pickup), with the $18 NSD surcharge being the largest individual contributor.
 
 6. **No fuel surcharge advantage**: Unlike competitors, Maersk has no separate fuel surcharge - this is built into base rates.
 
 ## Recommendation
 
-**Maersk is no longer the cheapest full-coverage carrier** - at +3.6% vs current mix, it costs $208K more annually. FedEx (with SmartPost) is now the cheapest full-coverage alternative at +0.9%.
+**Maersk is the cheapest full-coverage carrier** at -6.4% vs current mix, saving $386K annually. It beats both the current carrier mix and FedEx ($6.29M).
 
 Maersk would be even more valuable in a **selective routing strategy** for:
-- Lightweight packages (0-4 lbs) - saves 28-42% vs current mix
+- Lightweight packages (0-4 lbs) - saves 24-38% vs current mix
 - Packages under 21" longest dimension (avoids NSL surcharges)
-- Any zone (Maersk is cheaper in 8 of 9 zones)
+- Zones 1-6 and 8 (cheaper than current mix)
 
 **Avoid routing to Maersk:**
 - Packages over 10 lbs (rates become uncompetitive vs other carriers)

@@ -330,6 +330,13 @@ def main():
         .alias("cost_actual")
     )
 
+    # Keep only shipments with matched actuals (invoice-matched or DHL estimate)
+    before_filter = df.shape[0]
+    df = df.filter(pl.col("cost_actual").is_not_null())
+    dropped = before_filter - df.shape[0]
+    print(f"\n  Filtering to matched-actuals only: dropped {dropped:,} unmatched shipments")
+    print(f"    Remaining: {df.shape[0]:,}")
+
     # Exclude OnTrac OML/LPS shipments from entire dataset
     # These are outlier shipments with over-max-limits or large package surcharges
     # that we cannot predict (expected cost is always 0 for these)

@@ -20,7 +20,7 @@ import sys
 from pathlib import Path
 
 from analysis.US_2026_tenders.optimization.fedex_adjustment import (
-    adjust_and_aggregate, PP_DISCOUNT, BAKED_EARNED,
+    adjust_and_aggregate, compute_undiscounted,
 )
 
 sys.stdout.reconfigure(encoding='utf-8')
@@ -28,9 +28,6 @@ sys.stdout.reconfigure(encoding='utf-8')
 # FedEx earned discount parameters
 FEDEX_TARGET_EARNED = 0.16
 FEDEX_UNDISCOUNTED_THRESHOLD = 4_500_000  # $4.5M for 16% tier
-BAKED_FACTOR = 1 - PP_DISCOUNT - BAKED_EARNED  # 0.37
-FEDEX_BASE_RATE_THRESHOLD = FEDEX_UNDISCOUNTED_THRESHOLD * BAKED_FACTOR  # $1,665,000
-
 # S6 variants (without P2P)
 S6_VARIANTS = [
     {"name": "Both constraints", "short": "OUF", "available": ["ONTRAC", "USPS", "FEDEX"], "minimums": {"ONTRAC": 279_080, "USPS": 140_000}},
@@ -206,29 +203,37 @@ def adjust_for_volume_constraints(
     return df, shift_log
 
 
+def get_fedex_undiscounted(df: pl.DataFrame) -> float:
+    """Get FedEx undiscounted spend for assigned FedEx groups using split HD/SP baked factors."""
+    fedex_groups = df.filter(pl.col("assigned_carrier") == "FEDEX")
+    if fedex_groups.height == 0:
+        return 0.0
+    hd = float(fedex_groups["fedex_hd_base_rate_total"].sum())
+    sp = float(fedex_groups["fedex_sp_base_rate_total"].sum())
+    return compute_undiscounted(hd, sp)
+
+
 def adjust_for_fedex_threshold(
     df: pl.DataFrame,
     available_carriers: list[str],
     enforced_minimums: dict[str, int],
-    base_rate_threshold: float,
+    threshold: float,
 ) -> tuple[pl.DataFrame, list[dict]]:
     """Shift groups to FedEx to meet undiscounted transportation threshold.
 
     Includes P2P as a source carrier (all P2P groups are shiftable since
     P2P has no minimum commitment).
     """
-    current_base_rate = get_fedex_base_rate(df)
-    undiscounted = current_base_rate / BAKED_FACTOR
-    threshold_undiscounted = base_rate_threshold / BAKED_FACTOR
+    current_undiscounted = get_fedex_undiscounted(df)
 
-    print(f"\n  FedEx undiscounted: ${undiscounted:,.0f} / ${threshold_undiscounted:,.0f} threshold")
+    print(f"\n  FedEx undiscounted: ${current_undiscounted:,.0f} / ${threshold:,.0f} threshold")
 
-    if current_base_rate >= base_rate_threshold:
+    if current_undiscounted >= threshold:
         print(f"  FedEx 16% threshold: MET")
         return df, []
 
-    shortfall = base_rate_threshold - current_base_rate
-    print(f"  FedEx 16% threshold: NOT MET (shortfall ${shortfall / BAKED_FACTOR:,.0f} undiscounted)")
+    shortfall = threshold - current_undiscounted
+    print(f"  FedEx 16% threshold: NOT MET (shortfall ${shortfall:,.0f} undiscounted)")
 
     shift_log = []
     df = df.with_row_index("_row_idx")
@@ -239,8 +244,8 @@ def adjust_for_fedex_threshold(
         if carrier not in available_carriers or carrier == "FEDEX":
             continue
 
-        current_base_rate = get_fedex_base_rate(df)
-        if current_base_rate >= base_rate_threshold:
+        current_undiscounted = get_fedex_undiscounted(df)
+        if current_undiscounted >= threshold:
             break
 
         min_required = enforced_minimums.get(carrier, 0)
@@ -260,7 +265,10 @@ def adjust_for_fedex_threshold(
             (pl.col("fedex_cost_base_rate_total") > 0)
         ).with_columns([
             (pl.col("fedex_cost_total") - pl.col(cost_col)).alias("_shift_penalty"),
-            pl.col("fedex_cost_base_rate_total").alias("_contribution"),
+            compute_undiscounted(
+                pl.col("fedex_hd_base_rate_total"),
+                pl.col("fedex_sp_base_rate_total"),
+            ).alias("_contribution"),
         ])
 
         if candidates.height == 0:
@@ -279,7 +287,7 @@ def adjust_for_fedex_threshold(
         if candidates.height == 0:
             continue
 
-        remaining_shortfall = base_rate_threshold - current_base_rate
+        remaining_shortfall = threshold - current_undiscounted
         candidates = candidates.with_columns([
             pl.col("_contribution").cum_sum().alias("_cum_contrib"),
         ])
@@ -303,27 +311,26 @@ def adjust_for_fedex_threshold(
               .alias("assigned_carrier")
         ])
 
-        current_base_rate += shifted_contribution
+        current_undiscounted += shifted_contribution
 
         print(f"    Shifted {len(shift_indices):,} groups ({shifted_volume:,} shipments) from {carrier} to FedEx")
-        print(f"    Contribution: ${shifted_contribution / BAKED_FACTOR:,.0f} undiscounted, penalty: ${shifted_penalty:,.2f}")
+        print(f"    Contribution: ${shifted_contribution:,.0f} undiscounted, penalty: ${shifted_penalty:,.2f}")
 
         shift_log.append({
             "from": carrier,
             "groups_shifted": len(shift_indices),
             "shipments_shifted": shifted_volume,
-            "contribution_undiscounted": shifted_contribution / BAKED_FACTOR,
+            "contribution_undiscounted": shifted_contribution,
             "cost_penalty": shifted_penalty,
         })
 
     df = df.drop(["_row_idx"])
 
-    final_base_rate = get_fedex_base_rate(df)
-    final_undiscounted = final_base_rate / BAKED_FACTOR
-    if final_base_rate >= base_rate_threshold:
+    final_undiscounted = get_fedex_undiscounted(df)
+    if final_undiscounted >= threshold:
         print(f"\n  FedEx 16% threshold: MET (${final_undiscounted:,.0f})")
     else:
-        gap = (base_rate_threshold - final_base_rate) / BAKED_FACTOR
+        gap = threshold - final_undiscounted
         print(f"\n  FedEx 16% threshold: NOT MET (${final_undiscounted:,.0f}, gap ${gap:,.0f})")
 
     return df, shift_log
@@ -350,21 +357,21 @@ def run_variant_s6(df: pl.DataFrame, variant: dict) -> dict:
 
     df_result = greedy_assignment(df.clone(), available)
     df_result, vol_log = adjust_for_volume_constraints(df_result, available, minimums)
-    df_result, thresh_log = adjust_for_fedex_threshold(df_result, available, minimums, FEDEX_BASE_RATE_THRESHOLD)
+    df_result, thresh_log = adjust_for_fedex_threshold(df_result, available, minimums, threshold=FEDEX_UNDISCOUNTED_THRESHOLD)
     costs = calculate_costs(df_result, available)
 
     total_shipments = sum(c["shipments"] for c in costs.values())
     total_cost = sum(c["cost"] for c in costs.values())
 
-    fedex_base = get_fedex_base_rate(df_result)
+    fedex_undiscounted = get_fedex_undiscounted(df_result)
 
     return {
         "df": df_result,
         "costs": costs,
         "total_shipments": total_shipments,
         "total_cost": total_cost,
-        "fedex_base_rate": fedex_base,
-        "fedex_threshold_met": fedex_base >= FEDEX_BASE_RATE_THRESHOLD,
+        "fedex_undiscounted": fedex_undiscounted,
+        "fedex_threshold_met": fedex_undiscounted >= FEDEX_UNDISCOUNTED_THRESHOLD,
     }
 
 
@@ -375,7 +382,7 @@ def method_a_greedy(df: pl.DataFrame, variant: dict) -> dict:
 
     df_result = greedy_assignment(df.clone(), available)
     df_result, vol_log = adjust_for_volume_constraints(df_result, available, minimums)
-    df_result, thresh_log = adjust_for_fedex_threshold(df_result, available, minimums, FEDEX_BASE_RATE_THRESHOLD)
+    df_result, thresh_log = adjust_for_fedex_threshold(df_result, available, minimums, threshold=FEDEX_UNDISCOUNTED_THRESHOLD)
 
     all_carriers = list(set(
         [c for c in available if get_carrier_volume(df_result, c) > 0]
@@ -385,7 +392,7 @@ def method_a_greedy(df: pl.DataFrame, variant: dict) -> dict:
     total_shipments = sum(c["shipments"] for c in costs.values())
     total_cost = sum(c["cost"] for c in costs.values())
 
-    fedex_base = get_fedex_base_rate(df_result)
+    fedex_undiscounted = get_fedex_undiscounted(df_result)
 
     return {
         "method": "A",
@@ -394,8 +401,8 @@ def method_a_greedy(df: pl.DataFrame, variant: dict) -> dict:
         "total_shipments": total_shipments,
         "total_cost": total_cost,
         "shift_log": vol_log + thresh_log,
-        "fedex_base_rate": fedex_base,
-        "fedex_threshold_met": fedex_base >= FEDEX_BASE_RATE_THRESHOLD,
+        "fedex_undiscounted": fedex_undiscounted,
+        "fedex_threshold_met": fedex_undiscounted >= FEDEX_UNDISCOUNTED_THRESHOLD,
     }
 
 
@@ -428,11 +435,11 @@ def method_b_improve_s6(df: pl.DataFrame, s6_result: dict, enforced_minimums: di
 
     for carrier in ["FEDEX", "USPS", "ONTRAC"]:
         if carrier == "FEDEX":
-            # Limited by base rate surplus above threshold
-            fedex_base = get_fedex_base_rate(df_result)
-            base_surplus = fedex_base - FEDEX_BASE_RATE_THRESHOLD
+            # Limited by undiscounted surplus above threshold
+            fedex_undiscounted = get_fedex_undiscounted(df_result)
+            undiscounted_surplus = fedex_undiscounted - FEDEX_UNDISCOUNTED_THRESHOLD
 
-            if base_surplus <= 0:
+            if undiscounted_surplus <= 0:
                 continue
 
             candidates = df_result.filter(
@@ -444,11 +451,14 @@ def method_b_improve_s6(df: pl.DataFrame, s6_result: dict, enforced_minimums: di
             if candidates.height == 0:
                 continue
 
-            # Accumulate base rate reduction; stop at surplus
+            # Accumulate undiscounted reduction; stop at surplus
             candidates = candidates.with_columns([
-                pl.col("fedex_cost_base_rate_total").cum_sum().alias("_cum_base_rate"),
+                compute_undiscounted(
+                    pl.col("fedex_hd_base_rate_total"),
+                    pl.col("fedex_sp_base_rate_total"),
+                ).cum_sum().alias("_cum_undiscounted"),
             ])
-            switchable = candidates.filter(pl.col("_cum_base_rate") <= base_surplus)
+            switchable = candidates.filter(pl.col("_cum_undiscounted") <= undiscounted_surplus)
 
         else:
             # Limited by volume surplus
@@ -495,7 +505,7 @@ def method_b_improve_s6(df: pl.DataFrame, s6_result: dict, enforced_minimums: di
         })
 
     # Drop temp columns
-    temp_cols = ["_current_cost_avg", "_p2p_savings", "_row_idx", "_cumulative", "_cum_base_rate"]
+    temp_cols = ["_current_cost_avg", "_p2p_savings", "_row_idx", "_cumulative", "_cum_undiscounted"]
     for col in temp_cols:
         if col in df_result.columns:
             df_result = df_result.drop(col)
@@ -508,7 +518,7 @@ def method_b_improve_s6(df: pl.DataFrame, s6_result: dict, enforced_minimums: di
     total_shipments = sum(c["shipments"] for c in costs.values())
     total_cost = sum(c["cost"] for c in costs.values())
 
-    fedex_base = get_fedex_base_rate(df_result)
+    fedex_undiscounted = get_fedex_undiscounted(df_result)
 
     return {
         "method": "B",
@@ -518,8 +528,8 @@ def method_b_improve_s6(df: pl.DataFrame, s6_result: dict, enforced_minimums: di
         "total_cost": total_cost,
         "switches": switches,
         "shift_log": [],
-        "fedex_base_rate": fedex_base,
-        "fedex_threshold_met": fedex_base >= FEDEX_BASE_RATE_THRESHOLD,
+        "fedex_undiscounted": fedex_undiscounted,
+        "fedex_threshold_met": fedex_undiscounted >= FEDEX_UNDISCOUNTED_THRESHOLD,
     }
 
 
@@ -688,7 +698,7 @@ def main():
             status = "MET" if vol >= min_req else f"SHORT"
             print(f"    {carrier} volume: {vol:,} (min: {min_req:,}) - {status}")
 
-    fedex_undiscounted = key_variant["fedex_base_rate"] / BAKED_FACTOR
+    fedex_undiscounted = key_variant["fedex_undiscounted"]
     tier_status = "MET" if key_variant["fedex_threshold_met"] else "NOT MET"
     print(f"    FedEx threshold: ${fedex_undiscounted:,.0f} / ${FEDEX_UNDISCOUNTED_THRESHOLD:,.0f} - {tier_status}")
 

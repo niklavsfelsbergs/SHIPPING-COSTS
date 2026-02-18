@@ -53,6 +53,7 @@ from .data import (
     PFS_DIM_THRESHOLD,
 )
 from .surcharges import PFA_ALL, PFS_ALL
+from .surcharges.peak import peak_season_condition, peak_surcharge_amount
 
 
 # =============================================================================
@@ -239,8 +240,16 @@ def calculate_pfa(df: pl.DataFrame) -> pl.DataFrame:
     # Rate lookup
     df = _lookup_rate(df, load_pfa_rates(), "pfa")
 
+    # Peak surcharge
+    df = df.with_columns(
+        pl.when(peak_season_condition())
+        .then(peak_surcharge_amount("pfa_billable_weight_lbs", "shipping_zone"))
+        .otherwise(pl.lit(0.0))
+        .alias("pfa_cost_peak")
+    )
+
     # Calculate subtotal
-    cost_cols = ["pfa_cost_base"] + [f"cost_{s.name.lower()}" for s in PFA_ALL]
+    cost_cols = ["pfa_cost_base", "pfa_cost_peak"] + [f"cost_{s.name.lower()}" for s in PFA_ALL]
     df = df.with_columns(
         pl.sum_horizontal(cost_cols).alias("pfa_cost_subtotal")
     )
@@ -256,7 +265,7 @@ def calculate_pfa(df: pl.DataFrame) -> pl.DataFrame:
         (pl.col("pfa_billable_weight_lbs") > PFA_MAX_WEIGHT)
     )
     pfa_cost_cols = [
-        "pfa_cost_base", "pfa_cost_subtotal", "pfa_cost_total",
+        "pfa_cost_base", "pfa_cost_peak", "pfa_cost_subtotal", "pfa_cost_total",
     ] + [f"cost_{s.name.lower()}" for s in PFA_ALL]
 
     df = df.with_columns([
@@ -289,8 +298,16 @@ def calculate_pfs(df: pl.DataFrame) -> pl.DataFrame:
     # Rate lookup
     df = _lookup_rate(df, load_pfs_rates(), "pfs")
 
+    # Peak surcharge
+    df = df.with_columns(
+        pl.when(peak_season_condition())
+        .then(peak_surcharge_amount("pfs_billable_weight_lbs", "shipping_zone"))
+        .otherwise(pl.lit(0.0))
+        .alias("pfs_cost_peak")
+    )
+
     # Calculate subtotal
-    cost_cols = ["pfs_cost_base"] + [f"cost_{s.name.lower()}" for s in PFS_ALL]
+    cost_cols = ["pfs_cost_base", "pfs_cost_peak"] + [f"cost_{s.name.lower()}" for s in PFS_ALL]
     df = df.with_columns(
         pl.sum_horizontal(cost_cols).alias("pfs_cost_subtotal")
     )
@@ -303,7 +320,7 @@ def calculate_pfs(df: pl.DataFrame) -> pl.DataFrame:
     # Null out ineligible: billable weight > 70
     pfs_ineligible = pl.col("pfs_billable_weight_lbs") > PFS_MAX_WEIGHT
     pfs_cost_cols = [
-        "pfs_cost_base", "pfs_cost_subtotal", "pfs_cost_total",
+        "pfs_cost_base", "pfs_cost_peak", "pfs_cost_subtotal", "pfs_cost_total",
     ] + [f"cost_{s.name.lower()}" for s in PFS_ALL]
 
     df = df.with_columns([
